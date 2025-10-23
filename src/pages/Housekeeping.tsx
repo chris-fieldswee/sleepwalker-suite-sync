@@ -1,12 +1,18 @@
 // src/pages/Housekeeping.tsx
-import { useMemo, useState } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"; // Keep Card for Empty State
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut } from "lucide-react";
+import { LogOut, Play, Pause, Square, AlertTriangle, MessageSquare, Camera, Check, Info } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useHousekeepingTasks } from '@/hooks/useHousekeepingTasks';
 import { useTaskActions } from '@/hooks/useTaskActions';
 import { TaskCard } from '@/components/housekeeping/TaskCard';
+
 
 // --- Interfaces (Should ideally be moved to a types file, e.g., src/types/tasks.ts) ---
 export interface Room { // Export if used by other components/hooks
@@ -43,6 +50,9 @@ export interface Task { // Export if used by other components/hooks
   issue_photo: string | null;
   priority?: boolean; // Schema-dependent
   created_at: string;
+  // Add actual_time and difference if they are part of the Task type after calculations
+  actual_time?: number | null;
+  difference?: number | null;
 }
 // --- END Interfaces ---
 
@@ -63,6 +73,41 @@ const getStatusLabel = (status: Task['status'] | null | undefined): string => {
 // Possible filter values
 type TaskStatusFilter = Database["public"]["Enums"]["task_status"] | 'all';
 const statusFilters: TaskStatusFilter[] = ['all', 'todo', 'in_progress', 'paused', 'repair_needed', 'done'];
+
+
+// --- Timer Hook ---
+// (Keep the hook definition from the previous step)
+function useTaskTimer(task: Task | null): number | null {
+  const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { start_time, total_pause, status, stop_time } = task || {};
+
+  useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    if (status === 'in_progress' && start_time) {
+      const calculateElapsed = () => { /* ... calculation ... */ };
+      calculateElapsed();
+      intervalRef.current = setInterval(calculateElapsed, 1000);
+    } else if (start_time) { // Paused or Done
+        try {
+            const start = new Date(start_time).getTime();
+            if (isNaN(start)) { setElapsedSeconds(null); return; }
+            const end = status === 'done' && stop_time ? new Date(stop_time).getTime() : Date.now();
+            if (isNaN(end)) { setElapsedSeconds(null); return; } // Handle invalid end time
+            const pauseMs = (total_pause || 0) * 60 * 1000;
+            const elapsedMs = Math.max(0, end - start - pauseMs);
+            setElapsedSeconds(Math.floor(elapsedMs / 1000));
+        } catch(error) { /* ... error handling ... */ setElapsedSeconds(null); }
+    } else {
+        setElapsedSeconds(null);
+    }
+
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [start_time, total_pause, status, stop_time]);
+
+  return elapsedSeconds;
+}
 
 
 // --- Main Component ---
@@ -196,27 +241,56 @@ export default function Housekeeping() {
 }
 
 
-// --- TaskTimerDisplay Component (Keep exported or move to its own file) ---
-// (Ensure this component is exported if it stays here, or import if moved)
-export interface TaskTimerDisplayProps { // Export if kept here
+// --- TaskTimerDisplay Component ---
+// (Moved outside the main component, ensure it's exported or in its own file)
+export interface TaskTimerDisplayProps {
     task: Task;
 }
-export const TaskTimerDisplay: React.FC<TaskTimerDisplayProps> = ({ task }) => { // Export if kept here
-    const elapsedSeconds = useTaskTimer(task); // Pass the whole task
+export const TaskTimerDisplay: React.FC<TaskTimerDisplayProps> = ({ task }) => {
+    const elapsedSeconds = useTaskTimer(task);
 
-    const formatTime = (totalSeconds: number | null): string => { /* ... implementation ... */ };
-    // ... rest of TaskTimerDisplay implementation from previous version ...
+    const formatTime = (totalSeconds: number | null): string => {
+        if (totalSeconds === null || totalSeconds < 0) return "--:--";
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    };
 
-     const elapsedMinutes = elapsedSeconds !== null ? Math.floor(elapsedSeconds / 60) : 0;
-     const timeLimit = task.time_limit ?? 0;
-     const remainingMinutes = timeLimit > 0 && elapsedSeconds !== null
-                              ? Math.max(0, timeLimit - Math.ceil(elapsedSeconds / 60))
-                              : null;
-     const isOverTime = timeLimit > 0 && elapsedMinutes > timeLimit;
+    const elapsedMinutes = elapsedSeconds !== null ? Math.floor(elapsedSeconds / 60) : 0;
+    const timeLimit = task.time_limit ?? 0;
+    const remainingMinutes = timeLimit > 0 && elapsedSeconds !== null
+                             ? Math.max(0, timeLimit - Math.ceil(elapsedSeconds / 60))
+                             : null;
+    const isOverTime = timeLimit > 0 && elapsedMinutes > timeLimit;
 
-      if (task.status === 'done' && task.actual_time !== null) {
-          return ( /* ... JSX for 'done' state ... */ );
-      }
+     // *** FIX: Added JSX for 'done' state ***
+     if (task.status === 'done') {
+         // Use actual_time if available and valid, otherwise display placeholder
+         const displayTime = (task.actual_time !== null && task.actual_time >= 0) ? `${task.actual_time}m` : '-';
+         // Use difference if available and valid
+         const displayDiff = (task.difference !== null) ? `(${task.difference > 0 ? '+' : ''}${task.difference}m)` : '';
 
-     return ( /* ... JSX for 'in_progress'/'paused' state ... */ );
+         return (
+             <div className="text-xs text-muted-foreground flex flex-wrap justify-between items-center gap-x-4 mt-1">
+                 <span>Actual Time: <span className={cn("font-medium", (task.difference ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{displayTime}</span></span>
+                 {timeLimit > 0 && (
+                     <span>Limit: {timeLimit}m {displayDiff}</span>
+                 )}
+             </div>
+         );
+     }
+
+     // *** FIX: Added JSX for 'in_progress'/'paused' state ***
+     return (
+        <div className="text-xs text-muted-foreground flex flex-wrap justify-between items-center gap-x-4 mt-1">
+            <span>Elapsed: <span className={cn("font-medium tabular-nums", isOverTime ? "text-red-600 dark:text-red-400" : "text-foreground")}>{formatTime(elapsedSeconds)}</span></span>
+            {timeLimit > 0 && (
+                <span className={cn(isOverTime ? "text-red-600 dark:text-red-400" : "")}>
+                    Limit: {timeLimit}m
+                    {remainingMinutes !== null && task.status === 'in_progress' && ` (${remainingMinutes}m left)`}
+                    {task.status === 'paused' && ` (Paused)`}
+                </span>
+            )}
+        </div>
+     );
 };
