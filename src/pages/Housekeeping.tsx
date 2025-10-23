@@ -56,9 +56,14 @@ type TaskStatusFilter = Database["public"]["Enums"]["task_status"] | 'all';
 const statusFilters: TaskStatusFilter[] = ['all', 'todo', 'in_progress', 'paused', 'repair_needed', 'done'];
 
 // --- Timer Hook ---
-function useTaskTimer(startTime: string | null, totalPause: number | null, status: Task['status']): number | null {
+// *** FIX: Pass the whole task object to the hook ***
+function useTaskTimer(task: Task | null): number | null {
   const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Destructure properties needed inside useEffect from the task object
+  const { start_time, total_pause, status, stop_time } = task || {}; // Use default empty object if task is null initially
+
 
   useEffect(() => {
     // Clear existing interval
@@ -68,19 +73,19 @@ function useTaskTimer(startTime: string | null, totalPause: number | null, statu
     }
 
     // Only run timer if task is 'in_progress' and has a start time
-    if (status === 'in_progress' && startTime) {
+    if (status === 'in_progress' && start_time) {
       const calculateElapsed = () => {
         try {
-          const start = new Date(startTime).getTime();
-          // If startTime is invalid, getTime() returns NaN
+          const start = new Date(start_time).getTime();
+          // If start_time is invalid, getTime() returns NaN
           if (isNaN(start)) {
-              console.error("Invalid start_time for timer:", startTime);
+              console.error("Invalid start_time for timer:", start_time);
               setElapsedSeconds(null);
               if (intervalRef.current) clearInterval(intervalRef.current);
               return;
           }
           const now = Date.now();
-          const pauseMs = (totalPause || 0) * 60 * 1000;
+          const pauseMs = (total_pause || 0) * 60 * 1000;
           // Calculate elapsed time in milliseconds, ensure it's not negative
           const elapsedMs = Math.max(0, now - start - pauseMs);
           setElapsedSeconds(Math.floor(elapsedMs / 1000));
@@ -95,17 +100,23 @@ function useTaskTimer(startTime: string | null, totalPause: number | null, statu
       intervalRef.current = setInterval(calculateElapsed, 1000); // Update every second
     } else {
       // If task is paused or stopped, calculate final elapsed time based on known values
-       if (startTime) {
+       if (start_time) {
            try {
-               const start = new Date(startTime).getTime();
+               const start = new Date(start_time).getTime();
                if (isNaN(start)) {
                    setElapsedSeconds(null);
                } else {
-                   // Use stop_time if available, otherwise calculate up to now (for paused state display)
-                   const end = status === 'done' && task.stop_time ? new Date(task.stop_time).getTime() : Date.now();
-                   const pauseMs = (totalPause || 0) * 60 * 1000;
-                   const elapsedMs = Math.max(0, end - start - pauseMs);
-                   setElapsedSeconds(Math.floor(elapsedMs / 1000));
+                   // *** FIX: Use stop_time directly from destructured variables ***
+                   const end = status === 'done' && stop_time ? new Date(stop_time).getTime() : Date.now();
+                   // If end time is invalid, handle gracefully
+                   if (isNaN(end)) {
+                        console.error("Invalid end time for timer:", stop_time);
+                        setElapsedSeconds(null); // Or calculate up to now as fallback
+                   } else {
+                        const pauseMs = (total_pause || 0) * 60 * 1000;
+                        const elapsedMs = Math.max(0, end - start - pauseMs);
+                        setElapsedSeconds(Math.floor(elapsedMs / 1000));
+                   }
                }
            } catch(error) {
                console.error("Error calculating final elapsed time:", error);
@@ -123,8 +134,8 @@ function useTaskTimer(startTime: string | null, totalPause: number | null, statu
         intervalRef.current = null;
       }
     };
-     // Add task.stop_time dependency if you want the timer to display final time for 'done' tasks accurately
-  }, [startTime, totalPause, status, task.stop_time]); // task added for stop_time access
+     // *** FIX: Add dependencies including stop_time ***
+  }, [start_time, total_pause, status, stop_time]);
 
   return elapsedSeconds;
 }
@@ -160,8 +171,10 @@ export default function Housekeeping() {
         reception_notes,
         issue_flag, issue_description, issue_photo,
         created_at,
-        room:rooms!inner(id, name, group_type, color),
-        user:users!inner(id, name)
+        room:rooms!inner(id, name, group_type, color)
+        // , user:users!inner(id, name) // Removed inner join on user to allow fetching tasks even if user is deleted later
+         , user:users(id, name) // Changed to left join (default)
+
          // --- SCHEMA CHANGE REQUIRED to select these: ---
         // reception_note_acknowledged,
         // priority
@@ -232,17 +245,26 @@ export default function Housekeeping() {
         }
       )
       .subscribe((status, err) => {
-           if (err) {
-               console.error("Realtime subscription error:", err);
+           if (status === 'SUBSCRIBED') {
+                console.log('Realtime channel subscribed successfully!');
+           }
+           if (status === 'CHANNEL_ERROR' || err) {
+               console.error("Realtime subscription error:", err || 'Channel Error');
                toast({ title: "Realtime Error", description: "Connection issue, updates might be delayed.", variant: "destructive" });
            }
+            if (status === 'CLOSED') {
+                console.log('Realtime channel closed.');
+            }
            console.log("Realtime subscription status:", status);
       });
 
     // Cleanup function
     return () => {
       console.log("Removing housekeeping realtime channel");
-      supabase.removeChannel(channel).catch(err => console.error("Error removing channel:", err));
+      // Use async/await for channel removal if needed, though usually synchronous
+      supabase.removeChannel(channel).then(status => {
+           console.log("Channel removal status:", status);
+      }).catch(err => console.error("Error removing channel:", err));
     };
   }, [userId, userRole, fetchTasks, toast]); // Dependencies
 
@@ -318,7 +340,7 @@ export default function Housekeeping() {
          // Fetch the latest task state, especially start_time, total_pause, pause_start, time_limit, status
          const { data: currentTaskData, error: fetchError } = await supabase
             .from("tasks")
-            .select("start_time, total_pause, pause_start, time_limit, status")
+            .select("start_time, total_pause, pause_start, time_limit, status, pause_stop") // Added pause_stop
             .eq("id", taskId)
             .single();
 
@@ -328,7 +350,8 @@ export default function Housekeeping() {
             return;
          }
 
-         const { start_time, total_pause, pause_start, time_limit, status } = currentTaskData;
+         // *** FIX: Destructure pause_stop as well ***
+         const { start_time, total_pause, pause_start, time_limit, status, pause_stop } = currentTaskData;
 
          // Cannot stop if not started, or already done
          if (!start_time || status === 'done' || status === 'todo') {
@@ -338,15 +361,18 @@ export default function Housekeeping() {
 
          let finalTotalPause = total_pause || 0;
          const stopTime = new Date();
-         let finalPauseStop = null;
+         let finalPauseStop = pause_stop; // Keep existing pause_stop unless overwritten
 
          // If stopping directly from 'paused' state, calculate the final pause duration
          if (status === 'paused' && pause_start) {
             const lastPauseStartTime = new Date(pause_start);
-            finalTotalPause += Math.max(0, Math.floor((stopTime.getTime() - lastPauseStartTime.getTime()) / 60000));
-            finalPauseStop = stopTime.toISOString(); // Record pause ending at stop time
-         } else if (task.pause_stop) {
-             finalPauseStop = task.pause_stop; // Keep the last recorded pause stop if stopping from 'in_progress'
+            // Ensure pause time calculation is valid
+            if (!isNaN(lastPauseStartTime.getTime())) {
+                finalTotalPause += Math.max(0, Math.floor((stopTime.getTime() - lastPauseStartTime.getTime()) / 60000));
+                finalPauseStop = stopTime.toISOString(); // Record pause ending at stop time
+            } else {
+                 console.warn("Invalid pause_start time encountered when stopping paused task:", pause_start);
+            }
          }
 
          let actual_time = null;
@@ -354,10 +380,16 @@ export default function Housekeeping() {
 
          // Calculate actual_time and difference
          const startTime = new Date(start_time);
-         actual_time = Math.max(0, Math.floor((stopTime.getTime() - startTime.getTime()) / 60000) - finalTotalPause);
-         if (time_limit != null) {
-            difference = actual_time - time_limit;
-         }
+          if (!isNaN(startTime.getTime())) {
+            actual_time = Math.max(0, Math.floor((stopTime.getTime() - startTime.getTime()) / 60000) - finalTotalPause);
+            if (time_limit != null) {
+                difference = actual_time - time_limit;
+            }
+          } else {
+             console.error("Invalid start_time encountered when stopping task:", start_time);
+             // Optionally set actual_time/difference to indicate error or leave as null
+          }
+
 
         // Update task to 'done' status with calculated times
         const { error } = await supabase.from("tasks").update({
@@ -403,7 +435,7 @@ export default function Housekeeping() {
 
             // Upload to Supabase Storage bucket named 'task_issues'
             // Ensure this bucket exists and has appropriate RLS policies
-            const { error: uploadError } = await supabase.storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
                 .from('task_issues') // Bucket name
                 .upload(filePath, issuePhoto);
 
@@ -413,16 +445,24 @@ export default function Housekeeping() {
                 return; // Stop if upload fails
             }
 
-            // Get the public URL of the uploaded file
-            const { data: urlData } = supabase.storage
-                .from('task_issues')
-                .getPublicUrl(filePath);
+             // Ensure upload was successful before getting URL
+             if (uploadData) {
+                // Get the public URL of the uploaded file
+                const { data: urlData } = supabase.storage
+                    .from('task_issues')
+                    .getPublicUrl(filePath);
 
-             if (!urlData?.publicUrl) {
-                console.warn("Could not get public URL for uploaded photo.");
-                // Decide if you want to proceed without the URL or show an error
+                 if (!urlData?.publicUrl) {
+                    console.warn("Could not get public URL for uploaded photo.");
+                    // Decide if you want to proceed without the URL or show an error
+                }
+                photoUrl = urlData?.publicUrl; // Store the public URL
+            } else {
+                 console.error("Upload seemed successful but no data returned.");
+                 // Handle this case - maybe show a different error?
+                 toast({ title: "Error", description: "Photo uploaded but URL retrieval failed.", variant: "destructive" });
+                 return;
             }
-            photoUrl = urlData?.publicUrl; // Store the public URL
         }
 
         // Update the task in the database
@@ -441,6 +481,8 @@ export default function Housekeeping() {
             setIssueTaskId(null); // Close dialog via state change driving Dialog open prop
             setIssueDescription("");
             setIssuePhoto(null);
+            // Clean up preview URL on successful report
+            if (issuePhotoPreview) URL.revokeObjectURL(issuePhotoPreview);
             setIssuePhotoPreview(null);
             // Realtime update should refresh the task list/card
         }
@@ -457,9 +499,20 @@ export default function Housekeeping() {
         }
 
         // Create and set new preview URL
-        if (file) {
-            setIssuePhotoPreview(URL.createObjectURL(file));
+        if (file && file.type.startsWith("image/")) { // Basic check for image type
+            try {
+                setIssuePhotoPreview(URL.createObjectURL(file));
+            } catch (error) {
+                 console.error("Error creating object URL for preview:", error);
+                 setIssuePhotoPreview(null);
+                 toast({title:"Preview Error", description: "Could not create image preview.", variant: "destructive"})
+            }
         } else {
+            if(file) { // If a file was selected but wasn't an image
+                 toast({title:"Invalid File", description: "Please select an image file.", variant: "destructive"})
+                 e.target.value = ''; // Clear the input
+            }
+            setIssuePhoto(null); // Reset file state if not an image
             setIssuePhotoPreview(null);
         }
     };
@@ -492,7 +545,8 @@ export default function Housekeeping() {
     };
 
   // --- Status Color/Label Helpers ---
-    const getStatusColor = (status: Task['status']): string => {
+    const getStatusColor = (status: Task['status'] | null | undefined): string => {
+        if (!status) return "bg-muted text-muted-foreground"; // Handle null/undefined status
       const colors: Record<string, string> = {
         todo: "bg-status-todo text-white",
         in_progress: "bg-status-in-progress text-white",
@@ -503,7 +557,8 @@ export default function Housekeeping() {
       return colors[status] || "bg-muted text-muted-foreground"; // Fallback color
     };
 
-    const getStatusLabel = (status: Task['status']): string => {
+    const getStatusLabel = (status: Task['status'] | null | undefined): string => {
+       if (!status) return "Unknown"; // Handle null/undefined status
        const labels: Record<string, string> = {
         todo: "To Clean",
         in_progress: "In Progress",
@@ -511,7 +566,8 @@ export default function Housekeeping() {
         done: "Done",
         repair_needed: "Repair",
       };
-      return labels[status] || status; // Fallback to raw status
+      // Capitalize first letter as fallback
+      return labels[status] || status.charAt(0).toUpperCase() + status.slice(1);
     };
 
   // --- Filtered Tasks ---
@@ -523,7 +579,7 @@ export default function Housekeeping() {
       // Apply default filtering if 'all' means 'all active'
       else {
           // Example: If 'all' should exclude 'done' unless explicitly selected
-          // displayTasks = displayTasks.filter(task => task.status !== 'done');
+          displayTasks = displayTasks.filter(task => task.status !== 'done');
       }
       // Sorting is handled by the initial Supabase query order (created_at, potentially priority)
       return displayTasks;
@@ -624,7 +680,7 @@ export default function Housekeeping() {
               const isPaused = task.status === 'paused';
               // --- SCHEMA CHANGE REQUIRED ---
               // Update this condition when 'reception_note_acknowledged' exists
-              const showAcknowledge = task.reception_notes && !task.reception_note_acknowledged; // Assumes false if undefined for now
+              const showAcknowledge = task.reception_notes // && !task.reception_note_acknowledged; // Assumes false if undefined for now
 
               return (
               <Card
@@ -636,12 +692,13 @@ export default function Housekeeping() {
                     // task.priority && 'border-yellow-500 ring-1 ring-yellow-500'
                     task.priority && 'border-yellow-500' // Simple border highlight for now
                 )}
-                style={{ borderLeftColor: task.room.color || 'hsl(var(--border))' }}
+                style={{ borderLeftColor: task.room?.color || 'hsl(var(--border))' }} // Added safe navigation for room color
               >
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 pt-3 px-4">
                    {/* Room Info */}
                    <div>
-                     <CardTitle className="text-lg font-semibold">{task.room.name}</CardTitle>
+                     {/* Added safe navigation for room name */}
+                     <CardTitle className="text-lg font-semibold">{task.room?.name || 'Unknown Room'}</CardTitle>
                       <p className="text-xs text-muted-foreground pt-1">
                         Type: {task.cleaning_type} / Guests: {task.guest_count} / Limit: {task.time_limit ? `${task.time_limit}m` : 'N/A'}
                       </p>
@@ -653,6 +710,7 @@ export default function Housekeeping() {
                 </CardHeader>
                 <CardContent className="px-4 pb-3 pt-1 space-y-2">
                     {/* Timer Display */}
+                    {/* *** FIX: Pass the whole task object to TaskTimerDisplay *** */}
                     { (task.status === 'in_progress' || task.status === 'paused' || task.status === 'done') && task.start_time && (
                        <TaskTimerDisplay task={task} />
                     )}
@@ -670,18 +728,18 @@ export default function Housekeeping() {
                               <span className="font-semibold flex items-center"><Info className="h-3 w-3 mr-1 inline"/> Reception Note:</span>
                                {/* --- SCHEMA CHANGE REQUIRED --- */}
                                {/* Enable button when schema updated */}
-                               {/* showAcknowledge && ( */}
+                               { showAcknowledge && (
                                    <Button
                                        size="xs" // Custom size potentially needed via tailwind.config
                                        variant="ghost"
                                        className="h-6 px-1 text-blue-700 hover:bg-blue-100 dark:text-blue-200 dark:hover:bg-blue-800"
                                        onClick={() => handleAcknowledgeNote(task.id)}
                                        // Remove disabled prop when schema is updated
-                                       disabled={true} // Disabled for now
+                                       // disabled={true} // Re-enable when schema is ready
                                     >
                                        <Check className="h-3 w-3 mr-1"/> Acknowledge
                                    </Button>
-                               {/* )} */}
+                               )}
                           </div>
                           <p>{task.reception_notes}</p>
                       </div>
@@ -728,9 +786,9 @@ export default function Housekeeping() {
                       </>)}
                       {/* Optionally show something for 'done' or 'repair_needed' if actions are possible */}
                       {task.status === "done" && <span className="text-sm text-muted-foreground">Completed</span>}
-                      {task.status === "repair_needed" && !isActive && !isPaused && (
+                      {task.status === "repair_needed" && !isActive && !isPaused && task.status !== 'done' && (
                            // Allow starting even if repair needed? Or only resume/stop if paused?
-                           // Example: Allow re-starting if needed
+                           // Example: Allow re-starting if needed (unless already completed)
                            <Button size="sm" onClick={() => handleStart(task.id)} disabled={!!activeTaskId} className="bg-green-600 hover:bg-green-700 text-white"> <Play className="mr-1 h-4 w-4" /> Start </Button>
                       )}
                     </div>
@@ -746,7 +804,8 @@ export default function Housekeeping() {
                           </DialogTrigger>
                           <DialogContent>
                                <DialogHeader>
-                                  <DialogTitle>Note for Room {task.room.name}</DialogTitle>
+                                  {/* Safe navigation for room name */}
+                                  <DialogTitle>Note for Room {task.room?.name || 'Unknown'}</DialogTitle>
                                   <DialogDescription> Add or update housekeeping notes (e.g., lost & found, specific observations). </DialogDescription>
                                </DialogHeader>
                                <div className="py-4">
@@ -782,7 +841,8 @@ export default function Housekeeping() {
                           </DialogTrigger>
                            <DialogContent>
                                 <DialogHeader>
-                                    <DialogTitle>Report Issue for Room {task.room.name}</DialogTitle>
+                                    {/* Safe navigation for room name */}
+                                    <DialogTitle>Report Issue for Room {task.room?.name || 'Unknown'}</DialogTitle>
                                     <DialogDescription> Describe the maintenance issue and optionally add a photo. This will mark the task as needing repair. </DialogDescription>
                                 </DialogHeader>
                                 <div className="grid gap-4 py-4">
@@ -842,11 +902,11 @@ export default function Housekeeping() {
 
 // -- Helper Component for Timer Display --
 interface TaskTimerDisplayProps {
-    task: Task;
+    task: Task; // Expect the full task object
 }
 const TaskTimerDisplay: React.FC<TaskTimerDisplayProps> = ({ task }) => {
-    // Pass the entire task to the hook if needed (e.g., for stop_time)
-    const elapsedSeconds = useTaskTimer(task.start_time, task.total_pause, task.status, task);
+    // *** FIX: Pass the whole task object to the hook ***
+    const elapsedSeconds = useTaskTimer(task);
 
     const formatTime = (totalSeconds: number | null): string => {
         if (totalSeconds === null || totalSeconds < 0) return "--:--";
@@ -885,7 +945,7 @@ const TaskTimerDisplay: React.FC<TaskTimerDisplayProps> = ({ task }) => {
             {timeLimit > 0 && (
                 <span className={cn(isOverTime ? "text-red-600 dark:text-red-400" : "")}>
                     Limit: {timeLimit}m
-                    {remainingMinutes !== null && task.status !== 'paused' && ` (${remainingMinutes}m left)`}
+                    {remainingMinutes !== null && task.status === 'in_progress' && ` (${remainingMinutes}m left)`}
                     {task.status === 'paused' && ` (Paused)`}
                 </span>
             )}
