@@ -1,5 +1,5 @@
 // src/components/reception/AddTaskDialog.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Import useRef
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ const cleaningTypes: CleaningType[] = ["W", "P", "T", "O", "G", "S"];
 interface AddTaskDialogProps {
     availableRooms: Room[];
     allStaff: Staff[];
-    initialState: NewTaskState; // Now includes default date
+    initialState: NewTaskState;
     onSubmit: (newTask: NewTaskState) => Promise<boolean>;
     isSubmitting: boolean;
     triggerButton?: React.ReactNode;
@@ -33,20 +33,28 @@ export function AddTaskDialog({
 }: AddTaskDialogProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [newTask, setNewTask] = useState<NewTaskState>(initialState);
+    const prevIsOpen = useRef(isOpen); // Keep track of previous open state
 
-    // Reset form when dialog opens or initial state changes (includes date now)
+    // *** MODIFIED useEffect ***
     useEffect(() => {
-        if (isOpen) {
-             if (availableRooms.length > 0 && !newTask.roomId) {
-                 setNewTask(prev => ({ ...initialState, roomId: availableRooms[0].id }));
-             } else {
-                 setNewTask(initialState);
-             }
-        } else {
-            // Optional: Reset form fully when closing, including date to default
-            // setNewTask(initialState);
+        // Only reset state when dialog changes from closed to open
+        if (!prevIsOpen.current && isOpen) {
+            console.log("Dialog opened, resetting state.");
+            // Use initialState, but pre-select first room if none is set in initial
+            const resetState = { ...initialState };
+            if (availableRooms.length > 0 && !resetState.roomId) {
+                resetState.roomId = availableRooms[0].id;
+            }
+             // Ensure date defaults correctly if initialState changes
+            if (!resetState.date) {
+                 resetState.date = new Date().toISOString().split("T")[0];
+            }
+            setNewTask(resetState);
         }
-    }, [isOpen, initialState, availableRooms, newTask.roomId]); // Keep dependencies
+        // Update previous state tracker *after* checking
+        prevIsOpen.current = isOpen;
+        // Depend only on isOpen and potentially initialState if it can change dynamically
+    }, [isOpen, initialState, availableRooms]);
 
 
     const handleSubmit = async () => {
@@ -67,7 +75,7 @@ export function AddTaskDialog({
                     <DialogDescription> Select date, room, cleaning type, guests, and assign staff. </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                    {/* *** NEW: Date Input *** */}
+                    {/* Date Input */}
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="task-date-modal" className="text-right">Date*</Label>
                         <Input
@@ -120,7 +128,7 @@ export function AddTaskDialog({
                 </div>
                 <DialogFooter>
                     <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
-                    <Button type="button" onClick={handleSubmit} disabled={isSubmitting || !newTask.roomId || !newTask.date}> {/* Add date check */}
+                    <Button type="button" onClick={handleSubmit} disabled={isSubmitting || !newTask.roomId || !newTask.date}>
                         {isSubmitting ? "Adding..." : "Add Task"}
                     </Button>
                 </DialogFooter>
