@@ -15,7 +15,7 @@ export default function Auth() {
   const [name, setName] = useState("");
   const [role, setRole] = useState("housekeeping");
   const [loading, setLoading] = useState(false);
-  
+
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -30,9 +30,15 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
 
+    const trimmedEmail = email.trim(); // Trim whitespace from email
+
+    // Optional: Add a console log to check the trimmed email
+    console.log('Attempting auth with email:', trimmedEmail);
+
     try {
       if (isLogin) {
-        const { error } = await signIn(email, password);
+        // Use trimmedEmail for sign in
+        const { error } = await signIn(trimmedEmail, password);
         if (error) {
           toast({
             title: "Error",
@@ -41,7 +47,8 @@ export default function Auth() {
           });
         }
       } else {
-        const { error } = await signUp(email, password, name, role);
+        // Use trimmedEmail for sign up
+        const { error } = await signUp(trimmedEmail, password, name, role);
         if (error) {
           toast({
             title: "Error",
@@ -51,15 +58,20 @@ export default function Auth() {
         } else {
           toast({
             title: "Success",
-            description: "Account created successfully! You can now sign in.",
+            description: "Account created successfully! Please check your email to verify your account before signing in.",
           });
-          setIsLogin(true);
+          setIsLogin(true); // Switch to login view after successful signup request
+          // Clear form fields after successful sign up request (optional)
+          setEmail("");
+          setPassword("");
+          setName("");
+          setRole("housekeeping");
         }
       }
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "An unexpected error occurred.", // Provide a fallback message
         variant: "destructive",
       });
     } finally {
@@ -95,7 +107,7 @@ export default function Auth() {
                 />
               </div>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -107,7 +119,7 @@ export default function Auth() {
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
@@ -117,6 +129,7 @@ export default function Auth() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={6} // Added minimum password length as per Supabase default
               />
             </div>
 
