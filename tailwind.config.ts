@@ -57,6 +57,20 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        status: {
+          todo: "hsl(var(--status-todo))",
+          "in-progress": "hsl(var(--status-in-progress))",
+          paused: "hsl(var(--status-paused))",
+          done: "hsl(var(--status-done))",
+          repair: "hsl(var(--status-repair))",
+        },
+        room: {
+          p1: "hsl(var(--room-p1))",
+          p2: "hsl(var(--room-p2))",
+          a1s: "hsl(var(--room-a1s))",
+          a2s: "hsl(var(--room-a2s))",
+          other: "hsl(var(--room-other))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
