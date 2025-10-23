@@ -14,15 +14,17 @@ import { cn } from "@/lib/utils";
 import { useHousekeepingTasks } from '@/hooks/useHousekeepingTasks';
 import { useTaskActions } from '@/hooks/useTaskActions';
 import { TaskCard } from '@/components/housekeeping/TaskCard';
+import { useTaskTimer } from "@/hooks/useTaskTimer"; // Ensure this import exists
 
 // --- Interfaces (Should ideally be moved to a types file, e.g., src/types/tasks.ts) ---
-export interface Room { // Export if used by other components/hooks
+export interface Room {
     id: string;
     name: string;
     group_type: Database["public"]["Enums"]["room_group"];
     color: string | null;
 }
-export interface Task { // Export if used by other components/hooks
+
+export interface Task {
   id: string;
   date: string;
   status: Database["public"]["Enums"]["task_status"];
@@ -37,18 +39,17 @@ export interface Task { // Export if used by other components/hooks
   stop_time: string | null;
   housekeeping_notes: string | null;
   reception_notes: string | null;
-  reception_note_acknowledged?: boolean; // Schema-dependent
+  reception_note_acknowledged?: boolean;
   issue_flag: boolean;
   issue_description: string | null;
   issue_photo: string | null;
-  priority?: boolean; // Schema-dependent
+  priority?: boolean;
   created_at: string;
 }
 // --- END Interfaces ---
 
 
-// --- Utility Functions (Keep here or move to utils.ts) ---
-// (getStatusColor and getStatusLabel are now within TaskCard, but keep one copy here for filter/empty state)
+// --- Utility Functions ---
 const getStatusLabel = (status: Task['status'] | null | undefined): string => {
    if (!status) return "Unknown";
    const labels: Record<string, string> = {
@@ -67,29 +68,24 @@ const statusFilters: TaskStatusFilter[] = ['all', 'todo', 'in_progress', 'paused
 
 // --- Main Component ---
 export default function Housekeeping() {
-  const { signOut } = useAuth(); // Only need signOut from AuthContext directly now
+  const { signOut } = useAuth();
 
-  // Use the custom hooks
   const { tasks, loading, activeTaskId, setActiveTaskId } = useHousekeepingTasks();
   const taskActions = useTaskActions(tasks, setActiveTaskId, activeTaskId);
 
-  // Local state for filter
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
 
-  // Filtered Tasks Memo
   const filteredTasks = useMemo(() => {
       let displayTasks = tasks;
       if (statusFilter !== 'all') {
           displayTasks = displayTasks.filter(task => task.status === statusFilter);
       } else {
-          // 'all' currently means 'all active' in the filter dropdown
           displayTasks = displayTasks.filter(task => task.status !== 'done');
       }
       return displayTasks;
   }, [tasks, statusFilter]);
 
-  // Progress Calculation Memo
-   const progress = useMemo(() => {
+  const progress = useMemo(() => {
     const totalTasks = tasks.length;
     if (totalTasks === 0) return { count: 0, total: 0, percentage: 0 };
     const completedTasks = tasks.filter(task => task.status === 'done').length;
@@ -142,7 +138,9 @@ export default function Housekeeping() {
           </Button>
         </div>
         <div className="sm:hidden px-4 pb-2">
-             <Label className="text-xs text-muted-foreground mb-1 block text-center"> Progress: {progress.count}/{progress.total} ({progress.percentage}%) </Label>
+             <Label className="text-xs text-muted-foreground mb-1 block text-center">
+               Progress: {progress.count}/{progress.total} ({progress.percentage}%)
+             </Label>
              <Progress value={progress.percentage} className="h-2" aria-label={`Task progress ${progress.percentage}%`} />
         </div>
       </header>
@@ -156,7 +154,7 @@ export default function Housekeeping() {
           </div>
         ) : (
           <>
-            {/* Render Task Cards using the new component */}
+            {/* Render Task Cards */}
             {filteredTasks.map((task) => (
               <TaskCard
                 key={task.id}
@@ -173,15 +171,19 @@ export default function Housekeeping() {
               />
             ))}
 
-            {/* Empty State Message */}
+            {/* Empty State */}
             {!loading && filteredTasks.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                  <Card className="p-6 border-dashed">
                      <CardTitle className="text-lg mb-2">
-                        {statusFilter === 'all' ? '🎉 No Active Tasks' : `No tasks match filter: ${getStatusLabel(statusFilter as Task['status'])}`}
+                        {statusFilter === 'all'
+                          ? '🎉 No Active Tasks'
+                          : `No tasks match filter: ${getStatusLabel(statusFilter as Task['status'])}`}
                     </CardTitle>
                     <CardDescription>
-                        {statusFilter === 'all' ? 'All assigned tasks for today are complete or none were assigned.' : 'Try changing the status filter.'}
+                        {statusFilter === 'all'
+                          ? 'All assigned tasks for today are complete or none were assigned.'
+                          : 'Try changing the status filter.'}
                     </CardDescription>
                  </Card>
               </div>
@@ -196,27 +198,48 @@ export default function Housekeeping() {
 }
 
 
-// --- TaskTimerDisplay Component (Keep exported or move to its own file) ---
-// (Ensure this component is exported if it stays here, or import if moved)
-export interface TaskTimerDisplayProps { // Export if kept here
-    task: Task;
+// --- TaskTimerDisplay Component ---
+export interface TaskTimerDisplayProps {
+  task: Task;
 }
-export const TaskTimerDisplay: React.FC<TaskTimerDisplayProps> = ({ task }) => { // Export if kept here
-    const elapsedSeconds = useTaskTimer(task); // Pass the whole task
 
-    const formatTime = (totalSeconds: number | null): string => { /* ... implementation ... */ };
-    // ... rest of TaskTimerDisplay implementation from previous version ...
+export const TaskTimerDisplay: React.FC<TaskTimerDisplayProps> = ({ task }) => {
+  const elapsedSeconds = useTaskTimer(task); // Hook for timing
 
-     const elapsedMinutes = elapsedSeconds !== null ? Math.floor(elapsedSeconds / 60) : 0;
-     const timeLimit = task.time_limit ?? 0;
-     const remainingMinutes = timeLimit > 0 && elapsedSeconds !== null
-                              ? Math.max(0, timeLimit - Math.ceil(elapsedSeconds / 60))
-                              : null;
-     const isOverTime = timeLimit > 0 && elapsedMinutes > timeLimit;
+  // ✅ Properly implemented version (no parser confusion)
+  const formatTime = (totalSeconds: number | null): string => {
+    if (totalSeconds === null) return "0:00";
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return hours > 0
+      ? `${hours}:${minutes.toString().padStart(2, "0")}:${seconds
+          .toString()
+          .padStart(2, "0")}`
+      : `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
 
-      if (task.status === 'done' && task.actual_time !== null) {
-          return ( /* ... JSX for 'done' state ... */ );
-      }
+  const elapsedMinutes = elapsedSeconds !== null ? Math.floor(elapsedSeconds / 60) : 0;
+  const timeLimit = task.time_limit ?? 0;
+  const remainingMinutes =
+    timeLimit > 0 && elapsedSeconds !== null
+      ? Math.max(0, timeLimit - Math.ceil(elapsedSeconds / 60))
+      : null;
+  const isOverTime = timeLimit > 0 && elapsedMinutes > timeLimit;
 
-     return ( /* ... JSX for 'in_progress'/'paused' state ... */ );
+  if (task.status === "done" && task.actual_time !== null) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        Completed in {formatTime(task.actual_time)}
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("text-sm", isOverTime ? "text-red-500 font-semibold" : "")}>
+      {timeLimit > 0 && remainingMinutes !== null
+        ? `Remaining: ${remainingMinutes} min`
+        : `Elapsed: ${formatTime(elapsedSeconds)}`}
+    </div>
+  );
 };
