@@ -154,9 +154,10 @@ function useTaskTimer(task: Task | null): number | null {
 export default function Housekeeping() {
   const { signOut } = useAuth(); // Only need signOut from AuthContext directly now
 
-  // Use the custom hooks
-  const { tasks, loading, activeTaskId, setActiveTaskId } = useHousekeepingTasks();
-  const taskActions = useTaskActions(tasks, setActiveTaskId, activeTaskId);
+  // Destructure fetchTasks from the hook
+  const { tasks, loading, activeTaskId, setActiveTaskId, fetchTasks } = useHousekeepingTasks();
+  // Pass fetchTasks to useTaskActions
+  const taskActions = useTaskActions(tasks, setActiveTaskId, activeTaskId, fetchTasks);
 
   // Local state for filter
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
