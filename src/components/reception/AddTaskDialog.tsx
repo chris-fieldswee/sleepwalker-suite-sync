@@ -61,12 +61,13 @@ export function AddTaskDialog({
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             {/* --- MODIFICATION START --- */}
-            {/* Conditionally apply asChild. If triggerButton exists, render it directly. */}
-            {/* Otherwise, use the default Button with asChild. */}
-            <DialogTrigger asChild={!triggerButton}>
-            {/* --- MODIFICATION END --- */}
-                {triggerButton || <Button variant="outline" size="sm"> <Plus className="mr-2 h-4 w-4" /> Add Task </Button>}
+            {/* Remove asChild completely and wrap the trigger content */}
+            <DialogTrigger>
+                <span> {/* Wrap the trigger content */}
+                    {triggerButton || <Button variant="outline" size="sm"> <Plus className="mr-2 h-4 w-4" /> Add Task </Button>}
+                </span>
             </DialogTrigger>
+            {/* --- MODIFICATION END --- */}
             <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
                     <DialogTitle>Add New Cleaning Task</DialogTitle>
