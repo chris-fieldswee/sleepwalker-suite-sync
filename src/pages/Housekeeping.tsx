@@ -39,8 +39,8 @@ export interface Task { // Export if used by other components/hooks
   time_limit: number | null;
   start_time: string | null;
   pause_start: string | null;
-  pause_stop: string | null;
-  total_pause: number | null;
+  pause_stop: string | null; // Keep track of last pause end time
+  total_pause: number | null; // Total accumulated pause time in minutes
   stop_time: string | null;
   housekeeping_notes: string | null;
   reception_notes: string | null;
@@ -76,35 +76,75 @@ const statusFilters: TaskStatusFilter[] = ['all', 'todo', 'in_progress', 'paused
 
 
 // --- Timer Hook ---
-// (Keep the hook definition from the previous step)
 function useTaskTimer(task: Task | null): number | null {
   const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const { start_time, total_pause, status, stop_time } = task || {};
+  // Destructure relevant properties from the task object
+  const { start_time, total_pause, status, stop_time, pause_start } = task || {};
 
   useEffect(() => {
+    // Clear any existing interval when dependencies change or component unmounts
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    if (status === 'in_progress' && start_time) {
-      const calculateElapsed = () => { /* ... calculation ... */ };
-      calculateElapsed();
-      intervalRef.current = setInterval(calculateElapsed, 1000);
-    } else if (start_time) { // Paused or Done
+    const calculateElapsed = () => {
+        if (!start_time) {
+            setElapsedSeconds(null);
+            return;
+        }
         try {
             const start = new Date(start_time).getTime();
-            if (isNaN(start)) { setElapsedSeconds(null); return; }
-            const end = status === 'done' && stop_time ? new Date(stop_time).getTime() : Date.now();
-            if (isNaN(end)) { setElapsedSeconds(null); return; } // Handle invalid end time
-            const pauseMs = (total_pause || 0) * 60 * 1000;
-            const elapsedMs = Math.max(0, end - start - pauseMs);
+            if (isNaN(start)) { throw new Error("Invalid start_time"); }
+
+            let currentPauseMs = 0;
+            // If currently paused, calculate time since pause_start
+            if (status === 'paused' && pause_start) {
+                const pauseStartTime = new Date(pause_start).getTime();
+                if (!isNaN(pauseStartTime)) {
+                    currentPauseMs = Math.max(0, Date.now() - pauseStartTime);
+                } else {
+                    console.warn("Invalid pause_start time for paused task:", task?.id);
+                }
+            }
+
+            // Total pause time already accumulated (in minutes), convert to ms
+            const accumulatedPauseMs = (total_pause || 0) * 60 * 1000;
+
+            // Determine the 'end' time for calculation
+            const end = (status === 'done' && stop_time)
+                ? new Date(stop_time).getTime()
+                : Date.now(); // Use current time for active/paused tasks
+
+            if (isNaN(end)) { throw new Error("Invalid stop_time or current time issue"); }
+
+            // Calculate elapsed milliseconds: (End Time - Start Time) - Accumulated Pause - Current Pause (if any)
+            const elapsedMs = Math.max(0, end - start - accumulatedPauseMs - currentPauseMs);
             setElapsedSeconds(Math.floor(elapsedMs / 1000));
-        } catch(error) { /* ... error handling ... */ setElapsedSeconds(null); }
-    } else {
+
+        } catch (error: any) {
+            console.error("Error calculating elapsed time:", error.message, "Task:", task);
+            setElapsedSeconds(null); // Set to null on error
+        }
+    };
+
+    // If task is 'in_progress', calculate immediately and set interval
+    if (status === 'in_progress' && start_time) {
+        calculateElapsed(); // Initial calculation
+        intervalRef.current = setInterval(calculateElapsed, 1000); // Update every second
+    }
+    // If task is 'paused' or 'done', calculate elapsed time once based on stop/current time
+    else if ((status === 'paused' || status === 'done') && start_time) {
+        calculateElapsed(); // Calculate final or current paused elapsed time
+    }
+    // If task has no start time or status doesn't warrant a timer
+    else {
         setElapsedSeconds(null);
     }
 
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [start_time, total_pause, status, stop_time]);
+    // Cleanup interval on unmount or dependency change
+    return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [start_time, total_pause, status, stop_time, pause_start, task?.id]); // Added task.id for logging
 
   return elapsedSeconds;
 }
@@ -127,17 +167,20 @@ export default function Housekeeping() {
       if (statusFilter !== 'all') {
           displayTasks = displayTasks.filter(task => task.status === statusFilter);
       } else {
-          // 'all' currently means 'all active' in the filter dropdown
+          // 'all' means 'all except done' in the filter dropdown for housekeeping view
           displayTasks = displayTasks.filter(task => task.status !== 'done');
       }
+      // No change needed here, keep sorting logic if desired
       return displayTasks;
   }, [tasks, statusFilter]);
 
   // Progress Calculation Memo
    const progress = useMemo(() => {
-    const totalTasks = tasks.length;
+    // Filter out potential non-array values defensively
+    const validTasks = Array.isArray(tasks) ? tasks : [];
+    const totalTasks = validTasks.length;
     if (totalTasks === 0) return { count: 0, total: 0, percentage: 0 };
-    const completedTasks = tasks.filter(task => task.status === 'done').length;
+    const completedTasks = validTasks.filter(task => task.status === 'done').length;
     return {
         count: completedTasks,
         total: totalTasks,
@@ -207,7 +250,7 @@ export default function Housekeeping() {
                 key={task.id}
                 task={task}
                 isActive={activeTaskId === task.id}
-                activeTaskId={activeTaskId}
+                activeTaskId={activeTaskId} // Pass activeTaskId down
                 onStart={taskActions.handleStart}
                 onPause={taskActions.handlePause}
                 onResume={taskActions.handleResume}
@@ -242,7 +285,6 @@ export default function Housekeeping() {
 
 
 // --- TaskTimerDisplay Component ---
-// (Moved outside the main component, ensure it's exported or in its own file)
 export interface TaskTimerDisplayProps {
     task: Task;
 }
@@ -256,40 +298,47 @@ export const TaskTimerDisplay: React.FC<TaskTimerDisplayProps> = ({ task }) => {
         return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     };
 
-    const elapsedMinutes = elapsedSeconds !== null ? Math.floor(elapsedSeconds / 60) : 0;
-    const timeLimit = task.time_limit ?? 0;
-    const remainingMinutes = timeLimit > 0 && elapsedSeconds !== null
+    const elapsedMinutes = elapsedSeconds !== null ? Math.floor(elapsedSeconds / 60) : null;
+    const timeLimit = task.time_limit ?? null; // Use null if no limit
+    const remainingMinutes = (timeLimit !== null && elapsedSeconds !== null)
                              ? Math.max(0, timeLimit - Math.ceil(elapsedSeconds / 60))
                              : null;
-    const isOverTime = timeLimit > 0 && elapsedMinutes > timeLimit;
+    const isOverTime = (timeLimit !== null && elapsedMinutes !== null) && elapsedMinutes > timeLimit;
 
-     // *** FIX: Added JSX for 'done' state ***
+     // Display for 'done' tasks
      if (task.status === 'done') {
          // Use actual_time if available and valid, otherwise display placeholder
          const displayTime = (task.actual_time !== null && task.actual_time >= 0) ? `${task.actual_time}m` : '-';
          // Use difference if available and valid
          const displayDiff = (task.difference !== null) ? `(${task.difference > 0 ? '+' : ''}${task.difference}m)` : '';
+         const diffColor = (task.difference ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400";
 
          return (
              <div className="text-xs text-muted-foreground flex flex-wrap justify-between items-center gap-x-4 mt-1">
-                 <span>Actual Time: <span className={cn("font-medium", (task.difference ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{displayTime}</span></span>
-                 {timeLimit > 0 && (
-                     <span>Limit: {timeLimit}m {displayDiff}</span>
+                 <span>Actual: <span className={cn("font-medium", (task.difference ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{displayTime}</span></span>
+                 {timeLimit !== null && ( // Only show limit info if it exists
+                     <span>Limit: {timeLimit}m <span className={cn("font-medium", diffColor)}>{displayDiff}</span></span>
                  )}
              </div>
          );
      }
 
-     // *** FIX: Added JSX for 'in_progress'/'paused' state ***
+     // Display for 'in_progress' or 'paused' tasks
      return (
         <div className="text-xs text-muted-foreground flex flex-wrap justify-between items-center gap-x-4 mt-1">
             <span>Elapsed: <span className={cn("font-medium tabular-nums", isOverTime ? "text-red-600 dark:text-red-400" : "text-foreground")}>{formatTime(elapsedSeconds)}</span></span>
-            {timeLimit > 0 && (
+            {timeLimit !== null && ( // Only show limit info if it exists
                 <span className={cn(isOverTime ? "text-red-600 dark:text-red-400" : "")}>
                     Limit: {timeLimit}m
+                    {/* Show remaining only if in progress and remaining is calculable */}
                     {remainingMinutes !== null && task.status === 'in_progress' && ` (${remainingMinutes}m left)`}
+                    {/* Indicate if paused */}
                     {task.status === 'paused' && ` (Paused)`}
                 </span>
+            )}
+            {/* If no time limit, but task is paused */}
+            {timeLimit === null && task.status === 'paused' && (
+                <span>(Paused)</span>
             )}
         </div>
      );
