@@ -1,3 +1,4 @@
+// src/pages/reception/Tasks.tsx
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableHeader, TableRow, TableHead } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -25,11 +26,13 @@ interface TasksProps {
     status: TaskStatus | 'all';
     staffId: string;
     roomGroup: RoomGroup | 'all';
+    roomId: string; // Added roomId
   };
   onDateChange: (date: string | null) => void;
   onStatusChange: (status: TaskStatus | 'all') => void;
   onStaffChange: (staffId: string) => void;
   onRoomGroupChange: (group: RoomGroup | 'all') => void;
+  onRoomChange: (roomId: string) => void; // Added onRoomChange
   onClearFilters: () => void;
   onRefresh: () => void;
   onAddTask: (task: NewTaskState) => Promise<boolean>;
@@ -65,6 +68,7 @@ export default function Tasks({
   onStatusChange,
   onStaffChange,
   onRoomGroupChange,
+  onRoomChange, // Destructure onRoomChange
   onClearFilters,
   onRefresh,
   onAddTask,
@@ -103,20 +107,23 @@ export default function Tasks({
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
+        <CardHeader className="py-4"> {/* Adjusted padding */}
+          <CardTitle className="text-lg">Filters</CardTitle> {/* Adjusted size */}
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 pb-4"> {/* Adjusted padding */}
           <TaskFilters
             date={filters.date}
             status={filters.status}
             staffId={filters.staffId}
             roomGroup={filters.roomGroup}
+            roomId={filters.roomId} // Pass roomId
             staff={allStaff}
+            availableRooms={availableRooms} // Pass availableRooms
             onDateChange={onDateChange}
             onStatusChange={onStatusChange}
             onStaffChange={onStaffChange}
             onRoomGroupChange={onRoomGroupChange}
+            onRoomChange={onRoomChange} // Pass onRoomChange
             onClearFilters={onClearFilters}
           />
         </CardContent>
@@ -135,7 +142,7 @@ export default function Tasks({
           ) : tasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <p className="text-lg font-medium text-muted-foreground">
-                {filters.date ? `No tasks found for ${getDisplayDate(filters.date)}` : "No upcoming tasks found"}
+                {filters.date ? `No active tasks found for ${getDisplayDate(filters.date)}` : "No upcoming active tasks found"}
               </p>
               <p className="text-sm text-muted-foreground">Try adjusting filters or add a new task.</p>
               <AddTaskDialog
