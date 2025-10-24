@@ -20,7 +20,7 @@ interface AddTaskDialogProps {
     initialState: NewTaskState;
     onSubmit: (newTask: NewTaskState) => Promise<boolean>;
     isSubmitting: boolean;
-    triggerButton?: React.ReactNode;
+    triggerButton?: React.ReactNode; // Can be any node now
 }
 
 export function AddTaskDialog({
@@ -35,6 +35,7 @@ export function AddTaskDialog({
     const [newTask, setNewTask] = useState<NewTaskState>(initialState);
     const prevIsOpen = useRef(isOpen);
 
+    // ... (useEffect and handleSubmit remain the same)
     useEffect(() => {
         if (!prevIsOpen.current && isOpen) {
             console.log("Dialog opened, resetting state.");
@@ -58,17 +59,26 @@ export function AddTaskDialog({
         }
     };
 
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             {/* --- MODIFICATION START --- */}
-            {/* Remove asChild completely and wrap the trigger content */}
-            <DialogTrigger>
-                <span> {/* Wrap the trigger content */}
-                    {triggerButton || <Button variant="outline" size="sm"> <Plus className="mr-2 h-4 w-4" /> Add Task </Button>}
-                </span>
-            </DialogTrigger>
+            {/* Render triggerButton directly inside if it exists, otherwise use default with asChild */}
+            {triggerButton ? (
+                <DialogTrigger>
+                    {triggerButton}
+                </DialogTrigger>
+            ) : (
+                <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                        <Plus className="mr-2 h-4 w-4" /> Add Task
+                    </Button>
+                </DialogTrigger>
+            )}
             {/* --- MODIFICATION END --- */}
+
             <DialogContent className="sm:max-w-[480px]">
+                {/* ... (DialogContent internals remain the same) ... */}
                 <DialogHeader>
                     <DialogTitle>Add New Cleaning Task</DialogTitle>
                     <DialogDescription> Select date, room, cleaning type, guests, and assign staff. </DialogDescription>
