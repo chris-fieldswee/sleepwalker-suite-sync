@@ -5,6 +5,8 @@ import { useToast } from '@/hooks/use-toast';
 import type { Database } from "@/integrations/supabase/types";
 import type { Room } from './useReceptionData';
 import { taskInputSchema, workLogSchema } from '@/lib/validation';
+// *** Import useAuth to get userId for photo naming ***
+import { useAuth } from '@/contexts/AuthContext';
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
 
@@ -14,11 +16,9 @@ export interface NewTaskState {
     guestCount: number;
     staffId: string | 'unassigned';
     notes: string;
-    // *** NEW: Add date field ***
-    date: string; // YYYY-MM-DD format
+    date: string;
 }
 
-// Get today's date in YYYY-MM-DD format for the initial state
 const getTodayDateString = () => new Date().toISOString().split("T")[0];
 
 const initialNewTaskState: NewTaskState = {
@@ -27,22 +27,25 @@ const initialNewTaskState: NewTaskState = {
     guestCount: 2,
     staffId: "unassigned",
     notes: "",
-    date: getTodayDateString(), // Default to today
+    date: getTodayDateString(),
 };
 
 export function useReceptionActions(
     availableRooms: Room[],
-    // filterDate is no longer directly needed for adding tasks
     onTaskAdded?: () => void,
-    onWorkLogSaved?: () => void
+    onWorkLogSaved?: () => void,
+    // *** Add callback for when a new issue is reported ***
+    onIssueReported?: () => void
 ) {
   const { toast } = useToast();
+  const { userId } = useAuth(); // Get user ID
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
-  const [isSavingLog, setIsSavingLog] = useState(false); // Keep work log logic
+  const [isSavingLog, setIsSavingLog] = useState(false);
+  // *** Add new loading state for reporting issues ***
+  const [isSubmittingNewIssue, setIsSubmittingNewIssue] = useState(false);
 
-  // *** MODIFIED: handleAddTask uses date from newTask object ***
   const handleAddTask = async (newTask: NewTaskState): Promise<boolean> => {
-    // Validate input using zod schema
+    // ... (handleAddTask function remains the same) ...
     const validation = taskInputSchema.safeParse({
       cleaning_type: newTask.cleaningType,
       guest_count: newTask.guestCount,
@@ -52,10 +55,10 @@ export function useReceptionActions(
     });
 
     if (!validation.success) {
-      toast({ 
-        title: "Validation Error", 
-        description: validation.error.errors[0].message, 
-        variant: "destructive" 
+      toast({
+        title: "Validation Error",
+        description: validation.error.errors[0].message,
+        variant: "destructive"
       });
       return false;
     }
@@ -108,7 +111,7 @@ export function useReceptionActions(
   };
 
   const handleSaveWorkLog = async (logData: any): Promise<boolean> => {
-       // Validate input using zod schema
+       // ... (handleSaveWorkLog function remains the same) ...
        const validation = workLogSchema.safeParse({
          user_id: logData.user_id,
          date: logData.date,
@@ -122,10 +125,10 @@ export function useReceptionActions(
        });
 
        if (!validation.success) {
-         toast({ 
-           title: "Validation Error", 
-           description: validation.error.errors[0].message, 
-           variant: "destructive" 
+         toast({
+           title: "Validation Error",
+           description: validation.error.errors[0].message,
+           variant: "destructive"
          });
          return false;
        }
@@ -144,9 +147,9 @@ export function useReceptionActions(
                total_minutes: validation.data.total_minutes,
                notes: validation.data.notes
            });
-           
+
            if (error) throw error;
-           
+
            toast({ title: "Work Log Saved", description: "Work log has been saved successfully." });
            onWorkLogSaved?.();
            success = true;
@@ -160,12 +163,93 @@ export function useReceptionActions(
        return success;
   };
 
+  // *** NEW FUNCTION: handleReportNewIssue ***
+  const handleReportNewIssue = async (roomId: string, description: string, photo: File | null): Promise<boolean> => {
+        // Basic validation (already done in dialog, but good practice)
+        if (!roomId || !description.trim()) {
+          toast({ title: "Missing Information", description: "Room and description are required.", variant: "destructive" });
+          return false;
+        }
+         if (description.length > 5000) {
+              toast({ title: "Description Too Long", description: "Description must be less than 5000 characters.", variant: "destructive" });
+              return false;
+         }
+
+        setIsSubmittingNewIssue(true);
+        let success = false;
+        let photoUrl: string | null = null;
+
+        try {
+            // 1. Upload photo if provided
+            if (photo && userId) {
+                const fileExt = photo.name.split('.').pop();
+                // Use a generic name format since there's no task ID yet
+                const fileName = `${userId}_issue_${Date.now()}.${fileExt}`;
+                const filePath = `issue_photos/${fileName}`;
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('task_issues')
+                    .upload(filePath, photo);
+
+                if (uploadError) {
+                    throw new Error(`Photo upload failed: ${uploadError.message}`);
+                }
+                if (uploadData) {
+                    const { data: urlData } = supabase.storage.from('task_issues').getPublicUrl(filePath);
+                    photoUrl = urlData?.publicUrl || null;
+                } else {
+                     throw new Error('Photo upload failed unexpectedly.');
+                }
+            }
+
+            // 2. Insert new task marked as an issue
+            const taskToInsert = {
+                room_id: roomId,
+                date: getTodayDateString(), // Use today's date
+                cleaning_type: 'O' as CleaningType, // Default to 'Other'
+                guest_count: 1, // Default guest count
+                status: 'repair_needed' as const,
+                issue_flag: true,
+                issue_description: description,
+                issue_photo: photoUrl,
+                // Add user_id if you want to track who reported it via reception
+                // user_id: loggedInReceptionUserId, // Requires getting reception user ID
+            };
+
+            const { error: insertError } = await supabase.from('tasks').insert(taskToInsert);
+
+            if (insertError) {
+                 // Attempt to delete uploaded photo if DB insert fails
+                if (photoUrl && filePath) {
+                    console.warn("Database insert failed, attempting to delete uploaded photo:", filePath);
+                    await supabase.storage.from('task_issues').remove([filePath]);
+                }
+                throw insertError;
+            }
+
+            const roomName = availableRooms.find(r => r.id === roomId)?.name || 'Unknown Room';
+            toast({ title: "Issue Reported Successfully", description: `New issue task created for ${roomName}.` });
+            onIssueReported?.(); // Trigger callback (e.g., refresh data)
+            success = true;
+
+        } catch (error: any) {
+            console.error("Error reporting new issue:", error);
+            toast({ title: "Error Reporting Issue", description: error.message, variant: "destructive" });
+            success = false;
+        } finally {
+            setIsSubmittingNewIssue(false);
+        }
+        return success;
+    };
+
 
   return {
       handleAddTask,
       isSubmittingTask,
       handleSaveWorkLog,
       isSavingLog,
-      initialNewTaskState // Export updated initial state
+      initialNewTaskState,
+      // *** Export new handler and loading state ***
+      handleReportNewIssue,
+      isSubmittingNewIssue,
   };
 }
