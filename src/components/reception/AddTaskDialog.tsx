@@ -1,5 +1,5 @@
 // src/components/reception/AddTaskDialog.tsx
-import React, { useState, useEffect, useRef } from 'react'; // Import useRef
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -33,40 +33,38 @@ export function AddTaskDialog({
 }: AddTaskDialogProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [newTask, setNewTask] = useState<NewTaskState>(initialState);
-    const prevIsOpen = useRef(isOpen); // Keep track of previous open state
+    const prevIsOpen = useRef(isOpen);
 
-    // *** MODIFIED useEffect ***
     useEffect(() => {
-        // Only reset state when dialog changes from closed to open
         if (!prevIsOpen.current && isOpen) {
             console.log("Dialog opened, resetting state.");
-            // Use initialState, but pre-select first room if none is set in initial
             const resetState = { ...initialState };
             if (availableRooms.length > 0 && !resetState.roomId) {
                 resetState.roomId = availableRooms[0].id;
             }
-             // Ensure date defaults correctly if initialState changes
             if (!resetState.date) {
                  resetState.date = new Date().toISOString().split("T")[0];
             }
             setNewTask(resetState);
         }
-        // Update previous state tracker *after* checking
         prevIsOpen.current = isOpen;
-        // Depend only on isOpen and potentially initialState if it can change dynamically
     }, [isOpen, initialState, availableRooms]);
 
 
     const handleSubmit = async () => {
         const success = await onSubmit(newTask);
         if (success) {
-            setIsOpen(false); // Close dialog on success
+            setIsOpen(false);
         }
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
+            {/* --- MODIFICATION START --- */}
+            {/* Conditionally apply asChild. If triggerButton exists, render it directly. */}
+            {/* Otherwise, use the default Button with asChild. */}
+            <DialogTrigger asChild={!triggerButton}>
+            {/* --- MODIFICATION END --- */}
                 {triggerButton || <Button variant="outline" size="sm"> <Plus className="mr-2 h-4 w-4" /> Add Task </Button>}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[480px]">
