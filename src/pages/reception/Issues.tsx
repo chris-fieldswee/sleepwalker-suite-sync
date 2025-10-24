@@ -3,14 +3,15 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, CheckCircle2, ExternalLink, Plus, User, CalendarDays } from "lucide-react"; // Added User, CalendarDays
+import { AlertTriangle, CheckCircle2, ExternalLink, Plus, User, CalendarDays } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ReportNewIssueDialog } from "@/components/reception/ReportNewIssueDialog";
-// *** Import the detail dialog and types ***
+// Import the detail dialog and types
 import { IssueDetailDialog, IssueTask } from "@/components/reception/IssueDetailDialog";
 import type { Room, Staff } from "@/hooks/useReceptionData"; // Import Staff
 import { cn } from "@/lib/utils"; // Import cn for conditional classes
+import type { Database } from "@/integrations/supabase/types"; // Import Database type
 
 // Define TaskStatus locally if not imported
 type TaskStatus = Database["public"]["Enums"]["task_status"];
@@ -20,7 +21,7 @@ interface IssuesProps {
   allStaff: Staff[]; // Receive staff list
   handleReportNewIssue: (roomId: string, description: string, photo: File | null) => Promise<boolean>;
   isSubmittingNewIssue: boolean;
-  // *** Add props for updating issues ***
+  // Add props for updating issues
   handleUpdateIssue: (taskId: string, updates: Partial<Pick<IssueTask, 'status' | 'reception_notes'> & { user_id: string | null }>) => Promise<boolean>;
   isUpdatingIssue: boolean; // Receive loading state (optional, handled in dialog)
 }
@@ -30,7 +31,7 @@ export default function Issues({
     allStaff,
     handleReportNewIssue,
     isSubmittingNewIssue,
-    handleUpdateIssue // Destructure new props
+    handleUpdateIssue
     // isUpdatingIssue // Not directly needed here, but passed down
 }: IssuesProps) {
   const { toast } = useToast();
@@ -38,11 +39,11 @@ export default function Issues({
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "active" | "resolved">("active");
 
-  // *** State for detail dialog ***
+  // State for detail dialog
   const [selectedIssue, setSelectedIssue] = useState<IssueTask | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
 
-  // Fetching and subscription logic remains the same
+  // Fetching and subscription logic
   useEffect(() => {
     fetchIssues();
     const channel = supabase
@@ -73,12 +74,19 @@ export default function Issues({
      try {
        let query = supabase
          .from("tasks")
+         // *** CORRECTED SELECT STATEMENT ***
          .select(`
-           id, date, status, cleaning_type, issue_description, issue_photo,
-           reception_notes, housekeeping_notes, /* Select notes */
+           id,
+           date,
+           status,
+           cleaning_type,
+           issue_description,
+           issue_photo,
+           reception_notes,
+           housekeeping_notes,
            room:rooms!inner(name, color),
-           user:users(id, name) /* Select user id and name */
-         `)
+           user:users(id, name)
+         `) // Removed comments
          .eq("issue_flag", true)
          .order("date", { ascending: false })
          .order("created_at", { ascending: false }); // Sort by creation time as secondary
@@ -201,7 +209,7 @@ export default function Issues({
       ) : (
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {issues.map((issue) => (
-            // *** Make Card clickable ***
+            // Make Card clickable
             <Card
               key={issue.id}
               className={cn(
