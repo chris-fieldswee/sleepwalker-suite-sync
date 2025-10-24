@@ -11,8 +11,7 @@ import Dashboard from "./reception/Dashboard";
 import Tasks from "./reception/Tasks";
 import Archive from "./reception/Archive";
 import Issues from "./reception/Issues";
-// *** Import AddTaskDialog ***
-import { AddTaskDialog } from "@/components/reception/AddTaskDialog";
+// Import AddTaskDialog - already imported
 
 export default function Reception() {
   const { signOut } = useAuth();
@@ -20,7 +19,7 @@ export default function Reception() {
   const {
     tasks,
     allStaff,
-    availableRooms,
+    availableRooms, // Needed for the new dialog
     workLogs,
     loading,
     refreshing,
@@ -28,16 +27,20 @@ export default function Reception() {
     filterSetters,
     actions: dataActions,
     stats,
-    fetchWorkLogs // Keep if needed elsewhere, not directly for AddTaskDialog in Dashboard
+    fetchWorkLogs
   } = useReceptionData();
 
   const {
     handleAddTask,
     isSubmittingTask,
-    handleSaveWorkLog, // Keep if needed elsewhere
-    isSavingLog, // Keep if needed elsewhere
-    initialNewTaskState
-  } = useReceptionActions(availableRooms, dataActions.refresh, dataActions.refresh);
+    handleSaveWorkLog,
+    isSavingLog,
+    initialNewTaskState,
+    // *** Get new handler and loading state ***
+    handleReportNewIssue,
+    isSubmittingNewIssue
+      // *** Pass refresh action as the callback for reporting issue ***
+  } = useReceptionActions(availableRooms, dataActions.refresh, dataActions.refresh, dataActions.refresh);
 
   return (
     <SidebarProvider>
@@ -52,7 +55,7 @@ export default function Reception() {
 
           <div className="container mx-auto p-6">
             <Routes>
-              {/* *** Pass AddTaskDialog props to Dashboard *** */}
+              {/* Pass issue reporting props to Dashboard */}
               <Route
                 index
                 element={
@@ -63,6 +66,9 @@ export default function Reception() {
                     initialNewTaskState={initialNewTaskState}
                     handleAddTask={handleAddTask}
                     isSubmittingTask={isSubmittingTask}
+                    // *** Pass new props ***
+                    handleReportNewIssue={handleReportNewIssue}
+                    isSubmittingNewIssue={isSubmittingNewIssue}
                   />
                 }
               />
@@ -70,6 +76,7 @@ export default function Reception() {
                 path="tasks"
                 element={
                   <Tasks
+                    // ... (existing props)
                     tasks={tasks}
                     allStaff={allStaff}
                     availableRooms={availableRooms}
@@ -92,7 +99,19 @@ export default function Reception() {
                 }
               />
               <Route path="archive" element={<Archive />} />
-              <Route path="issues" element={<Issues />} />
+               {/* Pass issue reporting props to Issues */}
+              <Route
+                path="issues"
+                element={
+                  <Issues
+                    // *** Pass new props (assuming Issues needs them directly) ***
+                    // *** Alternatively, fetch availableRooms inside Issues.tsx if needed ***
+                    availableRooms={availableRooms}
+                    handleReportNewIssue={handleReportNewIssue}
+                    isSubmittingNewIssue={isSubmittingNewIssue}
+                  />
+                }
+              />
             </Routes>
           </div>
         </main>
