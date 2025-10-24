@@ -19,8 +19,8 @@ export function useHousekeepingTasks() {
     }
     // console.log("Fetching tasks for user:", userId); // Debug log
 
-    // Ensure loading is true at the start of fetch
-    setLoading(true);
+    // Ensure loading is true at the start of fetch, unless already fetching
+    if (!loading) setLoading(true);
 
     const currentISODate = new Date().toISOString().split("T")[0];
     const { data, error } = await supabase
@@ -46,13 +46,15 @@ export function useHousekeepingTasks() {
       setTasks([]); // Clear tasks on error
     } else {
       const fetchedTasks = (data as unknown as Task[]) || [];
-      fetchedTasks.forEach(t => t.created_at = t.created_at || new Date(0).toISOString()); // Ensure created_at exists
+      // Ensure created_at exists for sorting/display consistency
+      fetchedTasks.forEach(t => t.created_at = t.created_at || new Date(0).toISOString());
       setTasks(fetchedTasks);
+      // Update activeTaskId based on newly fetched tasks
       const active = fetchedTasks.find((t) => t.status === "in_progress");
       setActiveTaskId(active?.id || null);
     }
     setLoading(false); // Set loading false after fetch completes (success or error)
-  }, [userId, toast]);
+  }, [userId, toast, loading]); // Added loading to dependencies to prevent concurrent fetches
 
   // Effect for initial fetch and realtime subscription
   useEffect(() => {
@@ -74,10 +76,10 @@ export function useHousekeepingTasks() {
         { event: "*", schema: "public", table: "tasks", filter: `user_id=eq.${userId}&date=eq.${currentISODate}` },
         (payload) => {
           console.log("Housekeeping Realtime update received:", payload);
-          // Simple refetch strategy for now
+          // Simple refetch strategy for now ensures UI consistency
           fetchTasks();
 
-          // Notification Logic
+          // Notification Logic (keep as is)
           if (payload.eventType === 'INSERT') {
                const roomName = (payload.new as Task)?.room?.name || 'Unknown Room';
                toast({ title: "New Task Assigned", description: `Task for Room ${roomName} added.`});
@@ -108,5 +110,6 @@ export function useHousekeepingTasks() {
     };
   }, [userId, userRole, fetchTasks, toast]); // Dependencies updated
 
-  return { tasks, loading, activeTaskId, setActiveTaskId, fetchTasks }; // Expose fetchTasks if manual refresh is needed
+  // Return fetchTasks so it can be called explicitly
+  return { tasks, loading, activeTaskId, setActiveTaskId, fetchTasks };
 }
