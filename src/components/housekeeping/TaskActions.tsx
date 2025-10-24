@@ -43,7 +43,7 @@ export function TaskActions({ task, activeTaskId, onStart, onPause, onResume, on
           </Button>
         </>
       )}
-      {task.status === "repair_needed" && !isThisTaskActive && task.status !== 'done' && (
+      {task.status === "repair_needed" && !isThisTaskActive && (
            <Button size="sm" onClick={() => onStart(task.id)} disabled={!!activeTaskId} className="bg-green-600 hover:bg-green-700 text-white">
                <Play className="mr-1 h-4 w-4" /> Start
            </Button>

@@ -94,15 +94,34 @@ export function useReceptionActions(
     return success;
   };
 
-  // handleSaveWorkLog remains unchanged, assuming it uses filterDate passed separately if needed
   const handleSaveWorkLog = async (logData: any): Promise<boolean> => {
-       // ... existing implementation ...
        setIsSavingLog(true);
        let success = false;
-       // ... existing implementation ...
-        const { error } = await supabase.from("work_logs").upsert(/*... data using logData.date or filterDate ...*/);
-       // ... existing implementation ...
-       setIsSavingLog(false);
+       try {
+           const { error } = await supabase.from("work_logs").upsert({
+               user_id: logData.user_id,
+               date: logData.date,
+               time_in: logData.time_in,
+               time_out: logData.time_out,
+               break_minutes: logData.break_minutes || 0,
+               laundry_minutes: logData.laundry_minutes || 0,
+               breakfast_minutes: logData.breakfast_minutes || 0,
+               total_minutes: logData.total_minutes,
+               notes: logData.notes
+           });
+           
+           if (error) throw error;
+           
+           toast({ title: "Work Log Saved", description: "Work log has been saved successfully." });
+           onWorkLogSaved?.();
+           success = true;
+       } catch (error: any) {
+           console.error("Error saving work log:", error);
+           toast({ title: "Error", description: error.message, variant: "destructive" });
+           success = false;
+       } finally {
+           setIsSavingLog(false);
+       }
        return success;
   };
 

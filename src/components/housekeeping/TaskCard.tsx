@@ -91,7 +91,7 @@ export function TaskCard({
                       <span className="font-semibold flex items-center"><Info className="h-3 w-3 mr-1 inline"/> Reception Note:</span>
                        {/* --- SCHEMA CHANGE REQUIRED --- */}
                        { showAcknowledge && (
-                           <Button size="xs" variant="ghost" className="h-6 px-1 text-blue-700 hover:bg-blue-100 dark:text-blue-200 dark:hover:bg-blue-800" onClick={() => onAcknowledgeNote(task.id)} /* disabled={true} // Re-enable later */ >
+                           <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-blue-700 hover:bg-blue-100 dark:text-blue-200 dark:hover:bg-blue-800" onClick={() => onAcknowledgeNote(task.id)}>
                                <Check className="h-3 w-3 mr-1"/> Acknowledge
                            </Button>
                        )}
