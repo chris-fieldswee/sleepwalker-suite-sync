@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, CheckCircle2, ExternalLink, Plus, User, CalendarDays, Wrench, Check } from "lucide-react"; // Added Wrench, Check
+import { AlertTriangle, CheckCircle2, ExternalLink, Plus, User, CalendarDays, Wrench, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ReportNewIssueDialog } from "@/components/reception/ReportNewIssueDialog";
@@ -12,18 +12,15 @@ import type { Room, Staff } from "@/hooks/useReceptionData";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 
-// Remove TaskStatus if no longer needed here
-// type TaskStatus = Database["public"]["Enums"]["task_status"];
-
 // Simplified filter type
-type IssueFilterStatus = "all" | "active" | "fixed"; // Changed 'resolved' to 'fixed'
+type IssueFilterStatus = "all" | "active" | "fixed";
 
 interface IssuesProps {
   availableRooms: Room[];
   allStaff: Staff[];
   handleReportNewIssue: (roomId: string, description: string, photo: File | null) => Promise<boolean>;
   isSubmittingNewIssue: boolean;
-  handleUpdateIssue: (taskId: string, updates: Partial<{ issue_flag: boolean | null; reception_notes: string | null; user_id: string | null }>) => Promise<boolean>; // Updated type
+  handleUpdateIssue: (taskId: string, updates: Partial<{ issue_flag: boolean | null; reception_notes: string | null; user_id: string | null }>) => Promise<boolean>;
   isUpdatingIssue: boolean;
 }
 
@@ -37,7 +34,7 @@ export default function Issues({
   const { toast } = useToast();
   const [issues, setIssues] = useState<IssueTask[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<IssueFilterStatus>("active"); // Use new filter type
+  const [filter, setFilter] = useState<IssueFilterStatus>("active");
   const [selectedIssue, setSelectedIssue] = useState<IssueTask | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
 
@@ -47,8 +44,7 @@ export default function Issues({
       .channel("issues-channel-reception")
       .on<IssueTask>(
         "postgres_changes",
-        { event: "*", schema: "public", table: "tasks", filter: `issue_flag=eq.true` }, // Keep listening for issue_flag=true initially? Or adjust based on needs.
-        // Consider listening to issue_flag=is.null or issue_flag=eq.false too if needed for 'Fixed' updates
+        { event: "*", schema: "public", table: "tasks", filter: `issue_flag=eq.true` }, // Consider adding filters for false/null if needed for 'fixed' updates
         (payload) => {
             console.log("Issues change received:", payload);
             fetchIssues(); // Refetch on any relevant change
@@ -64,22 +60,28 @@ export default function Issues({
       supabase.removeChannel(channel).catch(err => console.error("Error removing issues channel:", err));
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [filter]); // Rerun fetch when filter changes
 
    const fetchIssues = async () => {
      setLoading(true);
      try {
-       // Fetch relevant fields, including issue_flag
        let query = supabase
          .from("tasks")
+         // *** CORRECTED SELECT STATEMENT (removed comment) ***
          .select(`
-           id, date, status, cleaning_type, issue_description, issue_photo,
-           reception_notes, housekeeping_notes, issue_flag, /* Ensure issue_flag is selected */
+           id,
+           date,
+           status,
+           cleaning_type,
+           issue_description,
+           issue_photo,
+           reception_notes,
+           housekeeping_notes,
+           issue_flag,
            room:rooms!inner(name, color),
            user:users(id, name)
-         `)
-         // Base query might fetch all potential issues initially, filter client-side or DB-side
-         // .eq("issue_flag", true) // Initial thought, but might need modification for 'Fixed' filter
+         `) // Removed comment after issue_flag
+         // Base query adjusted based on filter logic below
          .order("date", { ascending: false })
          .order("created_at", { ascending: false });
 
@@ -90,7 +92,7 @@ export default function Issues({
           // Query for false OR null
          query = query.or('issue_flag.is.null,issue_flag.eq.false');
        }
-       // 'all' filter doesn't add issue_flag constraints here, shows both
+       // 'all' filter shows both active and fixed issues
 
        const { data, error } = await query;
        if (error) throw error;
@@ -104,15 +106,13 @@ export default function Issues({
    };
 
     // --- Helper functions ---
-    const formatDate = (dateString: string | null) => {
-        // ... (formatDate remains the same) ...
+   const formatDate = (dateString: string | null) => {
         if (!dateString) return "N/A";
         return new Date(dateString + 'T00:00:00Z').toLocaleDateString(undefined, {
             year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC'
         });
     };
 
-    // Simplified status badge based on issue_flag
     const getIssueStatusBadge = (isIssue: boolean | null): React.ReactNode => {
       if (isIssue === true) {
           return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200">To Fix</Badge>;
@@ -161,7 +161,7 @@ export default function Issues({
           onClick={() => setFilter("active")}
           size="sm"
         >
-           <Wrench className="mr-2 h-4 w-4" /> {/* Icon for active */}
+           <Wrench className="mr-2 h-4 w-4" />
           Active Issues
         </Button>
         <Button
@@ -169,7 +169,7 @@ export default function Issues({
           onClick={() => setFilter("fixed")}
           size="sm"
         >
-           <Check className="mr-2 h-4 w-4" /> {/* Icon for fixed */}
+           <Check className="mr-2 h-4 w-4" />
            Fixed
         </Button>
         <Button
@@ -204,8 +204,7 @@ export default function Issues({
             <Card
               key={issue.id}
               className={cn(
-                  "border-l-4 hover:shadow-md transition-shadow cursor-pointer flex flex-col sm:flex-row", // Use flex for layout
-                   // Use issue_flag for border color
+                  "border-l-4 hover:shadow-md transition-shadow cursor-pointer flex flex-col sm:flex-row",
                   issue.issue_flag === true ? "border-l-red-500" : "border-l-green-500"
               )}
               onClick={() => handleRowClick(issue)}
@@ -221,13 +220,12 @@ export default function Issues({
                 </div>
               )}
               {/* Content Column */}
-              <div className={cn("flex-grow", !issue.issue_photo && "w-full")}> {/* Ensure content takes full width if no photo */}
+              <div className={cn("flex-grow", !issue.issue_photo && "w-full")}>
                   <CardHeader className="pb-2 pt-3 px-4">
                     <div className="flex items-start justify-between">
                        <CardTitle className="text-lg font-semibold flex items-center gap-2">
                           {issue.room.name}
                       </CardTitle>
-                      {/* Use simplified status badge */}
                       {getIssueStatusBadge(issue.issue_flag)}
                     </div>
                      <div className="text-xs text-muted-foreground space-y-0.5 pt-1">
@@ -250,13 +248,13 @@ export default function Issues({
         </div>
       )}
 
-       {/* Detail Dialog - Pass the updated handler */}
+       {/* Detail Dialog */}
        <IssueDetailDialog
          issue={selectedIssue}
          allStaff={allStaff}
          isOpen={isDetailDialogOpen}
          onOpenChange={handleDialogClose}
-         onUpdate={handleUpdateIssue} // Pass the correct update handler
+         onUpdate={handleUpdateIssue}
        />
     </div>
   );
