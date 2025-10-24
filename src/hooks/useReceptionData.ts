@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from "@/integrations/supabase/types";
 
-// Define necessary types (Consider moving to a shared types file)
+// Define necessary types
 type TaskStatus = Database["public"]["Enums"]["task_status"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
 export interface Room {
@@ -12,6 +12,8 @@ export interface Room {
     name: string;
     group_type: RoomGroup;
     capacity: number;
+    // Add color if you need it for the room filter dropdown, otherwise optional
+    color?: string | null;
 }
 export interface Task {
   id: string;
@@ -29,13 +31,12 @@ export interface Task {
   reception_notes: string | null;
   start_time: string | null;
   stop_time: string | null;
-  // Include fields potentially needed for realtime updates/sorting
   created_at?: string;
 }
 export interface Staff {
   id: string;
   name: string;
-  role: string; // Assuming role is selected
+  role: string;
 }
 export interface WorkLog {
   id: string;
@@ -46,13 +47,14 @@ export interface WorkLog {
   total_minutes: number | null;
   break_minutes: number | null;
   notes: string | null;
-  user: { name: string }; // From the join
+  user: { name: string };
 }
 
-// Helper function to get today's date string
 const getTodayDateString = () => new Date().toISOString().split("T")[0];
 
-// Hook logic
+// Define active statuses for the 'all' filter
+const ACTIVE_TASK_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'paused', 'repair_needed'];
+
 export function useReceptionData() {
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -63,18 +65,19 @@ export function useReceptionData() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Filters State
-  // Default filterDate to null for "all upcoming"
-  const [filterDate, setFilterDate] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>("all");
-  const [filterStaffId, setFilterStaffId] = useState("all");
+  const [filterDate, setFilterDate] = useState<string | null>(getTodayDateString()); // Default to today
+  const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>("all"); // Default to show all active
+  const [filterStaffId, setFilterStaffId] = useState<string>("all");
   const [filterRoomGroup, setFilterRoomGroup] = useState<RoomGroup | 'all'>("all");
+  const [filterRoomId, setFilterRoomId] = useState<string>("all"); // Added Room ID filter
 
   // --- Data Fetching Callbacks ---
   const fetchRooms = useCallback(async () => {
-    const { data, error } = await supabase.from("rooms").select("id, name, group_type, capacity").eq("active", true).order("name");
+    // Select color if needed for dropdown styling
+    const { data, error } = await supabase.from("rooms").select("id, name, group_type, capacity, color").eq("active", true).order("name");
     if (error) { console.error("Error fetching rooms:", error); toast({ title: "Error", description: "Could not load rooms.", variant: "destructive" }); }
     else { setAvailableRooms(data || []); }
-    return data; // Return data for potential chaining
+    return data;
   }, [toast]);
 
   const fetchStaff = useCallback(async () => {
@@ -84,39 +87,68 @@ export function useReceptionData() {
      return data;
   }, [toast]);
 
-  // fetchTasks handles null date and sorts by date
-  const fetchTasks = useCallback(async (date: string | null, status: string, staffId: string, roomGroup: string) => {
+  // Updated fetchTasks
+  const fetchTasks = useCallback(async (
+      date: string | null,
+      status: TaskStatus | 'all',
+      staffId: string,
+      roomGroup: RoomGroup | 'all',
+      roomId: string // Added roomId parameter
+    ) => {
      let query = supabase.from("tasks")
-      .select(`id, date, status, cleaning_type, guest_count, time_limit, actual_time, difference, issue_flag, housekeeping_notes, reception_notes, start_time, stop_time, created_at, room:rooms!inner(id, name, group_type, color), user:users(id, name)`)
-      // Sort by date first, then creation time
-      .order("date", { ascending: true })
-      .order("created_at", { ascending: true });
+      .select(`
+        id, date, status, cleaning_type, guest_count, time_limit, actual_time,
+        difference, issue_flag, housekeeping_notes, reception_notes, start_time,
+        stop_time, created_at,
+        room:rooms!inner(id, name, group_type, color),
+        user:users(id, name)
+      `)
+      .order("created_at", { ascending: true }); // Primary sort by creation time or room name?
 
-     // Apply date filter: gte today if null, eq specific date otherwise
+     // Apply date filter (gte today if null, eq specific date otherwise)
      if (date === null) {
-        query = query.gte('date', getTodayDateString()); // Fetch from today onwards
+        query = query.gte('date', getTodayDateString());
      } else {
-        query = query.eq("date", date); // Fetch for specific date
+        query = query.eq("date", date);
      }
 
-     // Apply other filters
-     if (status !== "all") query = query.eq("status", status as TaskStatus);
+     // Apply Status Filter
+     if (status === "all") {
+         query = query.in("status", ACTIVE_TASK_STATUSES); // Fetch only active statuses
+     } else {
+         query = query.eq("status", status); // Fetch specific status
+     }
+
+     // Apply Staff Filter
      if (staffId !== "all") {
         if (staffId === "unassigned") query = query.is("user_id", null);
         else query = query.eq("user_id", staffId);
      }
 
+     // Apply Room Group Filter (applied client-side below for now, could be done in DB)
+     // if (roomGroup !== 'all') { /* DB filter possible here */ }
+
+     // Apply Room ID Filter
+     if (roomId !== 'all') {
+         query = query.eq("room_id", roomId);
+     }
+
     const { data, error } = await query;
-    if (error) { console.error("Error fetching tasks:", error); toast({ title: "Error", description: `Failed to fetch tasks: ${error.message}`, variant: "destructive" }); return []; }
-    else {
-        // Client-side filter for room group (if needed, or adjust DB query)
-        const groupFilteredData = roomGroup !== 'all' ? (data || []).filter((task: any) => task.room.group_type === roomGroup) : (data || []);
+
+    if (error) {
+        console.error("Error fetching tasks:", error);
+        toast({ title: "Error", description: `Failed to fetch tasks: ${error.message}`, variant: "destructive" });
+        return [];
+    } else {
+        // Client-side filter for room group (if not done in DB query)
+        const groupFilteredData = roomGroup !== 'all'
+            ? (data || []).filter((task: any) => task.room.group_type === roomGroup)
+            : (data || []);
         return groupFilteredData as Task[];
     }
-  }, [toast]);
+  }, [toast]); // Dependencies: only toast needed directly here
 
  const fetchWorkLogs = useCallback(async (date: string | null) => {
-    // Only fetch logs if a specific date is selected
     if (!date) return [];
     const { data, error } = await supabase.from("work_logs")
       .select(`id, user_id, date, time_in, time_out, total_minutes, break_minutes, notes, user:users!inner(name)`)
@@ -128,24 +160,22 @@ export function useReceptionData() {
 
   // --- Main useEffect for Initial Load & Realtime ---
   useEffect(() => {
-    let isMounted = true; // Prevent state updates on unmounted component
+    let isMounted = true;
     setLoading(true);
 
-    // Initial data fetch uses current filter state (date might be null)
+    // Initial data fetch uses current filter state
     Promise.all([
         fetchStaff(),
         fetchRooms(),
-        fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup),
-        fetchWorkLogs(filterDate) // Pass current filterDate
+        fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId), // Pass roomId
+        fetchWorkLogs(filterDate)
     ]).then(([, , tasksData, workLogsData]) => {
         if (isMounted) {
             setTasks(tasksData || []);
             setWorkLogs(workLogsData || []);
-            // Staff and Rooms are set within their fetch functions
         }
     }).catch(error => {
         console.error("Initial data fetch failed:", error);
-        // Toast handled in individual fetch functions
     }).finally(() => {
         if (isMounted) setLoading(false);
     });
@@ -154,39 +184,54 @@ export function useReceptionData() {
     let tasksChannel: any = null;
     let workLogChannel: any = null;
 
-    // Only subscribe if a date is selected
+    const currentFilterDate = filterDate || getTodayDateString(); // Use today if date filter is null for channel
+    const dateFilterString = filterDate ? `date=eq.${filterDate}` : `date=gte.${getTodayDateString()}`; // Adjust filter for subscription
+
+    tasksChannel = supabase
+      .channel(`reception-tasks-channel-${currentFilterDate}-${filterStatus}-${filterStaffId}-${filterRoomGroup}-${filterRoomId}`) // More specific channel
+      .on<Task>(
+        "postgres_changes",
+        {
+            event: "*",
+            schema: "public",
+            table: "tasks",
+            // Apply essential filters to subscription if possible
+            // Note: Complex filters like .in() might not work perfectly here,
+            // but date and user_id should. Rely on refetch for accuracy.
+            filter: `${dateFilterString}${filterStaffId !== 'all' && filterStaffId !== 'unassigned' ? `&user_id=eq.${filterStaffId}` : ''}`
+        },
+        (payload) => {
+          console.log("Reception Task Update:", payload);
+          // Refetch tasks based on *current filters* when any relevant change occurs
+          // Check if the changed task still matches current filters before updating state
+           fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId).then(updatedTasks => {
+              if (isMounted) setTasks(updatedTasks);
+           });
+           // Add/Update notification logic if needed
+        }
+      )
+      .subscribe((status, err) => {
+          if (err) console.error("Task subscription error:", err);
+          else console.log("Task subscription status:", status);
+      });
+
+    // Work log subscription (only if a specific date is selected)
     if (filterDate) {
-        tasksChannel = supabase
-          .channel(`reception-tasks-channel-date-${filterDate}`)
-          .on<Task>(
-            "postgres_changes",
-            { event: "*", schema: "public", table: "tasks", filter: `date=eq.${filterDate}` },
-            (payload) => {
-              console.log("Reception Task Update:", payload);
-              // Refetch tasks based on current filters when a change occurs on the filtered date
-              fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup).then(updatedTasks => {
-                  if (isMounted) setTasks(updatedTasks);
-              });
-
-              // Notifications
-               if (payload.eventType === 'UPDATE') { /* ... notification logic ... */ }
-            }
-          )
-          .subscribe((status, err) => { /* ... error handling ... */ });
-
         workLogChannel = supabase
             .channel(`reception-work-logs-channel-date-${filterDate}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'work_logs', filter: `date=eq.${filterDate}` },
             (payload) => {
               console.log('Work log change received:', payload);
-              // Refetch work logs on change
               fetchWorkLogs(filterDate).then(updatedLogs => {
                   if (isMounted) setWorkLogs(updatedLogs);
               });
             })
-            .subscribe((status, err) => { /* ... error handling ... */ });
+            .subscribe((status, err) => {
+                if (err) console.error("Work log subscription error:", err);
+                else console.log("Work log subscription status:", status);
+            });
     } else {
-        console.log("Realtime updates paused (viewing all upcoming tasks).");
+        console.log("Work log realtime updates paused (no specific date selected).");
     }
 
     // Cleanup
@@ -196,21 +241,20 @@ export function useReceptionData() {
         if (tasksChannel) supabase.removeChannel(tasksChannel).catch(err => console.error("Error removing tasks channel:", err));
         if (workLogChannel) supabase.removeChannel(workLogChannel).catch(err => console.error("Error removing work log channel:", err));
     };
-    // Re-run effect if any filter changes
-  }, [filterDate, filterStatus, filterStaffId, filterRoomGroup, fetchStaff, fetchRooms, fetchTasks, fetchWorkLogs, toast]);
+  // Re-run effect if any filter changes
+  }, [filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId, fetchStaff, fetchRooms, fetchTasks, fetchWorkLogs, toast]); // Added filterRoomId
 
   // --- Actions ---
   const handleRefresh = async () => {
     if (refreshing || loading) return;
     setRefreshing(true);
-    setLoading(true); // Show loading indicator during refresh
+    setLoading(true);
     try {
-        // Refetch based on current filters
         await Promise.all([
             fetchStaff(),
             fetchRooms(),
-            fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup).then(setTasks),
-            fetchWorkLogs(filterDate).then(setWorkLogs) // Pass current date filter
+            fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId).then(setTasks), // Pass roomId
+            fetchWorkLogs(filterDate).then(setWorkLogs)
         ]);
         toast({ title: "Data refreshed" });
     } catch (error) {
@@ -221,33 +265,38 @@ export function useReceptionData() {
     }
   };
 
-  // handleClearFilters sets date to null
+  // Updated handleClearFilters
   const handleClearFilters = () => {
-    setFilterDate(null);
-    setFilterStatus("all");
+    setFilterDate(getTodayDateString()); // Default back to today
+    setFilterStatus("all"); // Default to all active
     setFilterStaffId("all");
     setFilterRoomGroup("all");
+    setFilterRoomId("all"); // Reset room filter
   };
 
-  // --- Derived State ---
+  // --- Derived State (Stats calculation remains the same, based on fetched tasks) ---
   const stats = useMemo(() => {
-    // *** FIX: Ensure tasks is always an array ***
     const currentTasks = Array.isArray(tasks) ? tasks : [];
-    const total = currentTasks.length;
+    // Stats now reflect only the *currently fetched* (potentially filtered) tasks
+    const totalFetched = currentTasks.length;
+    // Note: 'done' tasks are excluded by fetchTasks unless status filter is 'done' (which we removed from UI)
+    // 'repair' count is based on issue_flag within the fetched tasks.
     return {
-      total: total,
+      total: totalFetched, // Represents total matching current filters (excluding 'done' by default)
       todo: currentTasks.filter((t) => t.status === "todo").length,
       inProgress: currentTasks.filter((t) => t.status === "in_progress").length,
-      done: currentTasks.filter((t) => t.status === "done").length,
+      done: currentTasks.filter((t) => t.status === "done").length, // Will usually be 0 unless fetching specifically
       repair: currentTasks.filter((t) => t.issue_flag).length,
     };
-  }, [tasks]); // Dependency remains the same
+  }, [tasks]);
 
 
   return {
     tasks, allStaff, availableRooms, workLogs, loading, refreshing,
-    filters: { date: filterDate, status: filterStatus, staffId: filterStaffId, roomGroup: filterRoomGroup },
-    filterSetters: { setDate: setFilterDate, setStatus: setFilterStatus, setStaffId: setFilterStaffId, setRoomGroup: setFilterRoomGroup },
+    // Include roomId in filters
+    filters: { date: filterDate, status: filterStatus, staffId: filterStaffId, roomGroup: filterRoomGroup, roomId: filterRoomId },
+    // Include setter for roomId
+    filterSetters: { setDate: setFilterDate, setStatus: setFilterStatus, setStaffId: setFilterStaffId, setRoomGroup: setFilterRoomGroup, setRoomId: setFilterRoomId },
     actions: { refresh: handleRefresh, clearFilters: handleClearFilters },
     stats, fetchWorkLogs
   };
