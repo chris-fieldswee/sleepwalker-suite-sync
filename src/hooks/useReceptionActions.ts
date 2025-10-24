@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from "@/integrations/supabase/types";
-import type { Room } from './useReceptionData'; // Import types from the data hook
+import type { Room } from './useReceptionData';
+import { taskInputSchema, workLogSchema } from '@/lib/validation';
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
 
@@ -41,11 +42,24 @@ export function useReceptionActions(
 
   // *** MODIFIED: handleAddTask uses date from newTask object ***
   const handleAddTask = async (newTask: NewTaskState): Promise<boolean> => {
-    // Validate required fields including the new date field
-    if (!newTask.roomId || !newTask.cleaningType || !newTask.date) {
-        toast({ title: "Missing Information", description: "Please select a room, cleaning type, and date.", variant: "destructive" });
-        return false;
+    // Validate input using zod schema
+    const validation = taskInputSchema.safeParse({
+      cleaning_type: newTask.cleaningType,
+      guest_count: newTask.guestCount,
+      reception_notes: newTask.notes,
+      date: newTask.date,
+      room_id: newTask.roomId,
+    });
+
+    if (!validation.success) {
+      toast({ 
+        title: "Validation Error", 
+        description: validation.error.errors[0].message, 
+        variant: "destructive" 
+      });
+      return false;
     }
+
     setIsSubmittingTask(true);
     let success = false;
     try {
@@ -66,7 +80,6 @@ export function useReceptionActions(
         const timeLimit = limitData?.time_limit ?? null;
 
         const taskToInsert = {
-            // *** Use date from the newTask object ***
             date: newTask.date,
             room_id: newTask.roomId,
             cleaning_type: newTask.cleaningType,
@@ -95,19 +108,41 @@ export function useReceptionActions(
   };
 
   const handleSaveWorkLog = async (logData: any): Promise<boolean> => {
+       // Validate input using zod schema
+       const validation = workLogSchema.safeParse({
+         user_id: logData.user_id,
+         date: logData.date,
+         time_in: logData.time_in,
+         time_out: logData.time_out,
+         break_minutes: logData.break_minutes || 0,
+         laundry_minutes: logData.laundry_minutes || 0,
+         breakfast_minutes: logData.breakfast_minutes || 0,
+         total_minutes: logData.total_minutes,
+         notes: logData.notes || '',
+       });
+
+       if (!validation.success) {
+         toast({ 
+           title: "Validation Error", 
+           description: validation.error.errors[0].message, 
+           variant: "destructive" 
+         });
+         return false;
+       }
+
        setIsSavingLog(true);
        let success = false;
        try {
            const { error } = await supabase.from("work_logs").upsert({
-               user_id: logData.user_id,
-               date: logData.date,
-               time_in: logData.time_in,
-               time_out: logData.time_out,
-               break_minutes: logData.break_minutes || 0,
-               laundry_minutes: logData.laundry_minutes || 0,
-               breakfast_minutes: logData.breakfast_minutes || 0,
-               total_minutes: logData.total_minutes,
-               notes: logData.notes
+               user_id: validation.data.user_id,
+               date: validation.data.date,
+               time_in: validation.data.time_in,
+               time_out: validation.data.time_out,
+               break_minutes: validation.data.break_minutes,
+               laundry_minutes: validation.data.laundry_minutes,
+               breakfast_minutes: validation.data.breakfast_minutes,
+               total_minutes: validation.data.total_minutes,
+               notes: validation.data.notes
            });
            
            if (error) throw error;

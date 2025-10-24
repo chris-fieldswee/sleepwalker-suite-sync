@@ -101,6 +101,16 @@ export const TaskTableRow = ({ task, staff }: TaskTableRowProps) => {
   };
 
   const handleNotesUpdate = async () => {
+    // Validate notes length (max 2000 chars)
+    if (receptionNotes && receptionNotes.length > 2000) {
+      toast({
+        title: "Validation Error",
+        description: "Reception notes must be less than 2000 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const { error } = await supabase
       .from("tasks")
       .update({ reception_notes: receptionNotes })

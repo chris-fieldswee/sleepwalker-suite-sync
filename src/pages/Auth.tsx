@@ -13,7 +13,6 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState("housekeeping");
   const [loading, setLoading] = useState(false);
 
   const { signIn, signUp, user } = useAuth();
@@ -30,14 +29,10 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
 
-    const trimmedEmail = email.trim(); // Trim whitespace from email
-
-    // Optional: Add a console log to check the trimmed email
-    console.log('Attempting auth with email:', trimmedEmail);
+    const trimmedEmail = email.trim();
 
     try {
       if (isLogin) {
-        // Use trimmedEmail for sign in
         const { error } = await signIn(trimmedEmail, password);
         if (error) {
           toast({
@@ -47,8 +42,8 @@ export default function Auth() {
           });
         }
       } else {
-        // Use trimmedEmail for sign up
-        const { error } = await signUp(trimmedEmail, password, name, role);
+        // Role is always set to housekeeping by default on backend for security
+        const { error } = await signUp(trimmedEmail, password, name);
         if (error) {
           toast({
             title: "Error",
@@ -58,14 +53,12 @@ export default function Auth() {
         } else {
           toast({
             title: "Success",
-            description: "Account created successfully! Please check your email to verify your account before signing in.",
+            description: "Account created successfully. Contact admin for role assignment.",
           });
-          setIsLogin(true); // Switch to login view after successful signup request
-          // Clear form fields after successful sign up request (optional)
+          setIsLogin(true);
           setEmail("");
           setPassword("");
           setName("");
-          setRole("housekeeping");
         }
       }
     } catch (error: any) {
@@ -133,21 +126,6 @@ export default function Auth() {
               />
             </div>
 
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select value={role} onValueChange={setRole}>
-                  <SelectTrigger id="role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="housekeeping">Housekeeping</SelectItem>
-                    <SelectItem value="reception">Reception</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}

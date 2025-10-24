@@ -164,6 +164,27 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           active: boolean | null
@@ -246,9 +267,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "admin" | "reception" | "housekeeping"
       cleaning_type: "W" | "P" | "T" | "O" | "G" | "S"
       room_group: "P1" | "P2" | "A1S" | "A2S" | "OTHER"
       task_status: "todo" | "in_progress" | "paused" | "done" | "repair_needed"
@@ -380,6 +408,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "reception", "housekeeping"],
       cleaning_type: ["W", "P", "T", "O", "G", "S"],
       room_group: ["P1", "P2", "A1S", "A2S", "OTHER"],
       task_status: ["todo", "in_progress", "paused", "done", "repair_needed"],

@@ -9,7 +9,7 @@ interface AuthContextType {
   userRole: "admin" | "reception" | "housekeeping" | null;
   userId: string | null;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, name: string, role: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   loading: boolean;
 }
@@ -92,7 +92,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, name: string, role: string) => {
+  const signUp = async (email: string, password: string, name: string) => {
+    // Note: role is NOT sent to backend for security - always defaults to 'housekeeping'
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -100,7 +101,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         emailRedirectTo: `${window.location.origin}/`,
         data: {
           name,
-          role,
         },
       },
     });

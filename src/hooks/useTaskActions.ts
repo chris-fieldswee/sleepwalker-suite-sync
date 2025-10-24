@@ -103,6 +103,12 @@ export function useTaskActions(
   }, [setActiveTaskId, toast]); // Removed 'tasks' dependency as we fetch latest state
 
   const handleSaveNote = useCallback(async (noteTaskId: string, currentNote: string) => {
+    // Validate note length (max 2000 chars)
+    if (currentNote && currentNote.length > 2000) {
+      toast({ title: "Validation Error", description: "Housekeeping notes must be less than 2000 characters.", variant: "destructive" });
+      return false;
+    }
+    
     const { error } = await supabase.from("tasks").update({ housekeeping_notes: currentNote }).eq("id", noteTaskId);
     if (error) { toast({ title: "Error", description: `Failed to save note: ${error.message}`, variant: "destructive" }); return false; }
     else { toast({ title: "Note saved" }); return true; }
@@ -113,8 +119,13 @@ export function useTaskActions(
       issueDescription: string,
       issuePhoto: File | null
     ) => {
+    // Validate issue description
     if (!issueDescription.trim()) {
         toast({ title: "Missing Description", description: "Please describe the issue.", variant: "destructive" });
+        return false;
+    }
+    if (issueDescription.length > 5000) {
+        toast({ title: "Validation Error", description: "Issue description must be less than 5000 characters.", variant: "destructive" });
         return false;
     }
 
