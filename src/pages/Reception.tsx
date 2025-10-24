@@ -1,3 +1,4 @@
+// src/pages/Reception.tsx
 import { Routes, Route } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -10,10 +11,12 @@ import Dashboard from "./reception/Dashboard";
 import Tasks from "./reception/Tasks";
 import Archive from "./reception/Archive";
 import Issues from "./reception/Issues";
+// *** Import AddTaskDialog ***
+import { AddTaskDialog } from "@/components/reception/AddTaskDialog";
 
 export default function Reception() {
   const { signOut } = useAuth();
-  
+
   const {
     tasks,
     allStaff,
@@ -25,14 +28,14 @@ export default function Reception() {
     filterSetters,
     actions: dataActions,
     stats,
-    fetchWorkLogs
+    fetchWorkLogs // Keep if needed elsewhere, not directly for AddTaskDialog in Dashboard
   } = useReceptionData();
 
   const {
     handleAddTask,
     isSubmittingTask,
-    handleSaveWorkLog,
-    isSavingLog,
+    handleSaveWorkLog, // Keep if needed elsewhere
+    isSavingLog, // Keep if needed elsewhere
     initialNewTaskState
   } = useReceptionActions(availableRooms, dataActions.refresh, dataActions.refresh);
 
@@ -40,16 +43,29 @@ export default function Reception() {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <ReceptionSidebar onSignOut={signOut} />
-        
+
         <main className="flex-1 overflow-auto">
           <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-2">
             <SidebarTrigger />
             <h2 className="text-lg font-semibold">Reception Management</h2>
           </div>
-          
+
           <div className="container mx-auto p-6">
             <Routes>
-              <Route index element={<Dashboard stats={stats} />} />
+              {/* *** Pass AddTaskDialog props to Dashboard *** */}
+              <Route
+                index
+                element={
+                  <Dashboard
+                    stats={stats}
+                    availableRooms={availableRooms}
+                    allStaff={allStaff}
+                    initialNewTaskState={initialNewTaskState}
+                    handleAddTask={handleAddTask}
+                    isSubmittingTask={isSubmittingTask}
+                  />
+                }
+              />
               <Route
                 path="tasks"
                 element={
