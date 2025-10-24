@@ -33,9 +33,96 @@ export default function Dashboard({
 }: DashboardProps) {
   return (
     <div className="space-y-6">
-      {/* ... (rest of the dashboard header and cards remain the same) ... */}
+      {/* --- Restored Header --- */}
+      <div>
+        <h1 className="text-3xl font-bold">Reception Dashboard</h1>
+        <p className="text-muted-foreground mt-1">
+          Housekeeping Operations Overview
+        </p>
+      </div>
+      {/* --- End Restored Header --- */}
 
-      {/* Quick Actions Card */}
+      {/* --- Restored StatsCards --- */}
+      <StatsCards stats={stats} />
+      {/* --- End Restored StatsCards --- */}
+
+      {/* --- Restored Navigation Links Grid --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Active Tasks Card */}
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+          <Link to="/reception/tasks">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Active Tasks
+              </CardTitle>
+              <CardDescription>
+                View and manage ongoing housekeeping tasks
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.inProgress} in progress
+              </p>
+              <Button className="mt-4 w-full" variant="outline">
+                Go to Tasks
+              </Button>
+            </CardContent>
+          </Link>
+        </Card>
+
+        {/* Archived Tasks Card */}
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+           <Link to="/reception/archive">
+             <CardHeader>
+               <CardTitle className="flex items-center gap-2">
+                 <Archive className="h-5 w-5" />
+                 Archived Tasks
+               </CardTitle>
+               <CardDescription>
+                 Review completed tasks and performance history
+               </CardDescription>
+             </CardHeader>
+             <CardContent>
+               <div className="text-2xl font-bold">{stats.done}</div>
+               <p className="text-xs text-muted-foreground mt-1">
+                 Completed today
+               </p>
+               <Button className="mt-4 w-full" variant="outline">
+                 View Archive
+               </Button>
+             </CardContent>
+           </Link>
+        </Card>
+
+        {/* Issues Card */}
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+           <Link to="/reception/issues">
+             <CardHeader>
+               <CardTitle className="flex items-center gap-2">
+                 <AlertTriangle className="h-5 w-5" />
+                 Issues
+               </CardTitle>
+               <CardDescription>
+                 Track and resolve reported maintenance issues
+               </CardDescription>
+             </CardHeader>
+             <CardContent>
+               <div className="text-2xl font-bold">{stats.repair}</div>
+               <p className="text-xs text-muted-foreground mt-1">
+                 Require attention
+               </p>
+               <Button className="mt-4 w-full" variant="outline">
+                 View Issues
+               </Button>
+             </CardContent>
+           </Link>
+        </Card>
+      </div>
+       {/* --- End Restored Navigation Links Grid --- */}
+
+      {/* Quick Actions Card (Unchanged) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -44,7 +131,6 @@ export default function Dashboard({
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* *** Pass the fully formed Button with children as triggerButton *** */}
           <AddTaskDialog
             availableRooms={availableRooms}
             allStaff={allStaff}
@@ -52,14 +138,12 @@ export default function Dashboard({
             onSubmit={handleAddTask}
             isSubmitting={isSubmittingTask}
             triggerButton={
-              // Pass the Button component with its children directly
               <Button variant="outline" className="h-20 w-full flex-col gap-1">
                  <Plus className="h-5 w-5 mb-1" />
                  <span>Add Task</span>
               </Button>
             }
           />
-          {/* Other buttons remain the same */}
           <Button variant="outline" className="h-20 w-full flex-col gap-1" asChild>
             <Link to="/reception/tasks">Work Log</Link>
           </Button>
