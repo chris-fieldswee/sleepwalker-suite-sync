@@ -4,7 +4,9 @@ import { Table, TableBody, TableHeader, TableRow, TableHead } from "@/components
 import { Button } from "@/components/ui/button";
 import { Plus, RefreshCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TaskFilters } from "@/components/reception/TaskFilters";
+// *** MODIFICATION START: Import RoomGroupOption type ***
+import { TaskFilters, RoomGroupOption } from "@/components/reception/TaskFilters";
+// *** MODIFICATION END ***
 import { AddTaskDialog } from "@/components/reception/AddTaskDialog";
 import { WorkLogDialog } from "@/components/reception/WorkLogDialog";
 import { TaskTableRow } from "@/components/reception/TaskTableRow";
@@ -57,6 +59,22 @@ const getDisplayDate = (dateString: string | null) => {
   }
 };
 
+// *** MODIFICATION START: Define room group options ***
+const allRoomGroups: RoomGroupOption[] = [
+    { value: 'all', label: 'All Groups' },
+    { value: 'P1', label: 'P1' },
+    { value: 'P2', label: 'P2' },
+    { value: 'A1S', label: 'A1S' },
+    { value: 'A2S', label: 'A2S' },
+    { value: 'OTHER', label: 'Other' },
+];
+
+// Filter out 'OTHER' for the regular rooms tab
+const regularRoomGroups: RoomGroupOption[] = allRoomGroups.filter(rg => rg.value !== 'OTHER');
+// Define options for the 'OTHER' tab (though the filter itself might be hidden)
+const otherRoomGroups: RoomGroupOption[] = allRoomGroups.filter(rg => rg.value === 'all' || rg.value === 'OTHER');
+// *** MODIFICATION END ***
+
 export default function Tasks({
   tasks,
   allStaff,
@@ -81,7 +99,7 @@ export default function Tasks({
   // Split tasks and rooms into two groups based on room group type
   const regularTasks = tasks.filter(task => task.room.group_type !== 'OTHER');
   const otherTasks = tasks.filter(task => task.room.group_type === 'OTHER');
-  
+
   const regularRooms = availableRooms.filter(room => room.group_type !== 'OTHER');
   const otherRooms = availableRooms.filter(room => room.group_type === 'OTHER');
 
@@ -104,7 +122,7 @@ export default function Tasks({
               <TableHead className="font-semibold">Status</TableHead>
               <TableHead className="font-semibold">Room</TableHead>
               <TableHead className="font-semibold">Staff</TableHead>
-              <TableHead className="font-semibold">Type</TableHead>
+              <TableHead className="font-semibold text-center">Type</TableHead> {/* Centered */}
               <TableHead className="font-semibold text-center">Guests</TableHead>
               <TableHead className="font-semibold text-center">Limit (min)</TableHead>
               <TableHead className="font-semibold text-center">Actual (min)</TableHead>
@@ -158,7 +176,7 @@ export default function Tasks({
           <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
           <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="regular" className="space-y-4">
           <Card>
             <CardHeader className="py-4">
@@ -173,13 +191,16 @@ export default function Tasks({
                 roomId={filters.roomId}
                 staff={allStaff}
                 availableRooms={regularRooms}
+                // *** MODIFICATION START: Pass filtered room groups ***
+                roomGroups={regularRoomGroups}
+                // *** MODIFICATION END ***
                 onDateChange={onDateChange}
                 onStatusChange={onStatusChange}
                 onStaffChange={onStaffChange}
                 onRoomGroupChange={onRoomGroupChange}
                 onRoomChange={onRoomChange}
                 onClearFilters={onClearFilters}
-                showRoomGroupFilter={true}
+                showRoomGroupFilter={true} // Keep showing the filter
               />
             </CardContent>
           </Card>
@@ -204,17 +225,20 @@ export default function Tasks({
                 date={filters.date}
                 status={filters.status}
                 staffId={filters.staffId}
-                roomGroup="OTHER"
+                roomGroup="OTHER" // Keep this fixed or adjust logic if needed
                 roomId={filters.roomId}
                 staff={allStaff}
                 availableRooms={otherRooms}
+                // *** MODIFICATION START: Pass appropriate room groups (optional, as filter is hidden) ***
+                roomGroups={otherRoomGroups}
+                // *** MODIFICATION END ***
                 onDateChange={onDateChange}
                 onStatusChange={onStatusChange}
                 onStaffChange={onStaffChange}
-                onRoomGroupChange={onRoomGroupChange}
+                onRoomGroupChange={onRoomGroupChange} // Pass handler even if hidden
                 onRoomChange={onRoomChange}
                 onClearFilters={onClearFilters}
-                showRoomGroupFilter={false}
+                showRoomGroupFilter={false} // Hide the group filter here
               />
             </CardContent>
           </Card>
