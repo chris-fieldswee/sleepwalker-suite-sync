@@ -1,36 +1,21 @@
 // src/components/reception/TaskTableRow.tsx
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { User, Eye, Trash2, AlertTriangle, MessageSquare } from "lucide-react";
-import { cn } from "@/lib/utils"; // Import cn utility
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Check, X, Edit2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
-
-// Keep Task interface consistent
 interface Task {
   id: string;
   status: string;
   room: { name: string; group_type: string };
-  user: { id: string; name: string } | null;
+  user: { id: string; name: string } | null; // User object contains name
   cleaning_type: string;
   guest_count: number;
-  time_limit: number | null; // Allow null
+  time_limit: number;
   actual_time: number | null;
   difference: number | null;
   issue_flag: boolean;
@@ -47,13 +32,13 @@ interface Staff {
 
 interface TaskTableRowProps {
   task: Task;
-  staff: Staff[]; // Keep staff for display even if not editable here
-  onViewDetails: (task: Task) => void;
-  onDeleteTask: (taskId: string) => Promise<void>;
-  isDeleting: boolean; // Add state for delete button
+  staff: Staff[];
 }
 
-export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDeleting }: TaskTableRowProps) => {
+export const TaskTableRow = ({ task, staff }: TaskTableRowProps) => {
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [receptionNotes, setReceptionNotes] = useState(task.reception_notes || "");
+  const { toast } = useToast();
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -77,126 +62,209 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
     return labels[status] || status;
   };
 
-  // Render guest icons (remains the same)
-  const renderGuestIcons = (count: number) => {
-    const icons = [];
-    const validCount = Math.max(1, Math.floor(count) || 1);
-    const displayCount = Math.min(validCount, 5); // Limit icons slightly more aggressively in table
+  const handleStaffChange = async (userIdValue: string) => {
+    // Handle 'unassigned' case
+    const userId = userIdValue === "unassigned" ? null : userIdValue;
+    const { error } = await supabase
+      .from("tasks")
+      .update({ user_id: userId })
+      .eq("id", task.id);
 
-    for (let i = 0; i < displayCount; i++) {
-      icons.push(<User key={i} className="h-4 w-4 text-muted-foreground" />);
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update staff assignment",
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "Staff updated" });
+      // No need to manually update state here, rely on realtime/refresh
     }
-    if (validCount > displayCount) {
-       icons.push(<span key="plus" className="text-xs text-muted-foreground ml-0.5">+{validCount - displayCount}</span>);
-    }
-    return <div className="flex items-center justify-center gap-0.5">{icons}</div>;
   };
 
-  const hasNotes = !!task.housekeeping_notes || !!task.reception_notes;
-  const notesTooltip = `HK: ${task.housekeeping_notes || '-'}\nREC: ${task.reception_notes || '-'}`;
+
+  const handleIssueToggle = async () => {
+    const newIssueFlag = !task.issue_flag;
+    const updates: any = { issue_flag: newIssueFlag };
+
+    if (newIssueFlag) {
+      updates.status = "repair_needed";
+    }
+
+    const { error } = await supabase
+      .from("tasks")
+      .update(updates)
+      .eq("id", task.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update issue status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleNotesUpdate = async () => {
+    // Validate notes length (max 2000 chars)
+    if (receptionNotes && receptionNotes.length > 2000) {
+      toast({
+        title: "Validation Error",
+        description: "Reception notes must be less than 2000 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("tasks")
+      .update({ reception_notes: receptionNotes })
+      .eq("id", task.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update notes",
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "Notes updated" });
+      setEditingNotes(false);
+      // No need to manually update state here, rely on realtime/refresh
+    }
+  };
+
+  const calculateWorkingTime = () => {
+    if (!task.start_time) return "-";
+    if (!task.stop_time) {
+      const elapsed = Math.floor((Date.now() - new Date(task.start_time).getTime()) / 60000);
+      // Consider pause time if needed for 'in_progress' display
+      return `${elapsed} min`;
+    }
+    // Use actual_time which accounts for pauses
+    return `${task.actual_time ?? 0} min`;
+  };
 
   return (
-    <TooltipProvider delayDuration={100}>
-      <tr className="border-b hover:bg-muted/50 transition-colors text-sm">
-        {/* Status */}
-        <td className="p-2 align-middle">
-          <Badge className={cn(getStatusColor(task.status), "whitespace-nowrap text-xs px-2 py-0.5")}>
-            {getStatusLabel(task.status)}
-          </Badge>
-        </td>
-        {/* Room */}
-        <td className="p-2 align-middle font-medium">{task.room.name}</td>
-        {/* Staff */}
-        <td className="p-2 align-middle text-muted-foreground">{task.user?.name || <span className="italic text-muted-foreground/70">Unassigned</span>}</td>
-        {/* Type */}
-        <td className="p-2 align-middle text-center">{task.cleaning_type}</td>
-        {/* Guests */}
-        <td className="p-2 align-middle">
-          {renderGuestIcons(task.guest_count)}
-        </td>
-        {/* Limit */}
-        <td className="p-2 align-middle text-center">{task.time_limit ?? '-'}</td>
-        {/* Actual */}
-        <td className="p-2 align-middle text-center">
-          {task.actual_time !== null ? task.actual_time : "-"}
-        </td>
-        {/* Issue */}
-        <td className="p-2 align-middle text-center">
-          {task.issue_flag ? (
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <AlertTriangle className="h-4 w-4 text-red-500 mx-auto" />
-                </TooltipTrigger>
-                <TooltipContent>
-                    <p>Issue Reported</p>
-                </TooltipContent>
-            </Tooltip>
-           ) : (
-            <span className="text-muted-foreground">-</span>
-           )}
-        </td>
-        {/* Notes Indicator */}
-        <td className="p-2 align-middle text-center">
-          {hasNotes ? (
-              <Tooltip>
-                  <TooltipTrigger asChild>
-                      <MessageSquare className="h-4 w-4 text-blue-500 mx-auto" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                      <pre className="text-xs whitespace-pre-wrap max-w-xs">{notesTooltip}</pre>
-                  </TooltipContent>
-              </Tooltip>
-          ) : (
-            <span className="text-muted-foreground">-</span>
-          )}
-        </td>
-        {/* Actions */}
-        <td className="p-2 align-middle text-right">
-          <div className="flex gap-1 justify-end">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onViewDetails(task)}>
-                  <Eye className="h-4 w-4" />
-                  <span className="sr-only">View Details</span>
+    <tr className="border-b hover:bg-muted/50 transition-colors">
+      <td className="p-3">
+        <Badge className={getStatusColor(task.status)}>
+          {getStatusLabel(task.status)}
+        </Badge>
+      </td>
+      <td className="p-3 font-medium">{task.room.name}</td>
+      <td className="p-3">
+        {/* Staff Select Dropdown */}
+        <Select
+          value={task.user?.id || "unassigned"}
+          onValueChange={handleStaffChange}
+        >
+          <SelectTrigger className="w-[180px] bg-card text-sm">
+            {/* Display name in the trigger */}
+            <SelectValue placeholder="Assign Staff">
+                {task.user?.name || "Unassigned"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent className="bg-card z-50">
+            <SelectItem value="unassigned" className="text-sm">Unassigned</SelectItem>
+            {staff.map((s) => (
+              <SelectItem key={s.id} value={s.id} className="text-sm">
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
+      <td className="p-3">{task.cleaning_type}</td>
+      <td className="p-3 text-center">{task.guest_count}</td>
+      <td className="p-3 text-center">{task.time_limit ?? '-'}</td> {/* Handle null time_limit */}
+      <td className="p-3 text-center">
+        {task.actual_time !== null ? task.actual_time : "-"}
+      </td>
+      <td className="p-3 text-center">
+        {task.difference !== null ? (
+          <span
+            className={`font-semibold ${
+              task.difference > 0 ? "text-status-todo" : "text-status-done"
+            }`}
+          >
+            {task.difference > 0 ? "+" : ""}
+            {task.difference}
+          </span>
+        ) : (
+          "-"
+        )}
+      </td>
+      <td className="p-3 text-center">
+        <button
+          onClick={handleIssueToggle}
+          className={`text-xl font-bold cursor-pointer transition-colors ${
+            task.issue_flag ? "text-red-500 hover:text-red-700" : "text-green-500 hover:text-green-700"
+          }`}
+          title={task.issue_flag ? "Mark as not an issue" : "Mark as issue"}
+        >
+          {task.issue_flag ? "✗" : "✓"}
+        </button>
+      </td>
+       <td className="p-3 min-w-[200px] max-w-xs"> {/* Added max-width */}
+        {editingNotes ? (
+          <div className="space-y-1">
+            <Textarea
+              value={receptionNotes}
+              onChange={(e) => setReceptionNotes(e.target.value)}
+              className="min-h-[60px] bg-card text-xs" /* smaller text */
+              placeholder="Reception notes..."
+              maxLength={2000} /* Added maxLength */
+            />
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">{receptionNotes.length}/2000</span>
+              <div className="flex gap-1">
+                <Button size="icon" className="h-6 w-6" onClick={handleNotesUpdate}>
+                  <Check className="h-3 w-3" />
+                  <span className="sr-only">Save Notes</span>
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent><p>View/Edit Details</p></TooltipContent>
-            </Tooltip>
-            {/* Delete Confirmation */}
-            <AlertDialog>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" disabled={isDeleting}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete Task</span>
-                        </Button>
-                    </AlertDialogTrigger>
-                </TooltipTrigger>
-                <TooltipContent><p>Delete Task</p></TooltipContent>
-              </Tooltip>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the task for room <span className="font-medium">{task.room.name}</span>.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => onDeleteTask(task.id)}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? "Deleting..." : "Delete"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6"
+                  onClick={() => {
+                    setEditingNotes(false);
+                    setReceptionNotes(task.reception_notes || ""); // Reset on cancel
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                  <span className="sr-only">Cancel Edit Notes</span>
+                </Button>
+              </div>
+            </div>
           </div>
-        </td>
-      </tr>
-    </TooltipProvider>
+        ) : (
+          <div className="space-y-0.5 group"> {/* Reduced space */}
+            {task.housekeeping_notes && (
+              <p className="text-xs text-muted-foreground italic truncate" title={task.housekeeping_notes}>
+                <strong>HK:</strong> {task.housekeeping_notes}
+              </p>
+            )}
+            <div className="flex items-start gap-1"> {/* Align start */}
+              <p className="text-xs flex-1 break-words py-1"> {/* Allow word break */}
+                {task.reception_notes || (
+                  <span className="text-muted-foreground/70 italic">No notes</span>
+                )}
+              </p>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" /* Show on hover */
+                onClick={() => setEditingNotes(true)}
+              >
+                <Edit2 className="h-3 w-3" />
+                <span className="sr-only">Edit Notes</span>
+              </Button>
+            </div>
+          </div>
+        )}
+      </td>
+      <td className="p-3 text-center text-xs">{calculateWorkingTime()}</td>
+    </tr>
   );
 };
