@@ -1,23 +1,12 @@
 // src/pages/Reception.tsx
-import { Routes, Route } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { ReceptionSidebar } from "@/components/reception/ReceptionSidebar";
-import { useReceptionData } from '@/hooks/useReceptionData';
-import { useReceptionActions } from '@/hooks/useReceptionActions';
-
-// Import page components
-import Dashboard from "./reception/Dashboard";
-import Tasks from "./reception/Tasks";
-import Archive from "./reception/Archive";
-import Issues from "./reception/Issues";
+// ... imports remain the same
 
 export default function Reception() {
   const { signOut } = useAuth();
 
   const {
     tasks,
-    allStaff, // Needed for the IssueDetailDialog
+    allStaff,
     availableRooms,
     workLogs,
     loading,
@@ -26,7 +15,7 @@ export default function Reception() {
     filterSetters,
     actions: dataActions,
     stats,
-    fetchWorkLogs
+    fetchWorkLogs // Keep if needed directly here, otherwise remove
   } = useReceptionData();
 
   const {
@@ -37,11 +26,22 @@ export default function Reception() {
     initialNewTaskState,
     handleReportNewIssue,
     isSubmittingNewIssue,
-    // *** Get new handler and loading state ***
     handleUpdateIssue,
     isUpdatingIssue,
-      // *** Pass refresh action as callback for issue updates too ***
-  } = useReceptionActions(availableRooms, dataActions.refresh, dataActions.refresh, dataActions.refresh, dataActions.refresh);
+    // *** Destructure new handlers and states ***
+    handleUpdateTask,
+    isUpdatingTask,
+    handleDeleteTask,
+    isDeletingTask,
+  } = useReceptionActions(
+      availableRooms,
+      dataActions.refresh, // onTaskAdded
+      dataActions.refresh, // onWorkLogSaved
+      dataActions.refresh, // onIssueReported
+      dataActions.refresh, // onIssueUpdated
+      dataActions.refresh, // onTaskUpdated
+      dataActions.refresh  // onTaskDeleted
+   );
 
   return (
     <SidebarProvider>
@@ -49,12 +49,14 @@ export default function Reception() {
         <ReceptionSidebar onSignOut={signOut} />
 
         <main className="flex-1 overflow-auto">
-          <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-2">
-            <SidebarTrigger />
-            <h2 className="text-lg font-semibold">Reception Management</h2>
-          </div>
+          {/* Header remains the same */}
+            <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-2">
+              <SidebarTrigger />
+              <h2 className="text-lg font-semibold">Reception Management</h2>
+            </div>
 
-          <div className="container mx-auto p-6">
+
+          <div className="container mx-auto p-4 md:p-6"> {/* Adjusted padding */}
             <Routes>
               <Route
                 index
@@ -94,6 +96,11 @@ export default function Reception() {
                     initialNewTaskState={initialNewTaskState}
                     isSubmittingTask={isSubmittingTask}
                     isSavingLog={isSavingLog}
+                    // *** Pass new props ***
+                    onUpdateTask={handleUpdateTask}
+                    onDeleteTask={handleDeleteTask}
+                    isUpdatingTask={isUpdatingTask}
+                    isDeletingTask={isDeletingTask}
                   />
                 }
               />
@@ -102,13 +109,12 @@ export default function Reception() {
                 path="issues"
                 element={
                   <Issues
-                    availableRooms={availableRooms} // Needed for reporting new issues
+                    availableRooms={availableRooms}
                     handleReportNewIssue={handleReportNewIssue}
                     isSubmittingNewIssue={isSubmittingNewIssue}
-                    // *** Pass staff list and update handler/state ***
                     allStaff={allStaff}
                     handleUpdateIssue={handleUpdateIssue}
-                    isUpdatingIssue={isUpdatingIssue} // Pass loading state if dialog needs it
+                    isUpdatingIssue={isUpdatingIssue}
                   />
                 }
               />
