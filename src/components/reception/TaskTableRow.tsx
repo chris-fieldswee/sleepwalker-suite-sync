@@ -1,15 +1,28 @@
-import { useState } from "react";
+// src/components/reception/TaskTableRow.tsx
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-// *** MODIFICATION START: Import User icon ***
-import { Check, X, Edit2, User } from "lucide-react";
-// *** MODIFICATION END ***
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { User, Eye, Trash2, AlertTriangle, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils"; // Import cn utility
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
+
+// Keep Task interface consistent
 interface Task {
   id: string;
   status: string;
@@ -17,7 +30,7 @@ interface Task {
   user: { id: string; name: string } | null;
   cleaning_type: string;
   guest_count: number;
-  time_limit: number;
+  time_limit: number | null; // Allow null
   actual_time: number | null;
   difference: number | null;
   issue_flag: boolean;
@@ -34,13 +47,13 @@ interface Staff {
 
 interface TaskTableRowProps {
   task: Task;
-  staff: Staff[];
+  staff: Staff[]; // Keep staff for display even if not editable here
+  onViewDetails: (task: Task) => void;
+  onDeleteTask: (taskId: string) => Promise<void>;
+  isDeleting: boolean; // Add state for delete button
 }
 
-export const TaskTableRow = ({ task, staff }: TaskTableRowProps) => {
-  const [editingNotes, setEditingNotes] = useState(false);
-  const [receptionNotes, setReceptionNotes] = useState(task.reception_notes || "");
-  const { toast } = useToast();
+export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDeleting }: TaskTableRowProps) => {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -64,243 +77,126 @@ export const TaskTableRow = ({ task, staff }: TaskTableRowProps) => {
     return labels[status] || status;
   };
 
-  const handleStaffChange = async (userId: string) => {
-    const { error } = await supabase
-      .from("tasks")
-      .update({ user_id: userId === 'unassigned' ? null : userId }) // Handle unassigned case
-      .eq("id", task.id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update staff assignment",
-        variant: "destructive",
-      });
-    } else {
-      toast({ title: "Staff updated" });
-      // Note: Realtime should update the UI, manual refresh might not be needed
-    }
-  };
-
-  const handleIssueToggle = async () => {
-    const newIssueFlag = !task.issue_flag;
-    const updates: any = { issue_flag: newIssueFlag };
-
-    if (newIssueFlag) {
-      updates.status = "repair_needed";
-    } else if (task.status === 'repair_needed') {
-      // Optionally reset status if unflagging, e.g., to 'todo' or based on time
-      updates.status = 'todo'; // Example: reset to 'todo'
-    }
-
-    const { error } = await supabase
-      .from("tasks")
-      .update(updates)
-      .eq("id", task.id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update issue status",
-        variant: "destructive",
-      });
-    }
-    // Note: Realtime should update the UI
-  };
-
-
-  const handleNotesUpdate = async () => {
-    // Validate notes length (max 2000 chars)
-    if (receptionNotes && receptionNotes.length > 2000) {
-      toast({
-        title: "Validation Error",
-        description: "Reception notes must be less than 2000 characters.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const { error } = await supabase
-      .from("tasks")
-      .update({ reception_notes: receptionNotes || null }) // Send null if empty
-      .eq("id", task.id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update notes",
-        variant: "destructive",
-      });
-    } else {
-      toast({ title: "Notes updated" });
-      setEditingNotes(false);
-      // Note: Realtime should update the UI
-    }
-  };
-
-  // Calculate working time or show status if not started/stopped
-  const calculateWorkingTime = () => {
-      if (task.status === 'done' && task.actual_time !== null) {
-          return `${task.actual_time} min`;
-      }
-      if (task.start_time && task.status !== 'todo') {
-          const start = new Date(task.start_time).getTime();
-          let end = Date.now();
-          if (task.stop_time) {
-              end = new Date(task.stop_time).getTime();
-          } else if (task.status === 'paused' && task.pause_start) {
-              end = new Date(task.pause_start).getTime(); // Calculate up to pause start
-          }
-
-          let currentPauseMs = 0;
-          if (task.status === 'paused' && task.pause_start) {
-            const pauseStartTime = new Date(task.pause_start).getTime();
-            if (!isNaN(pauseStartTime)) {
-                currentPauseMs = Date.now() - pauseStartTime; // Time since pause started
-            }
-          }
-
-          const accumulatedPauseMs = (task.total_pause || 0) * 60 * 1000;
-          const elapsedMs = Math.max(0, end - start - accumulatedPauseMs); // Adjusted calculation
-          const elapsedMinutes = Math.floor(elapsedMs / 60000);
-
-          if (task.status === 'in_progress' || task.status === 'paused') {
-              return `${elapsedMinutes} min ${task.status === 'paused' ? '(paused)' : ''}`;
-          }
-      }
-      return "-";
-  };
-
-  // *** MODIFICATION START: Render guest icons ***
+  // Render guest icons (remains the same)
   const renderGuestIcons = (count: number) => {
     const icons = [];
-    // Ensure count is a positive integer, default to 1 if invalid
     const validCount = Math.max(1, Math.floor(count) || 1);
-    const displayCount = Math.min(validCount, 10); // Limit icons to a max of 10 for UI sanity
+    const displayCount = Math.min(validCount, 5); // Limit icons slightly more aggressively in table
 
     for (let i = 0; i < displayCount; i++) {
       icons.push(<User key={i} className="h-4 w-4 text-muted-foreground" />);
     }
-    // Optionally show "+X" if count exceeds the limit
     if (validCount > displayCount) {
-       icons.push(<span key="plus" className="text-xs text-muted-foreground ml-1">+{validCount - displayCount}</span>);
+       icons.push(<span key="plus" className="text-xs text-muted-foreground ml-0.5">+{validCount - displayCount}</span>);
     }
     return <div className="flex items-center justify-center gap-0.5">{icons}</div>;
   };
-  // *** MODIFICATION END ***
+
+  const hasNotes = !!task.housekeeping_notes || !!task.reception_notes;
+  const notesTooltip = `HK: ${task.housekeeping_notes || '-'}\nREC: ${task.reception_notes || '-'}`;
 
   return (
-    <tr className="border-b hover:bg-muted/50 transition-colors">
-      <td className="p-3">
-        <Badge className={cn(getStatusColor(task.status), "whitespace-nowrap")}>
-          {getStatusLabel(task.status)}
-        </Badge>
-      </td>
-      <td className="p-3 font-medium">{task.room.name}</td>
-      <td className="p-3">
-        <Select
-          value={task.user?.id || "unassigned"}
-          onValueChange={handleStaffChange}
-        >
-          <SelectTrigger className="w-[160px] bg-card h-9 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-card z-50">
-            <SelectItem value="unassigned" className="text-sm">Unassigned</SelectItem>
-            {staff.map((s) => (
-              <SelectItem key={s.id} value={s.id} className="text-sm">
-                {s.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </td>
-      <td className="p-3 text-center">{task.cleaning_type}</td>
-      {/* *** MODIFICATION START: Use guest icon renderer *** */}
-      <td className="p-3 text-center">
-        {renderGuestIcons(task.guest_count)}
-      </td>
-       {/* *** MODIFICATION END *** */}
-      <td className="p-3 text-center">{task.time_limit ?? '-'}</td>
-      <td className="p-3 text-center">
-        {task.actual_time !== null ? task.actual_time : "-"}
-      </td>
-      <td className="p-3 text-center">
-        {task.difference !== null ? (
-          <span
-            className={cn(
-                "font-semibold",
-                task.difference > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
-            )}
-          >
-            {task.difference > 0 ? "+" : ""}
-            {task.difference}
-          </span>
-        ) : (
-          "-"
-        )}
-      </td>
-      <td className="p-3 text-center">
-        {/* Simplified Issue Display */}
-         {task.issue_flag ? (
-             <span title="Issue Reported" className="text-red-500 font-bold text-lg">!</span>
-         ) : (
-             <span title="No Issue" className="text-muted-foreground">-</span>
-         )}
-      </td>
-      <td className="p-3 min-w-[200px] max-w-xs"> {/* Added max-width */}
-        {editingNotes ? (
-          <div className="space-y-1">
-            <Textarea
-              value={receptionNotes}
-              onChange={(e) => setReceptionNotes(e.target.value)}
-              className="min-h-[60px] bg-card text-xs"
-              placeholder="Reception notes..."
-              maxLength={2000} // Add validation limit
-            />
-            <div className="flex gap-1 justify-end">
-              <Button size="icon" className="h-7 w-7" onClick={handleNotesUpdate}>
-                <Check className="h-4 w-4" /> <span className="sr-only">Save</span>
-              </Button>
-              <Button
-                size="icon"
-                className="h-7 w-7"
-                variant="outline"
-                onClick={() => {
-                  setEditingNotes(false);
-                  setReceptionNotes(task.reception_notes || "");
-                }}
-              >
-                <X className="h-4 w-4" /> <span className="sr-only">Cancel</span>
-              </Button>
-            </div>
+    <TooltipProvider delayDuration={100}>
+      <tr className="border-b hover:bg-muted/50 transition-colors text-sm">
+        {/* Status */}
+        <td className="p-2 align-middle">
+          <Badge className={cn(getStatusColor(task.status), "whitespace-nowrap text-xs px-2 py-0.5")}>
+            {getStatusLabel(task.status)}
+          </Badge>
+        </td>
+        {/* Room */}
+        <td className="p-2 align-middle font-medium">{task.room.name}</td>
+        {/* Staff */}
+        <td className="p-2 align-middle text-muted-foreground">{task.user?.name || <span className="italic text-muted-foreground/70">Unassigned</span>}</td>
+        {/* Type */}
+        <td className="p-2 align-middle text-center">{task.cleaning_type}</td>
+        {/* Guests */}
+        <td className="p-2 align-middle">
+          {renderGuestIcons(task.guest_count)}
+        </td>
+        {/* Limit */}
+        <td className="p-2 align-middle text-center">{task.time_limit ?? '-'}</td>
+        {/* Actual */}
+        <td className="p-2 align-middle text-center">
+          {task.actual_time !== null ? task.actual_time : "-"}
+        </td>
+        {/* Issue */}
+        <td className="p-2 align-middle text-center">
+          {task.issue_flag ? (
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <AlertTriangle className="h-4 w-4 text-red-500 mx-auto" />
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Issue Reported</p>
+                </TooltipContent>
+            </Tooltip>
+           ) : (
+            <span className="text-muted-foreground">-</span>
+           )}
+        </td>
+        {/* Notes Indicator */}
+        <td className="p-2 align-middle text-center">
+          {hasNotes ? (
+              <Tooltip>
+                  <TooltipTrigger asChild>
+                      <MessageSquare className="h-4 w-4 text-blue-500 mx-auto" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                      <pre className="text-xs whitespace-pre-wrap max-w-xs">{notesTooltip}</pre>
+                  </TooltipContent>
+              </Tooltip>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )}
+        </td>
+        {/* Actions */}
+        <td className="p-2 align-middle text-right">
+          <div className="flex gap-1 justify-end">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onViewDetails(task)}>
+                  <Eye className="h-4 w-4" />
+                  <span className="sr-only">View Details</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>View/Edit Details</p></TooltipContent>
+            </Tooltip>
+            {/* Delete Confirmation */}
+            <AlertDialog>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" disabled={isDeleting}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete Task</span>
+                        </Button>
+                    </AlertDialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent><p>Delete Task</p></TooltipContent>
+              </Tooltip>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the task for room <span className="font-medium">{task.room.name}</span>.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => onDeleteTask(task.id)}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
-        ) : (
-          <div className="space-y-0.5 group relative">
-            {task.housekeeping_notes && (
-              <p className="text-xs text-muted-foreground truncate" title={task.housekeeping_notes}>
-                <strong>HK:</strong> {task.housekeeping_notes}
-              </p>
-            )}
-            <div className="flex items-start gap-1">
-              <p className="text-xs flex-1 truncate" title={task.reception_notes ?? "No reception notes"}>
-                {task.reception_notes || (
-                  <span className="italic text-muted-foreground/70">No notes</span>
-                )}
-              </p>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-5 w-5 opacity-0 group-hover:opacity-100 focus:opacity-100 absolute top-0 right-0"
-                onClick={() => setEditingNotes(true)}
-              >
-                <Edit2 className="h-3 w-3" /> <span className="sr-only">Edit Notes</span>
-              </Button>
-            </div>
-          </div>
-        )}
-      </td>
-      <td className="p-3 text-center text-xs whitespace-nowrap">{calculateWorkingTime()}</td>
-    </tr>
+        </td>
+      </tr>
+    </TooltipProvider>
   );
 };
