@@ -65,7 +65,7 @@ export function useReceptionData() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Filters State
-  const [filterDate, setFilterDate] = useState<string | null>(getTodayDateString()); // Default to today
+  const [filterDate, setFilterDate] = useState<string | null>(null); // Default to null (upcoming tasks)
   const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>("all"); // Default to show all active
   const [filterStaffId, setFilterStaffId] = useState<string>("all");
   const [filterRoomGroup, setFilterRoomGroup] = useState<RoomGroup | 'all'>("all");
@@ -267,7 +267,7 @@ export function useReceptionData() {
 
   // Updated handleClearFilters
   const handleClearFilters = () => {
-    setFilterDate(getTodayDateString()); // Default back to today
+    setFilterDate(null); // Default to null (upcoming tasks)
     setFilterStatus("all"); // Default to all active
     setFilterStaffId("all");
     setFilterRoomGroup("all");

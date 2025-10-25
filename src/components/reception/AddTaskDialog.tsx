@@ -93,6 +93,7 @@ export function AddTaskDialog({
                             value={newTask.date}
                             onChange={(e) => setNewTask(prev => ({ ...prev, date: e.target.value }))}
                             className="col-span-3"
+                            min={new Date().toISOString().split("T")[0]}
                             required
                         />
                     </div>

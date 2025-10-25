@@ -27,13 +27,13 @@ interface TasksProps {
     status: TaskStatus | 'all';
     staffId: string;
     roomGroup: RoomGroup | 'all';
-    roomId: string; // Added roomId
+    roomId: string;
   };
   onDateChange: (date: string | null) => void;
   onStatusChange: (status: TaskStatus | 'all') => void;
   onStaffChange: (staffId: string) => void;
   onRoomGroupChange: (group: RoomGroup | 'all') => void;
-  onRoomChange: (roomId: string) => void; // Added onRoomChange
+  onRoomChange: (roomId: string) => void;
   onClearFilters: () => void;
   onRefresh: () => void;
   onAddTask: (task: NewTaskState) => Promise<boolean>;
@@ -78,9 +78,12 @@ export default function Tasks({
   isSubmittingTask,
   isSavingLog
 }: TasksProps) {
-  // Split tasks into two groups based on room group type
+  // Split tasks and rooms into two groups based on room group type
   const regularTasks = tasks.filter(task => task.room.group_type !== 'OTHER');
   const otherTasks = tasks.filter(task => task.room.group_type === 'OTHER');
+  
+  const regularRooms = availableRooms.filter(room => room.group_type !== 'OTHER');
+  const otherRooms = availableRooms.filter(room => room.group_type === 'OTHER');
 
   const renderTaskTable = (taskList: Task[], emptyMessage: string) => (
     loading && !refreshing ? (
@@ -92,18 +95,6 @@ export default function Tasks({
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <p className="text-lg font-medium text-muted-foreground">{emptyMessage}</p>
         <p className="text-sm text-muted-foreground">Try adjusting filters or add a new task.</p>
-        <AddTaskDialog
-          availableRooms={availableRooms}
-          allStaff={allStaff}
-          initialState={{ ...initialNewTaskState, date: filters.date || getTodayDateString() }}
-          onSubmit={onAddTask}
-          isSubmitting={isSubmittingTask}
-          triggerButton={
-            <Button size="sm" className="mt-4">
-              <Plus className="mr-2 h-4 w-4" /> Add Task
-            </Button>
-          }
-        />
       </div>
     ) : (
       <div className="overflow-x-auto">
@@ -162,36 +153,37 @@ export default function Tasks({
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="py-4">
-          <CardTitle className="text-lg">Filters</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0 pb-4">
-          <TaskFilters
-            date={filters.date}
-            status={filters.status}
-            staffId={filters.staffId}
-            roomGroup={filters.roomGroup}
-            roomId={filters.roomId}
-            staff={allStaff}
-            availableRooms={availableRooms}
-            onDateChange={onDateChange}
-            onStatusChange={onStatusChange}
-            onStaffChange={onStaffChange}
-            onRoomGroupChange={onRoomGroupChange}
-            onRoomChange={onRoomChange}
-            onClearFilters={onClearFilters}
-          />
-        </CardContent>
-      </Card>
-
       <Tabs defaultValue="regular" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
           <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="regular">
+        <TabsContent value="regular" className="space-y-4">
+          <Card>
+            <CardHeader className="py-4">
+              <CardTitle className="text-lg">Filters</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <TaskFilters
+                date={filters.date}
+                status={filters.status}
+                staffId={filters.staffId}
+                roomGroup={filters.roomGroup}
+                roomId={filters.roomId}
+                staff={allStaff}
+                availableRooms={regularRooms}
+                onDateChange={onDateChange}
+                onStatusChange={onStatusChange}
+                onStaffChange={onStaffChange}
+                onRoomGroupChange={onRoomGroupChange}
+                onRoomChange={onRoomChange}
+                onClearFilters={onClearFilters}
+                showRoomGroupFilter={true}
+              />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Hotel Room Tasks for {getDisplayDate(filters.date)}</CardTitle>
@@ -202,7 +194,31 @@ export default function Tasks({
           </Card>
         </TabsContent>
 
-        <TabsContent value="other">
+        <TabsContent value="other" className="space-y-4">
+          <Card>
+            <CardHeader className="py-4">
+              <CardTitle className="text-lg">Filters</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <TaskFilters
+                date={filters.date}
+                status={filters.status}
+                staffId={filters.staffId}
+                roomGroup="OTHER"
+                roomId={filters.roomId}
+                staff={allStaff}
+                availableRooms={otherRooms}
+                onDateChange={onDateChange}
+                onStatusChange={onStatusChange}
+                onStaffChange={onStaffChange}
+                onRoomGroupChange={onRoomGroupChange}
+                onRoomChange={onRoomChange}
+                onClearFilters={onClearFilters}
+                showRoomGroupFilter={false}
+              />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Other Location Tasks for {getDisplayDate(filters.date)}</CardTitle>

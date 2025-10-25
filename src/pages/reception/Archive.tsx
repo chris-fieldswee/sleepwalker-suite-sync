@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import type { Database } from "@/integrations/supabase/types";
 
 type Task = {
   id: string;
@@ -146,47 +145,47 @@ export default function Archive() {
         <p className="text-muted-foreground mt-1">Review completed tasks and performance history</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Date Range Filter</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="start-date">Start Date</Label>
-              <div className="relative">
-                <Input
-                  id="start-date"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-                <Calendar className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="end-date">End Date</Label>
-              <div className="relative">
-                <Input
-                  id="end-date"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-                <Calendar className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <Tabs defaultValue="regular" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
           <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="regular">
+        <TabsContent value="regular" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Date Range Filter</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="start-date">Start Date</Label>
+                  <div className="relative">
+                    <Input
+                      id="start-date"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                    <Calendar className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="end-date">End Date</Label>
+                  <div className="relative">
+                    <Input
+                      id="end-date"
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                    <Calendar className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Completed Hotel Room Tasks</CardTitle>
@@ -197,7 +196,41 @@ export default function Archive() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="other">
+        <TabsContent value="other" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Date Range Filter</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="start-date-other">Start Date</Label>
+                  <div className="relative">
+                    <Input
+                      id="start-date-other"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                    <Calendar className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="end-date-other">End Date</Label>
+                  <div className="relative">
+                    <Input
+                      id="end-date-other"
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                    <Calendar className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Completed Other Location Tasks</CardTitle>

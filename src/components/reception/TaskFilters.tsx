@@ -31,18 +31,19 @@ const roomGroups: Array<{ value: RoomGroup | 'all', label: string }> = [
 
 interface TaskFiltersProps {
   date: string | null;
-  status: TaskStatus | 'all'; // Use union type
+  status: TaskStatus | 'all';
   staffId: string;
-  roomGroup: RoomGroup | 'all'; // Use union type
-  roomId: string; // Added roomId
+  roomGroup: RoomGroup | 'all';
+  roomId: string;
   staff: Staff[];
-  availableRooms: Room[]; // Added availableRooms
+  availableRooms: Room[];
   onDateChange: (date: string | null) => void;
-  onStatusChange: (status: TaskStatus | 'all') => void; // Use union type
+  onStatusChange: (status: TaskStatus | 'all') => void;
   onStaffChange: (staffId: string) => void;
-  onRoomGroupChange: (group: RoomGroup | 'all') => void; // Use union type
-  onRoomChange: (roomId: string) => void; // Added onRoomChange
+  onRoomGroupChange: (group: RoomGroup | 'all') => void;
+  onRoomChange: (roomId: string) => void;
   onClearFilters: () => void;
+  showRoomGroupFilter?: boolean;
 }
 
 export const TaskFilters = ({
@@ -50,15 +51,16 @@ export const TaskFilters = ({
   status,
   staffId,
   roomGroup,
-  roomId, // Destructure roomId
+  roomId,
   staff,
-  availableRooms, // Destructure availableRooms
+  availableRooms,
   onDateChange,
   onStatusChange,
   onStaffChange,
   onRoomGroupChange,
-  onRoomChange, // Destructure onRoomChange
+  onRoomChange,
   onClearFilters,
+  showRoomGroupFilter = true,
 }: TaskFiltersProps) => {
 
   const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,8 +68,7 @@ export const TaskFilters = ({
   };
 
   return (
-    // Adjusted grid columns for the new filter
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6 mb-4 items-end">
+    <div className={`grid gap-4 md:grid-cols-2 ${showRoomGroupFilter ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} mb-4 items-end`}>
       {/* Date Filter */}
       <div className="space-y-1">
         <Label htmlFor="date-filter">Date</Label>
@@ -76,7 +77,7 @@ export const TaskFilters = ({
           type="date"
           value={date ?? ''}
           onChange={handleDateInputChange}
-          className="bg-card h-9 text-sm" // Adjusted height/text size
+          className="bg-card h-9 text-sm"
         />
       </div>
 
@@ -116,24 +117,26 @@ export const TaskFilters = ({
         </Select>
       </div>
 
-      {/* Room Group Filter */}
-      <div className="space-y-1">
-        <Label htmlFor="group-filter">Group</Label>
-        <Select value={roomGroup} onValueChange={onRoomGroupChange}>
-          <SelectTrigger id="group-filter" className="bg-card h-9 text-sm">
-            <SelectValue placeholder="Filter group..." />
-          </SelectTrigger>
-          <SelectContent className="bg-card z-50">
-            {roomGroups.map(rg => (
-                <SelectItem key={rg.value} value={rg.value} className="text-sm">
-                    {rg.label}
-                </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Room Group Filter - Conditionally rendered */}
+      {showRoomGroupFilter && (
+        <div className="space-y-1">
+          <Label htmlFor="group-filter">Group</Label>
+          <Select value={roomGroup} onValueChange={onRoomGroupChange}>
+            <SelectTrigger id="group-filter" className="bg-card h-9 text-sm">
+              <SelectValue placeholder="Filter group..." />
+            </SelectTrigger>
+            <SelectContent className="bg-card z-50">
+              {roomGroups.map(rg => (
+                  <SelectItem key={rg.value} value={rg.value} className="text-sm">
+                      {rg.label}
+                  </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
-      {/* Room Filter (New) */}
+      {/* Room Filter */}
       <div className="space-y-1">
         <Label htmlFor="room-filter">Room</Label>
         <Select value={roomId} onValueChange={onRoomChange}>
@@ -155,9 +158,9 @@ export const TaskFilters = ({
       <Button
           variant="outline"
           onClick={onClearFilters}
-          className="w-full h-9 text-sm" // Adjusted height/text size
+          className="w-full h-9 text-sm"
         >
-          <X className="mr-1.5 h-4 w-4" /> {/* Adjusted margin */}
+          <X className="mr-1.5 h-4 w-4" />
           Clear
       </Button>
     </div>
