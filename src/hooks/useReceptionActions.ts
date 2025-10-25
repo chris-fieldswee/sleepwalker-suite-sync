@@ -5,9 +5,10 @@ import { useToast } from '@/hooks/use-toast';
 import type { Database } from "@/integrations/supabase/types";
 import type { Room, Staff } from './useReceptionData';
 import { taskInputSchema, workLogSchema } from '@/lib/validation';
-// *** THIS LINE IS CRUCIAL ***
+// ==========================================
+// ===== CRUCIAL IMPORT - MUST BE HERE =====
 import { useAuth } from '@/contexts/AuthContext';
-// Import IssueTask type if defined separately, or use inline definition
+// ==========================================
 import type { IssueTask } from '@/components/reception/IssueDetailDialog'; // Assuming IssueTask includes issue_flag
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
@@ -55,8 +56,10 @@ export function useReceptionActions(
     onTaskDeleted?: () => void,
 ) {
   const { toast } = useToast();
-  // *** ENSURE useAuth() IS CALLED HERE ***
-  const { userId } = useAuth(); // Make sure this line exists and is called *inside* the function
+  // ========================================
+  // ===== CRUCIAL HOOK CALL - MUST BE HERE =====
+  const { userId } = useAuth();
+  // ========================================
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
   const [isSavingLog, setIsSavingLog] = useState(false);
   const [isSubmittingNewIssue, setIsSubmittingNewIssue] = useState(false);
@@ -406,7 +409,7 @@ export function useReceptionActions(
              // Fetch current task info if needed for limit check
               const { data: currentTaskInfo, error: currentInfoError } = await supabase
                  .from('tasks')
-                 .select('cleaning_type, guest_count, room:rooms!inner(group_type)')
+                 .select('cleaning_type, guest_count, room_id, room:rooms!inner(group_type)') // Select room_id too
                  .eq('id', taskId)
                  .single();
 
@@ -416,10 +419,7 @@ export function useReceptionActions(
               }
 
              // Determine the values to use for the limit query
-              // Correction: Use task id from arguments, not updates object for current room lookup
-              const currentRoomId = (await supabase.from('tasks').select('room_id').eq('id', taskId).single()).data?.room_id;
-              const finalRoomId = updates.roomId ?? currentRoomId; // Use updated roomId if available, else current
-
+              const finalRoomId = updates.roomId ?? currentTaskInfo.room_id; // Use updated roomId if available, else current
               const room = availableRooms.find(r => r.id === finalRoomId);
               const groupType = room?.group_type;
               const cleaningType = updates.cleaningType ?? currentTaskInfo.cleaning_type;
