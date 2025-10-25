@@ -86,6 +86,7 @@ export default function Reception() {
                     onStatusChange={filterSetters.setStatus}
                     onStaffChange={filterSetters.setStaffId}
                     onRoomGroupChange={filterSetters.setRoomGroup}
+                    onRoomChange={filterSetters.setRoomId}
                     onClearFilters={dataActions.clearFilters}
                     onRefresh={dataActions.refresh}
                     onAddTask={handleAddTask}

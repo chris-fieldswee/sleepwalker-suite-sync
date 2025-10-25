@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableHeader, TableRow, TableHead } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Plus, RefreshCw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TaskFilters } from "@/components/reception/TaskFilters";
 import { AddTaskDialog } from "@/components/reception/AddTaskDialog";
 import { WorkLogDialog } from "@/components/reception/WorkLogDialog";
@@ -68,7 +69,7 @@ export default function Tasks({
   onStatusChange,
   onStaffChange,
   onRoomGroupChange,
-  onRoomChange, // Destructure onRoomChange
+  onRoomChange,
   onClearFilters,
   onRefresh,
   onAddTask,
@@ -77,6 +78,61 @@ export default function Tasks({
   isSubmittingTask,
   isSavingLog
 }: TasksProps) {
+  // Split tasks into two groups based on room group type
+  const regularTasks = tasks.filter(task => task.room.group_type !== 'OTHER');
+  const otherTasks = tasks.filter(task => task.room.group_type === 'OTHER');
+
+  const renderTaskTable = (taskList: Task[], emptyMessage: string) => (
+    loading && !refreshing ? (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <span className="ml-2">Loading tasks...</span>
+      </div>
+    ) : taskList.length === 0 ? (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <p className="text-lg font-medium text-muted-foreground">{emptyMessage}</p>
+        <p className="text-sm text-muted-foreground">Try adjusting filters or add a new task.</p>
+        <AddTaskDialog
+          availableRooms={availableRooms}
+          allStaff={allStaff}
+          initialState={{ ...initialNewTaskState, date: filters.date || getTodayDateString() }}
+          onSubmit={onAddTask}
+          isSubmitting={isSubmittingTask}
+          triggerButton={
+            <Button size="sm" className="mt-4">
+              <Plus className="mr-2 h-4 w-4" /> Add Task
+            </Button>
+          }
+        />
+      </div>
+    ) : (
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="font-semibold">Status</TableHead>
+              <TableHead className="font-semibold">Room</TableHead>
+              <TableHead className="font-semibold">Staff</TableHead>
+              <TableHead className="font-semibold">Type</TableHead>
+              <TableHead className="font-semibold text-center">Guests</TableHead>
+              <TableHead className="font-semibold text-center">Limit (min)</TableHead>
+              <TableHead className="font-semibold text-center">Actual (min)</TableHead>
+              <TableHead className="font-semibold text-center">Diff (min)</TableHead>
+              <TableHead className="font-semibold text-center">Issue</TableHead>
+              <TableHead className="font-semibold min-w-[200px]">Notes</TableHead>
+              <TableHead className="font-semibold text-center">Working Time</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {taskList.map((task) => (
+              <TaskTableRow key={task.id} task={task} staff={allStaff} />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    )
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -107,85 +163,56 @@ export default function Tasks({
       </div>
 
       <Card>
-        <CardHeader className="py-4"> {/* Adjusted padding */}
-          <CardTitle className="text-lg">Filters</CardTitle> {/* Adjusted size */}
+        <CardHeader className="py-4">
+          <CardTitle className="text-lg">Filters</CardTitle>
         </CardHeader>
-        <CardContent className="pt-0 pb-4"> {/* Adjusted padding */}
+        <CardContent className="pt-0 pb-4">
           <TaskFilters
             date={filters.date}
             status={filters.status}
             staffId={filters.staffId}
             roomGroup={filters.roomGroup}
-            roomId={filters.roomId} // Pass roomId
+            roomId={filters.roomId}
             staff={allStaff}
-            availableRooms={availableRooms} // Pass availableRooms
+            availableRooms={availableRooms}
             onDateChange={onDateChange}
             onStatusChange={onStatusChange}
             onStaffChange={onStaffChange}
             onRoomGroupChange={onRoomGroupChange}
-            onRoomChange={onRoomChange} // Pass onRoomChange
+            onRoomChange={onRoomChange}
             onClearFilters={onClearFilters}
           />
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Tasks for {getDisplayDate(filters.date)}</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading && !refreshing ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              <span className="ml-2">Loading tasks...</span>
-            </div>
-          ) : tasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <p className="text-lg font-medium text-muted-foreground">
-                {filters.date ? `No active tasks found for ${getDisplayDate(filters.date)}` : "No upcoming active tasks found"}
-              </p>
-              <p className="text-sm text-muted-foreground">Try adjusting filters or add a new task.</p>
-              <AddTaskDialog
-                availableRooms={availableRooms}
-                allStaff={allStaff}
-                initialState={{ ...initialNewTaskState, date: filters.date || getTodayDateString() }}
-                onSubmit={onAddTask}
-                isSubmitting={isSubmittingTask}
-                triggerButton={
-                  <Button size="sm" className="mt-4">
-                    <Plus className="mr-2 h-4 w-4" /> Add Task {filters.date ? `for ${getDisplayDate(filters.date)}` : ''}
-                  </Button>
-                }
-              />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="font-semibold">Room</TableHead>
-                    <TableHead className="font-semibold">Staff</TableHead>
-                    <TableHead className="font-semibold">Type</TableHead>
-                    <TableHead className="font-semibold text-center">Guests</TableHead>
-                    <TableHead className="font-semibold text-center">Limit (min)</TableHead>
-                    <TableHead className="font-semibold text-center">Actual (min)</TableHead>
-                    <TableHead className="font-semibold text-center">Diff (min)</TableHead>
-                    <TableHead className="font-semibold text-center">Issue</TableHead>
-                    <TableHead className="font-semibold min-w-[200px]">Notes</TableHead>
-                    <TableHead className="font-semibold text-center">Working Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tasks.map((task) => (
-                    <TaskTableRow key={task.id} task={task} staff={allStaff} />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="regular" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
+          <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="regular">
+          <Card>
+            <CardHeader>
+              <CardTitle>Hotel Room Tasks for {getDisplayDate(filters.date)}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {renderTaskTable(regularTasks, filters.date ? `No hotel room tasks found for ${getDisplayDate(filters.date)}` : "No upcoming hotel room tasks found")}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="other">
+          <Card>
+            <CardHeader>
+              <CardTitle>Other Location Tasks for {getDisplayDate(filters.date)}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {renderTaskTable(otherTasks, filters.date ? `No other location tasks found for ${getDisplayDate(filters.date)}` : "No upcoming other location tasks found")}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
