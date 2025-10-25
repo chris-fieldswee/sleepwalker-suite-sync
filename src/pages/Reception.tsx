@@ -1,8 +1,19 @@
 // src/pages/Reception.tsx
-// ... imports remain the same
+import { Routes, Route } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext"; // ✅ Add this import
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { ReceptionSidebar } from "@/components/reception/ReceptionSidebar";
+import { useReceptionData } from "@/hooks/useReceptionData";
+import { useReceptionActions } from "@/hooks/useReceptionActions";
+
+// Import view components
+import Dashboard from "./reception/Dashboard";
+import Tasks from "./reception/Tasks";
+import Archive from "./reception/Archive";
+import Issues from "./reception/Issues";
 
 export default function Reception() {
-  const { signOut } = useAuth();
+  const { signOut } = useAuth(); // ✅ Now this will work
 
   const {
     tasks,
@@ -15,7 +26,7 @@ export default function Reception() {
     filterSetters,
     actions: dataActions,
     stats,
-    fetchWorkLogs // Keep if needed directly here, otherwise remove
+    fetchWorkLogs
   } = useReceptionData();
 
   const {
@@ -28,7 +39,6 @@ export default function Reception() {
     isSubmittingNewIssue,
     handleUpdateIssue,
     isUpdatingIssue,
-    // *** Destructure new handlers and states ***
     handleUpdateTask,
     isUpdatingTask,
     handleDeleteTask,
@@ -49,14 +59,12 @@ export default function Reception() {
         <ReceptionSidebar onSignOut={signOut} />
 
         <main className="flex-1 overflow-auto">
-          {/* Header remains the same */}
-            <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-2">
-              <SidebarTrigger />
-              <h2 className="text-lg font-semibold">Reception Management</h2>
-            </div>
+          <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-2">
+            <SidebarTrigger />
+            <h2 className="text-lg font-semibold">Reception Management</h2>
+          </div>
 
-
-          <div className="container mx-auto p-4 md:p-6"> {/* Adjusted padding */}
+          <div className="container mx-auto p-4 md:p-6">
             <Routes>
               <Route
                 index
@@ -96,7 +104,6 @@ export default function Reception() {
                     initialNewTaskState={initialNewTaskState}
                     isSubmittingTask={isSubmittingTask}
                     isSavingLog={isSavingLog}
-                    // *** Pass new props ***
                     onUpdateTask={handleUpdateTask}
                     onDeleteTask={handleDeleteTask}
                     isUpdatingTask={isUpdatingTask}
