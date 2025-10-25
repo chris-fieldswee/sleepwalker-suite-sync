@@ -19,15 +19,10 @@ const filterableStatuses: Array<{ value: TaskStatus | 'all', label: string }> = 
     { value: 'repair_needed', label: 'Repair Needed' },
 ];
 
-// Define room groups available
-const roomGroups: Array<{ value: RoomGroup | 'all', label: string }> = [
-    { value: 'all', label: 'All Groups' },
-    { value: 'P1', label: 'P1' },
-    { value: 'P2', label: 'P2' },
-    { value: 'A1S', label: 'A1S' },
-    { value: 'A2S', label: 'A2S' },
-    { value: 'OTHER', label: 'Other' },
-];
+// *** MODIFICATION START: Define room group options type ***
+export type RoomGroupOption = { value: RoomGroup | 'all', label: string };
+// *** MODIFICATION END ***
+
 
 interface TaskFiltersProps {
   date: string | null;
@@ -37,6 +32,9 @@ interface TaskFiltersProps {
   roomId: string;
   staff: Staff[];
   availableRooms: Room[];
+  // *** MODIFICATION START: Add roomGroups prop ***
+  roomGroups: RoomGroupOption[];
+  // *** MODIFICATION END ***
   onDateChange: (date: string | null) => void;
   onStatusChange: (status: TaskStatus | 'all') => void;
   onStaffChange: (staffId: string) => void;
@@ -54,6 +52,9 @@ export const TaskFilters = ({
   roomId,
   staff,
   availableRooms,
+  // *** MODIFICATION START: Destructure roomGroups prop ***
+  roomGroups,
+  // *** MODIFICATION END ***
   onDateChange,
   onStatusChange,
   onStaffChange,
@@ -126,11 +127,13 @@ export const TaskFilters = ({
               <SelectValue placeholder="Filter group..." />
             </SelectTrigger>
             <SelectContent className="bg-card z-50">
+              {/* *** MODIFICATION START: Use roomGroups prop *** */}
               {roomGroups.map(rg => (
                   <SelectItem key={rg.value} value={rg.value} className="text-sm">
                       {rg.label}
                   </SelectItem>
               ))}
+              {/* *** MODIFICATION END *** */}
             </SelectContent>
           </Select>
         </div>
