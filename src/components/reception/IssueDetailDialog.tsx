@@ -1,12 +1,12 @@
 // src/components/reception/IssueDetailDialog.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, CheckSquare, Edit, Save } from "lucide-react"; // Added Edit, Save
+import { ExternalLink, CheckSquare } from "lucide-react"; // Added CheckSquare
 import type { Database } from "@/integrations/supabase/types";
 import type { Staff } from '@/hooks/useReceptionData';
 
@@ -17,12 +17,14 @@ export type IssueTask = {
   user: { id: string; name: string } | null;
   issue_description: string | null;
   issue_photo: string | null;
-  issue_flag: boolean | null;
+  // status: Database["public"]["Enums"]["task_status"]; // Status might still be useful internally
+  issue_flag: boolean | null; // Use issue_flag for status display/update
   cleaning_type: string;
   reception_notes: string | null;
   housekeeping_notes: string | null;
 };
 
+// Simplified status type based on issue_flag
 type IssueDisplayStatus = 'To Fix' | 'Fixed';
 
 interface IssueDetailDialogProps {
@@ -30,6 +32,7 @@ interface IssueDetailDialogProps {
   allStaff: Staff[];
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  // Updated onUpdate prop type
   onUpdate: (taskId: string, updates: Partial<{
       issue_flag: boolean | null;
       reception_notes: string | null;
@@ -44,73 +47,54 @@ export function IssueDetailDialog({
     onOpenChange,
     onUpdate
 }: IssueDetailDialogProps) {
+    // State now focuses on assigneee and notes, status is derived from issue_flag
     const [assignedStaffId, setAssignedStaffId] = useState<string>("unassigned");
     const [receptionNotes, setReceptionNotes] = useState<string>("");
     const [isSaving, setIsSaving] = useState(false);
-    const [isEditing, setIsEditing] = useState(false); // New state for edit mode
 
-    // Store initial values when issue loads or editing starts/cancels
-    const [initialStaffId, setInitialStaffId] = useState<string>("unassigned");
-    const [initialNotes, setInitialNotes] = useState<string>("");
-
-    const resetToInitialState = useCallback(() => {
+    // Update state when the selected issue changes
+    useEffect(() => {
         if (issue) {
-            const staffId = issue.user?.id || "unassigned";
-            const notes = issue.reception_notes || "";
-            setAssignedStaffId(staffId);
-            setReceptionNotes(notes);
-            setInitialStaffId(staffId); // Store initial values
-            setInitialNotes(notes);
+            setAssignedStaffId(issue.user?.id || "unassigned");
+            setReceptionNotes(issue.reception_notes || "");
         } else {
+            // Reset when dialog closes or issue becomes null
             setAssignedStaffId("unassigned");
             setReceptionNotes("");
-            setInitialStaffId("unassigned");
-            setInitialNotes("");
         }
-        setIsEditing(false); // Always reset editing mode
     }, [issue]);
 
-    // Update state when the selected issue changes or dialog opens/closes
-    useEffect(() => {
-        if (isOpen) {
-           resetToInitialState();
-        } else {
-            // Optionally reset state completely when closed, though resetToInitialState handles it on open
-            setIsEditing(false);
-        }
-    }, [isOpen, issue, resetToInitialState]);
-
-    const handleSaveChanges = async () => {
+    const handleSave = async () => {
         if (!issue) return;
         setIsSaving(true);
+        // Prepare updates for assignee and notes only initially
         const updates: Partial<{ issue_flag: boolean | null; reception_notes: string | null; user_id: string | null }> = {
             user_id: assignedStaffId === "unassigned" ? null : assignedStaffId,
             reception_notes: receptionNotes || null,
         };
 
-        // Optionally add validation for notes length here too
-         if (receptionNotes && receptionNotes.length > 2000) {
-              // Consider showing a toast here as well
-              console.error("Reception notes cannot exceed 2000 characters.");
-              setIsSaving(false);
-              return; // Prevent saving
-         }
+        // If the issue is currently active (flag is true), and we are saving,
+        // it means we haven't clicked the "Mark Fixed" button yet.
+        // If we implement a "Mark Fixed" button separately, we'd add issue_flag: false there.
+        // For now, let's keep it simple: Save button only saves Assignee/Notes.
 
         const success = await onUpdate(issue.id, updates);
         setIsSaving(false);
         if (success) {
-            setIsEditing(false); // Exit editing mode on successful save
-            // Update initial state to reflect saved changes
-            setInitialStaffId(assignedStaffId);
-            setInitialNotes(receptionNotes);
+            onOpenChange(false); // Close dialog on success
         }
-        // Keep editing mode on failure
     };
 
+    // New handler for the "Mark Fixed" button
     const handleMarkFixed = async () => {
          if (!issue) return;
-         setIsSaving(true);
-         const updates = { issue_flag: false };
+         setIsSaving(true); // Reuse saving state
+         const updates = {
+             issue_flag: false, // Mark as fixed
+             // Optionally add current notes/assignee if needed, or update separately
+             // user_id: assignedStaffId === "unassigned" ? null : assignedStaffId,
+             // reception_notes: receptionNotes || null,
+         };
          const success = await onUpdate(issue.id, updates);
          setIsSaving(false);
          if (success) {
@@ -118,33 +102,26 @@ export function IssueDetailDialog({
          }
     };
 
-    const handleCancelEdit = () => {
-        // Reset state to initial values before editing started
-        setAssignedStaffId(initialStaffId);
-        setReceptionNotes(initialNotes);
-        setIsEditing(false);
-    };
-
     const formatDate = (dateString: string | null) => {
+      // ... (formatDate remains the same) ...
       if (!dateString) return "N/A";
-      // Adding 'T00:00:00Z' ensures consistent parsing as UTC date part
       return new Date(dateString + 'T00:00:00Z').toLocaleDateString(undefined, {
-        year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' // Specify UTC for display consistency
+        year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC'
       });
     };
 
+    // Get simplified status badge based on issue_flag
     const getIssueStatusBadge = (isIssue: boolean | null): React.ReactNode => {
       if (isIssue === true) {
           return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200">To Fix</Badge>;
       }
+      // Assuming null or false means fixed
       return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200">Fixed</Badge>;
     };
 
     if (!issue) return null;
 
     const currentIssueStatus: IssueDisplayStatus = issue.issue_flag === true ? 'To Fix' : 'Fixed';
-    // Disable editing actions entirely if the issue is marked as fixed
-    const isFixed = currentIssueStatus === 'Fixed';
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -160,9 +137,7 @@ export function IssueDetailDialog({
                         {getIssueStatusBadge(issue.issue_flag)}
                     </div>
                 </DialogHeader>
-
-                {/* Main Content Area */}
-                <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-muted">
+                <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
                     {/* Display Fields */}
                     <div className="space-y-1">
                         <Label className="text-muted-foreground">Description</Label>
@@ -181,6 +156,7 @@ export function IssueDetailDialog({
                     )}
 
                     {issue.issue_photo && (
+                       // ... photo display remains the same ...
                        <div className="space-y-1">
                            <Label className="text-muted-foreground">Photo</Label>
                             <a href={issue.issue_photo} target="_blank" rel="noopener noreferrer" className="block w-fit">
@@ -200,15 +176,11 @@ export function IssueDetailDialog({
 
                     {/* Editable Fields */}
                      <div className="grid grid-cols-1 gap-4 items-end">
+                         {/* Removed Status Dropdown */}
                          <div className="space-y-1">
                             <Label htmlFor="issue-assignee">Assign Staff</Label>
-                             <Select
-                                value={assignedStaffId}
-                                onValueChange={setAssignedStaffId}
-                                // Disable if not editing OR if issue is fixed
-                                disabled={isSaving || !isEditing || isFixed}
-                             >
-                                <SelectTrigger id="issue-assignee" className={!isEditing && !isFixed ? "cursor-default" : ""}>
+                             <Select value={assignedStaffId} onValueChange={setAssignedStaffId} disabled={isSaving || currentIssueStatus === 'Fixed'}>
+                                <SelectTrigger id="issue-assignee">
                                     <SelectValue placeholder="Assign staff" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -228,79 +200,39 @@ export function IssueDetailDialog({
                             value={receptionNotes}
                             onChange={(e) => setReceptionNotes(e.target.value)}
                             className="min-h-[80px]"
-                            placeholder={!isEditing ? "No reception notes." : "Add notes for maintenance or housekeeping..."}
-                             // Disable if not editing OR if issue is fixed
-                            disabled={isSaving || !isEditing || isFixed}
-                            // Make read-only visually when not editing
-                            readOnly={!isEditing}
+                            placeholder="Add notes for maintenance or housekeeping..."
+                            disabled={isSaving || currentIssueStatus === 'Fixed'}
                             maxLength={2000}
                         />
-                         {isEditing && ( // Only show counter when editing
-                            <p className="text-xs text-muted-foreground text-right">{receptionNotes.length} / 2000</p>
-                         )}
+                         <p className="text-xs text-muted-foreground text-right">{receptionNotes.length} / 2000</p>
                     </div>
                 </div>
+                <DialogFooter className="justify-between sm:justify-between">
+                    {/* Mark Fixed button shown only if issue is active */}
+                    {currentIssueStatus === 'To Fix' ? (
+                        <Button
+                            type="button"
+                            variant="success" // Assuming you have a success variant or use default/outline
+                            onClick={handleMarkFixed}
+                            disabled={isSaving}
+                            className="bg-green-600 hover:bg-green-700 text-white" // Example styling
+                        >
+                            <CheckSquare className="mr-2 h-4 w-4" /> Mark as Fixed
+                        </Button>
+                    ) : (
+                        <span className="text-sm text-green-700 font-medium">Issue marked as fixed.</span> // Placeholder if already fixed
+                    )}
 
-                {/* Footer Buttons */}
-                <DialogFooter className="justify-between sm:justify-between flex-wrap gap-2"> {/* Added flex-wrap and gap */}
-                    {/* Left Side: Mark Fixed Button (only if active and not editing) */}
-                    <div> {/* Wrapper div for alignment */}
-                        {!isEditing && currentIssueStatus === 'To Fix' && (
-                            <Button
-                                type="button"
-                                variant="default"
-                                onClick={handleMarkFixed}
-                                disabled={isSaving}
-                                className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                                <CheckSquare className="mr-2 h-4 w-4" /> Mark as Fixed
-                            </Button>
-                        )}
-                         {currentIssueStatus === 'Fixed' && (
-                           <span className="text-sm text-green-700 font-medium inline-flex items-center">
-                                <CheckSquare className="mr-2 h-4 w-4" /> Issue Fixed
-                            </span>
-                         )}
-                    </div>
-
-                    {/* Right Side: Cancel/Edit or Cancel/Save Changes */}
                     <div className="flex gap-2">
-                        {!isEditing ? (
-                            <>
-                                <DialogClose asChild>
-                                    <Button type="button" variant="outline">Close</Button>
-                                </DialogClose>
-                                {/* Show Edit button only if issue is not fixed */}
-                                {!isFixed && (
-                                    <Button
-                                        type="button"
-                                        variant="secondary"
-                                        onClick={() => setIsEditing(true)}
-                                    >
-                                         <Edit className="mr-2 h-4 w-4" /> Edit
-                                    </Button>
-                                )}
-                            </>
-                        ) : (
-                            <>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={handleCancelEdit}
-                                    disabled={isSaving}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="button"
-                                    onClick={handleSaveChanges}
-                                    disabled={isSaving}
-                                >
-                                     <Save className="mr-2 h-4 w-4" />
-                                    {isSaving ? "Saving..." : "Save Changes"}
-                                </Button>
-                            </>
-                        )}
+                        <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Cancel</Button></DialogClose>
+                        {/* Save button might be less necessary if "Mark Fixed" is the primary action, but kept for notes/assignee */}
+                         <Button
+                            type="button"
+                            onClick={handleSave} // Saves Assignee/Notes
+                            disabled={isSaving || currentIssueStatus === 'Fixed'} // Disable save if fixed
+                         >
+                            {isSaving ? "Saving..." : "Save Notes/Assignee"}
+                         </Button>
                     </div>
                 </DialogFooter>
             </DialogContent>
