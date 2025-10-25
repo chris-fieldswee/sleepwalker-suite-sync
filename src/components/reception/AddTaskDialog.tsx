@@ -23,6 +23,9 @@ interface AddTaskDialogProps {
     triggerButton?: React.ReactNode; // Can be any node now
 }
 
+// Helper function to get today's date in YYYY-MM-DD format
+const getTodayDateString = () => new Date().toISOString().split("T")[0];
+
 export function AddTaskDialog({
     availableRooms,
     allStaff,
@@ -34,8 +37,14 @@ export function AddTaskDialog({
     const [isOpen, setIsOpen] = useState(false);
     const [newTask, setNewTask] = useState<NewTaskState>(initialState);
     const prevIsOpen = useRef(isOpen);
+    // State to hold today's date string
+    const [todayDateString, setTodayDateString] = useState<string>('');
 
-    // ... (useEffect and handleSubmit remain the same)
+    // Set today's date string once on mount
+    useEffect(() => {
+        setTodayDateString(getTodayDateString());
+    }, []);
+
     useEffect(() => {
         if (!prevIsOpen.current && isOpen) {
             console.log("Dialog opened, resetting state.");
@@ -43,13 +52,14 @@ export function AddTaskDialog({
             if (availableRooms.length > 0 && !resetState.roomId) {
                 resetState.roomId = availableRooms[0].id;
             }
-            if (!resetState.date) {
-                 resetState.date = new Date().toISOString().split("T")[0];
+            // Ensure the date is set to today if it's not provided or is in the past
+            if (!resetState.date || resetState.date < todayDateString) {
+                 resetState.date = todayDateString;
             }
             setNewTask(resetState);
         }
         prevIsOpen.current = isOpen;
-    }, [isOpen, initialState, availableRooms]);
+    }, [isOpen, initialState, availableRooms, todayDateString]); // Add todayDateString
 
 
     const handleSubmit = async () => {
@@ -93,7 +103,8 @@ export function AddTaskDialog({
                             value={newTask.date}
                             onChange={(e) => setNewTask(prev => ({ ...prev, date: e.target.value }))}
                             className="col-span-3"
-                            min={new Date().toISOString().split("T")[0]}
+                            // *** MODIFICATION: Add the min attribute ***
+                            min={todayDateString}
                             required
                         />
                     </div>
