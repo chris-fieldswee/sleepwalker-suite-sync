@@ -1,17 +1,117 @@
 // src/pages/reception/Tasks.tsx
-// Add necessary imports
-import { useState } from "react"; // Add useState
-import { TaskDetailDialog } from "@/components/reception/TaskDetailDialog"; // Import the new dialog
-// ... other imports remain the same
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableHeader, TableRow, TableHead } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RefreshCw } from "lucide-react";
+import { TaskFilters, type RoomGroupOption } from "@/components/reception/TaskFilters";
+import { TaskTableRow } from "@/components/reception/TaskTableRow";
+import { AddTaskDialog } from "@/components/reception/AddTaskDialog";
+import { WorkLogDialog } from "@/components/reception/WorkLogDialog";
+import { TaskDetailDialog } from "@/components/reception/TaskDetailDialog";
+import type { Database } from "@/integrations/supabase/types";
 
-// ... Interface/Type definitions remain the same
+type TaskStatus = Database["public"]["Enums"]["task_status"];
+type RoomGroup = Database["public"]["Enums"]["room_group"];
+
+export interface Task {
+  id: string;
+  date: string;
+  status: string;
+  room: { id: string; name: string; group_type: string; color: string | null };
+  user: { id: string; name: string } | null;
+  cleaning_type: string;
+  guest_count: number;
+  time_limit: number | null;
+  actual_time: number | null;
+  difference: number | null;
+  issue_flag: boolean;
+  housekeeping_notes: string | null;
+  reception_notes: string | null;
+  start_time: string | null;
+  stop_time: string | null;
+  created_at?: string;
+}
+
+export interface Staff {
+  id: string;
+  name: string;
+  role: string;
+}
+
+export interface Room {
+  id: string;
+  name: string;
+  group_type: RoomGroup;
+  capacity: number;
+  color?: string | null;
+}
+
+export interface WorkLog {
+  id: string;
+  user_id: string;
+  date: string;
+  time_in: string | null;
+  time_out: string | null;
+  total_minutes: number | null;
+  break_minutes: number | null;
+  notes: string | null;
+  user: { name: string };
+}
+
+const getTodayDateString = () => new Date().toISOString().split("T")[0];
+
+const getDisplayDate = (dateStr: string | null) => {
+  if (!dateStr) return "Upcoming Tasks";
+  try {
+    return new Date(dateStr + 'T00:00:00Z').toLocaleDateString(undefined, {
+      year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
+    });
+  } catch (e) {
+    return dateStr;
+  }
+};
+
+const allRoomGroups: RoomGroupOption[] = [
+  { value: 'all', label: 'All Groups' },
+  { value: 'P1', label: 'P1' },
+  { value: 'P2', label: 'P2' },
+  { value: 'A1S', label: 'A1S' },
+  { value: 'A2S', label: 'A2S' },
+  { value: 'OTHER', label: 'Other' },
+];
 
 interface TasksProps {
-  // ... existing props
-  onUpdateTask: (taskId: string, updates: any) => Promise<boolean>; // Add update handler prop
-  onDeleteTask: (taskId: string) => Promise<boolean>; // Add delete handler prop
-  isUpdatingTask: boolean; // Add loading state for update
-  isDeletingTask: boolean; // Add loading state for delete
+  tasks: Task[];
+  allStaff: Staff[];
+  availableRooms: Room[];
+  workLogs: WorkLog[];
+  loading: boolean;
+  refreshing: boolean;
+  filters: {
+    date: string | null;
+    status: TaskStatus | 'all';
+    staffId: string;
+    roomGroup: RoomGroup | 'all';
+    roomId: string;
+  };
+  onDateChange: (date: string | null) => void;
+  onStatusChange: (status: TaskStatus | 'all') => void;
+  onStaffChange: (staffId: string) => void;
+  onRoomGroupChange: (group: RoomGroup | 'all') => void;
+  onRoomChange: (roomId: string) => void;
+  onClearFilters: () => void;
+  onRefresh: () => void;
+  onAddTask: (task: any) => Promise<boolean>;
+  onSaveWorkLog: (log: any) => Promise<boolean>;
+  initialNewTaskState: any;
+  isSubmittingTask: boolean;
+  isSavingLog: boolean;
+  onUpdateTask: (taskId: string, updates: any) => Promise<boolean>;
+  onDeleteTask: (taskId: string) => Promise<boolean>;
+  isUpdatingTask: boolean;
+  isDeletingTask: boolean;
 }
 
 export default function Tasks({
@@ -34,14 +134,11 @@ export default function Tasks({
   initialNewTaskState,
   isSubmittingTask,
   isSavingLog,
-  // *** Destructure new props ***
   onUpdateTask,
   onDeleteTask,
   isUpdatingTask,
   isDeletingTask,
 }: TasksProps) {
-
-  // *** Add State for Detail Dialog ***
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
 
@@ -51,15 +148,14 @@ export default function Tasks({
   };
 
   const handleDelete = async (taskId: string) => {
-      const success = await onDeleteTask(taskId);
-      // Optional: Close detail dialog if the deleted task was open
-      if (success && selectedTaskForDetail?.id === taskId) {
-          setIsDetailDialogOpen(false);
-          setSelectedTaskForDetail(null);
-      }
+    const success = await onDeleteTask(taskId);
+    if (success && selectedTaskForDetail?.id === taskId) {
+      setIsDetailDialogOpen(false);
+      setSelectedTaskForDetail(null);
+    }
   };
 
-  // Split tasks and rooms (remains the same)
+  // Split tasks and rooms
   const regularTasks = tasks.filter(task => task.room.group_type !== 'OTHER');
   const otherTasks = tasks.filter(task => task.room.group_type === 'OTHER');
   const regularRooms = availableRooms.filter(room => room.group_type !== 'OTHER');
@@ -82,8 +178,7 @@ export default function Tasks({
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50 sticky top-0 z-10"> {/* Make header sticky */}
-              {/* *** Adjust TableHead for new layout *** */}
+            <TableRow className="bg-muted/50 sticky top-0 z-10">
               <TableHead className="font-semibold w-[100px]">Status</TableHead>
               <TableHead className="font-semibold w-[100px]">Room</TableHead>
               <TableHead className="font-semibold w-[150px]">Staff</TableHead>
@@ -99,13 +194,12 @@ export default function Tasks({
           <TableBody>
             {taskList.map((task) => (
               <TaskTableRow
-                  key={task.id}
-                  task={task}
-                  staff={allStaff}
-                  // *** Pass new handlers ***
-                  onViewDetails={handleViewDetails}
-                  onDeleteTask={handleDelete} // Pass wrapped handler
-                  isDeleting={isDeletingTask} // Pass loading state
+                key={task.id}
+                task={task}
+                staff={allStaff}
+                onViewDetails={handleViewDetails}
+                onDeleteTask={handleDelete}
+                isDeleting={isDeletingTask}
               />
             ))}
           </TableBody>
@@ -116,135 +210,133 @@ export default function Tasks({
 
   return (
     <div className="space-y-4">
-      {/* Header section remains the same */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Tasks</h1>
-            <p className="text-muted-foreground mt-1">Manage active housekeeping tasks</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing || loading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${(refreshing || loading) ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-            <WorkLogDialog
-              filterDate={filters.date || getTodayDateString()}
-              workLogs={workLogs}
-              allStaff={allStaff}
-              onSave={onSaveWorkLog}
-              isSaving={isSavingLog}
-            />
-            <AddTaskDialog
-              availableRooms={availableRooms}
-              allStaff={allStaff}
-              initialState={initialNewTaskState}
-              onSubmit={onAddTask}
-              isSubmitting={isSubmittingTask}
-            />
-          </div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Tasks</h1>
+          <p className="text-muted-foreground mt-1">Manage active housekeeping tasks</p>
         </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing || loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${(refreshing || loading) ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <WorkLogDialog
+            filterDate={filters.date || getTodayDateString()}
+            workLogs={workLogs}
+            allStaff={allStaff}
+            onSave={onSaveWorkLog}
+            isSaving={isSavingLog}
+          />
+          <AddTaskDialog
+            availableRooms={availableRooms}
+            allStaff={allStaff}
+            initialState={initialNewTaskState}
+            onSubmit={onAddTask}
+            isSubmitting={isSubmittingTask}
+          />
+        </div>
+      </div>
 
       <Tabs defaultValue="regular" className="w-full">
-        {/* TabsList remains the same */}
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
           <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="regular" className="space-y-4">
-          {/* Filters Card remains the same, passing regularRoomGroups */}
-           <Card>
-             <CardHeader className="py-4">
-               <CardTitle className="text-lg">Filters</CardTitle>
-             </CardHeader>
-             <CardContent className="pt-0 pb-4">
-               <TaskFilters
-                 date={filters.date}
-                 status={filters.status}
-                 staffId={filters.staffId}
-                 roomGroup={filters.roomGroup}
-                 roomId={filters.roomId}
-                 staff={allStaff}
-                 availableRooms={regularRooms}
-                 roomGroups={regularRoomGroups}
-                 onDateChange={onDateChange}
-                 onStatusChange={onStatusChange}
-                 onStaffChange={onStaffChange}
-                 onRoomGroupChange={onRoomGroupChange}
-                 onRoomChange={onRoomChange}
-                 onClearFilters={onClearFilters}
-                 showRoomGroupFilter={true}
-               />
-             </CardContent>
-           </Card>
+          <Card>
+            <CardHeader className="py-4">
+              <CardTitle className="text-lg">Filters</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <TaskFilters
+                date={filters.date}
+                status={filters.status}
+                staffId={filters.staffId}
+                roomGroup={filters.roomGroup}
+                roomId={filters.roomId}
+                staff={allStaff}
+                availableRooms={regularRooms}
+                roomGroups={regularRoomGroups}
+                onDateChange={onDateChange}
+                onStatusChange={onStatusChange}
+                onStaffChange={onStaffChange}
+                onRoomGroupChange={onRoomGroupChange}
+                onRoomChange={onRoomChange}
+                onClearFilters={onClearFilters}
+                showRoomGroupFilter={true}
+              />
+            </CardContent>
+          </Card>
 
           <Card>
-            {/* CardHeader remains the same */}
             <CardHeader>
               <CardTitle>Hotel Room Tasks for {getDisplayDate(filters.date)}</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {renderTaskTable(regularTasks, filters.date ? `No hotel room tasks found for ${getDisplayDate(filters.date)}` : "No upcoming hotel room tasks found")}
+              {renderTaskTable(
+                regularTasks,
+                filters.date
+                  ? `No hotel room tasks found for ${getDisplayDate(filters.date)}`
+                  : "No upcoming hotel room tasks found"
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="other" className="space-y-4">
-          {/* Filters Card remains the same, passing otherRoomGroups */}
-            <Card>
-             <CardHeader className="py-4">
-               <CardTitle className="text-lg">Filters</CardTitle>
-             </CardHeader>
-             <CardContent className="pt-0 pb-4">
-               <TaskFilters
-                 date={filters.date}
-                 status={filters.status}
-                 staffId={filters.staffId}
-                 roomGroup="OTHER"
-                 roomId={filters.roomId}
-                 staff={allStaff}
-                 availableRooms={otherRooms}
-                 roomGroups={otherRoomGroups}
-                 onDateChange={onDateChange}
-                 onStatusChange={onStatusChange}
-                 onStaffChange={onStaffChange}
-                 onRoomGroupChange={onRoomGroupChange}
-                 onRoomChange={onRoomChange}
-                 onClearFilters={onClearFilters}
-                 showRoomGroupFilter={false}
-               />
-             </CardContent>
-           </Card>
           <Card>
-            {/* CardHeader remains the same */}
-             <CardHeader>
-               <CardTitle>Other Location Tasks for {getDisplayDate(filters.date)}</CardTitle>
-             </CardHeader>
+            <CardHeader className="py-4">
+              <CardTitle className="text-lg">Filters</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <TaskFilters
+                date={filters.date}
+                status={filters.status}
+                staffId={filters.staffId}
+                roomGroup="OTHER"
+                roomId={filters.roomId}
+                staff={allStaff}
+                availableRooms={otherRooms}
+                roomGroups={otherRoomGroups}
+                onDateChange={onDateChange}
+                onStatusChange={onStatusChange}
+                onStaffChange={onStaffChange}
+                onRoomGroupChange={onRoomGroupChange}
+                onRoomChange={onRoomChange}
+                onClearFilters={onClearFilters}
+                showRoomGroupFilter={false}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Other Location Tasks for {getDisplayDate(filters.date)}</CardTitle>
+            </CardHeader>
             <CardContent className="p-0">
-              {renderTaskTable(otherTasks, filters.date ? `No other location tasks found for ${getDisplayDate(filters.date)}` : "No upcoming other location tasks found")}
+              {renderTaskTable(
+                otherTasks,
+                filters.date
+                  ? `No other location tasks found for ${getDisplayDate(filters.date)}`
+                  : "No upcoming other location tasks found"
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-       {/* *** Render the Detail Dialog *** */}
-       <TaskDetailDialog
-            task={selectedTaskForDetail}
-            allStaff={allStaff}
-            availableRooms={availableRooms}
-            isOpen={isDetailDialogOpen}
-            onOpenChange={setIsDetailDialogOpen}
-            onUpdate={onUpdateTask}
-            isUpdating={isUpdatingTask}
-       />
+      {/* Task Detail Dialog */}
+      <TaskDetailDialog
+        task={selectedTaskForDetail}
+        allStaff={allStaff}
+        availableRooms={availableRooms}
+        isOpen={isDetailDialogOpen}
+        onOpenChange={setIsDetailDialogOpen}
+        onUpdate={onUpdateTask}
+        isUpdating={isUpdatingTask}
+      />
     </div>
   );
 }
-
-// *** Make sure these types are exported or defined correctly ***
-// (These might already be in useReceptionData.ts)
-export type { Task, Staff, Room, WorkLog };
-const allRoomGroups: RoomGroupOption[] = [
-    { value: 'all', label: 'All Groups' }, { value: 'P1', label: 'P1' }, { value: 'P2', label: 'P2' },
-    { value: 'A1S', label: 'A1S' }, { value: 'A2S', label: 'A2S' }, { value: 'OTHER', label: 'Other' },
-];
