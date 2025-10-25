@@ -3,9 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Check, X, Edit2 } from "lucide-react";
+// *** MODIFICATION START: Import User icon ***
+import { Check, X, Edit2, User } from "lucide-react";
+// *** MODIFICATION END ***
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils"; // Import cn utility
 
 interface Task {
   id: string;
@@ -64,7 +67,7 @@ export const TaskTableRow = ({ task, staff }: TaskTableRowProps) => {
   const handleStaffChange = async (userId: string) => {
     const { error } = await supabase
       .from("tasks")
-      .update({ user_id: userId })
+      .update({ user_id: userId === 'unassigned' ? null : userId }) // Handle unassigned case
       .eq("id", task.id);
 
     if (error) {
@@ -75,17 +78,21 @@ export const TaskTableRow = ({ task, staff }: TaskTableRowProps) => {
       });
     } else {
       toast({ title: "Staff updated" });
+      // Note: Realtime should update the UI, manual refresh might not be needed
     }
   };
 
   const handleIssueToggle = async () => {
     const newIssueFlag = !task.issue_flag;
     const updates: any = { issue_flag: newIssueFlag };
-    
+
     if (newIssueFlag) {
       updates.status = "repair_needed";
+    } else if (task.status === 'repair_needed') {
+      // Optionally reset status if unflagging, e.g., to 'todo' or based on time
+      updates.status = 'todo'; // Example: reset to 'todo'
     }
-    
+
     const { error } = await supabase
       .from("tasks")
       .update(updates)
@@ -98,7 +105,9 @@ export const TaskTableRow = ({ task, staff }: TaskTableRowProps) => {
         variant: "destructive",
       });
     }
+    // Note: Realtime should update the UI
   };
+
 
   const handleNotesUpdate = async () => {
     // Validate notes length (max 2000 chars)
@@ -113,7 +122,7 @@ export const TaskTableRow = ({ task, staff }: TaskTableRowProps) => {
 
     const { error } = await supabase
       .from("tasks")
-      .update({ reception_notes: receptionNotes })
+      .update({ reception_notes: receptionNotes || null }) // Send null if empty
       .eq("id", task.id);
 
     if (error) {
@@ -125,22 +134,65 @@ export const TaskTableRow = ({ task, staff }: TaskTableRowProps) => {
     } else {
       toast({ title: "Notes updated" });
       setEditingNotes(false);
+      // Note: Realtime should update the UI
     }
   };
 
+  // Calculate working time or show status if not started/stopped
   const calculateWorkingTime = () => {
-    if (!task.start_time) return "-";
-    if (!task.stop_time) {
-      const elapsed = Math.floor((Date.now() - new Date(task.start_time).getTime()) / 60000);
-      return `${elapsed} min`;
-    }
-    return `${task.actual_time || 0} min`;
+      if (task.status === 'done' && task.actual_time !== null) {
+          return `${task.actual_time} min`;
+      }
+      if (task.start_time && task.status !== 'todo') {
+          const start = new Date(task.start_time).getTime();
+          let end = Date.now();
+          if (task.stop_time) {
+              end = new Date(task.stop_time).getTime();
+          } else if (task.status === 'paused' && task.pause_start) {
+              end = new Date(task.pause_start).getTime(); // Calculate up to pause start
+          }
+
+          let currentPauseMs = 0;
+          if (task.status === 'paused' && task.pause_start) {
+            const pauseStartTime = new Date(task.pause_start).getTime();
+            if (!isNaN(pauseStartTime)) {
+                currentPauseMs = Date.now() - pauseStartTime; // Time since pause started
+            }
+          }
+
+          const accumulatedPauseMs = (task.total_pause || 0) * 60 * 1000;
+          const elapsedMs = Math.max(0, end - start - accumulatedPauseMs); // Adjusted calculation
+          const elapsedMinutes = Math.floor(elapsedMs / 60000);
+
+          if (task.status === 'in_progress' || task.status === 'paused') {
+              return `${elapsedMinutes} min ${task.status === 'paused' ? '(paused)' : ''}`;
+          }
+      }
+      return "-";
   };
+
+  // *** MODIFICATION START: Render guest icons ***
+  const renderGuestIcons = (count: number) => {
+    const icons = [];
+    // Ensure count is a positive integer, default to 1 if invalid
+    const validCount = Math.max(1, Math.floor(count) || 1);
+    const displayCount = Math.min(validCount, 10); // Limit icons to a max of 10 for UI sanity
+
+    for (let i = 0; i < displayCount; i++) {
+      icons.push(<User key={i} className="h-4 w-4 text-muted-foreground" />);
+    }
+    // Optionally show "+X" if count exceeds the limit
+    if (validCount > displayCount) {
+       icons.push(<span key="plus" className="text-xs text-muted-foreground ml-1">+{validCount - displayCount}</span>);
+    }
+    return <div className="flex items-center justify-center gap-0.5">{icons}</div>;
+  };
+  // *** MODIFICATION END ***
 
   return (
     <tr className="border-b hover:bg-muted/50 transition-colors">
       <td className="p-3">
-        <Badge className={getStatusColor(task.status)}>
+        <Badge className={cn(getStatusColor(task.status), "whitespace-nowrap")}>
           {getStatusLabel(task.status)}
         </Badge>
       </td>
@@ -150,31 +202,36 @@ export const TaskTableRow = ({ task, staff }: TaskTableRowProps) => {
           value={task.user?.id || "unassigned"}
           onValueChange={handleStaffChange}
         >
-          <SelectTrigger className="w-[180px] bg-card">
+          <SelectTrigger className="w-[160px] bg-card h-9 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="bg-card z-50">
-            <SelectItem value="unassigned">Unassigned</SelectItem>
+            <SelectItem value="unassigned" className="text-sm">Unassigned</SelectItem>
             {staff.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
+              <SelectItem key={s.id} value={s.id} className="text-sm">
                 {s.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </td>
-      <td className="p-3">{task.cleaning_type}</td>
-      <td className="p-3 text-center">{task.guest_count}</td>
-      <td className="p-3 text-center">{task.time_limit}</td>
+      <td className="p-3 text-center">{task.cleaning_type}</td>
+      {/* *** MODIFICATION START: Use guest icon renderer *** */}
+      <td className="p-3 text-center">
+        {renderGuestIcons(task.guest_count)}
+      </td>
+       {/* *** MODIFICATION END *** */}
+      <td className="p-3 text-center">{task.time_limit ?? '-'}</td>
       <td className="p-3 text-center">
         {task.actual_time !== null ? task.actual_time : "-"}
       </td>
       <td className="p-3 text-center">
         {task.difference !== null ? (
           <span
-            className={`font-semibold ${
-              task.difference > 0 ? "text-status-todo" : "text-status-done"
-            }`}
+            className={cn(
+                "font-semibold",
+                task.difference > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
+            )}
           >
             {task.difference > 0 ? "+" : ""}
             {task.difference}
@@ -184,65 +241,66 @@ export const TaskTableRow = ({ task, staff }: TaskTableRowProps) => {
         )}
       </td>
       <td className="p-3 text-center">
-        <button
-          onClick={handleIssueToggle}
-          className={`text-xl font-bold ${
-            task.issue_flag ? "text-status-todo" : "text-status-done"
-          }`}
-        >
-          {task.issue_flag ? "✗" : "✓"}
-        </button>
+        {/* Simplified Issue Display */}
+         {task.issue_flag ? (
+             <span title="Issue Reported" className="text-red-500 font-bold text-lg">!</span>
+         ) : (
+             <span title="No Issue" className="text-muted-foreground">-</span>
+         )}
       </td>
-      <td className="p-3 min-w-[200px]">
+      <td className="p-3 min-w-[200px] max-w-xs"> {/* Added max-width */}
         {editingNotes ? (
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Textarea
               value={receptionNotes}
               onChange={(e) => setReceptionNotes(e.target.value)}
-              className="min-h-[60px] bg-card"
+              className="min-h-[60px] bg-card text-xs"
               placeholder="Reception notes..."
+              maxLength={2000} // Add validation limit
             />
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleNotesUpdate}>
-                <Check className="h-4 w-4" />
+            <div className="flex gap-1 justify-end">
+              <Button size="icon" className="h-7 w-7" onClick={handleNotesUpdate}>
+                <Check className="h-4 w-4" /> <span className="sr-only">Save</span>
               </Button>
               <Button
-                size="sm"
+                size="icon"
+                className="h-7 w-7"
                 variant="outline"
                 onClick={() => {
                   setEditingNotes(false);
                   setReceptionNotes(task.reception_notes || "");
                 }}
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" /> <span className="sr-only">Cancel</span>
               </Button>
             </div>
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-0.5 group relative">
             {task.housekeeping_notes && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground truncate" title={task.housekeeping_notes}>
                 <strong>HK:</strong> {task.housekeeping_notes}
               </p>
             )}
-            <div className="flex items-center gap-2">
-              <p className="text-xs flex-1">
+            <div className="flex items-start gap-1">
+              <p className="text-xs flex-1 truncate" title={task.reception_notes ?? "No reception notes"}>
                 {task.reception_notes || (
-                  <span className="text-muted-foreground">No notes</span>
+                  <span className="italic text-muted-foreground/70">No notes</span>
                 )}
               </p>
               <Button
-                size="sm"
+                size="icon"
                 variant="ghost"
+                className="h-5 w-5 opacity-0 group-hover:opacity-100 focus:opacity-100 absolute top-0 right-0"
                 onClick={() => setEditingNotes(true)}
               >
-                <Edit2 className="h-3 w-3" />
+                <Edit2 className="h-3 w-3" /> <span className="sr-only">Edit Notes</span>
               </Button>
             </div>
           </div>
         )}
       </td>
-      <td className="p-3 text-center">{calculateWorkingTime()}</td>
+      <td className="p-3 text-center text-xs whitespace-nowrap">{calculateWorkingTime()}</td>
     </tr>
   );
 };
