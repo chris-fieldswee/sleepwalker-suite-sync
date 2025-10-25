@@ -5,9 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar } from "lucide-react";
+// *** MODIFICATION START: Import User icon ***
+import { Calendar, User } from "lucide-react";
+// *** MODIFICATION END ***
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils"; // Import cn utility
 
 type Task = {
   id: string;
@@ -34,6 +37,7 @@ export default function Archive() {
 
   useEffect(() => {
     fetchArchivedTasks();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
 
   const fetchArchivedTasks = async () => {
@@ -42,14 +46,15 @@ export default function Archive() {
       let query = supabase
         .from("tasks")
         .select(`
-          id, date, status, cleaning_type, guest_count, time_limit, actual_time, 
+          id, date, status, cleaning_type, guest_count, time_limit, actual_time,
           difference, reception_notes, housekeeping_notes, stop_time,
           room:rooms!inner(name, color, group_type),
           user:users(name)
         `)
-        .eq("status", "done")
+        .eq("status", "done") // Only fetch completed tasks
         .order("date", { ascending: false })
-        .order("stop_time", { ascending: false });
+        .order("stop_time", { ascending: false })
+        .limit(500); // Add a limit for performance
 
       if (startDate) query = query.gte("date", startDate);
       if (endDate) query = query.lte("date", endDate);
@@ -66,14 +71,35 @@ export default function Archive() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString + 'T00:00:00Z').toLocaleDateString(undefined, {
-      year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC'
-    });
+    // Basic date formatting, adjust as needed
+    try {
+        return new Date(dateString + 'T00:00:00Z').toLocaleDateString(undefined, {
+            year: '2-digit', month: 'short', day: 'numeric', timeZone: 'UTC'
+        });
+    } catch (e) {
+        return dateString; // Fallback
+    }
   };
 
   // Split tasks into two groups
   const regularTasks = archivedTasks.filter(task => task.room.group_type !== 'OTHER');
   const otherTasks = archivedTasks.filter(task => task.room.group_type === 'OTHER');
+
+  // *** MODIFICATION START: Guest icon renderer (same as TaskTableRow) ***
+  const renderGuestIcons = (count: number) => {
+    const icons = [];
+    const validCount = Math.max(1, Math.floor(count) || 1);
+    const displayCount = Math.min(validCount, 10);
+
+    for (let i = 0; i < displayCount; i++) {
+      icons.push(<User key={i} className="h-4 w-4 text-muted-foreground" />);
+    }
+    if (validCount > displayCount) {
+       icons.push(<span key="plus" className="text-xs text-muted-foreground ml-1">+{validCount - displayCount}</span>);
+    }
+    return <div className="flex items-center justify-center gap-0.5">{icons}</div>;
+  };
+  // *** MODIFICATION END ***
 
   const renderTaskTable = (taskList: Task[], emptyMessage: string) => (
     loading ? (
@@ -91,44 +117,51 @@ export default function Archive() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead>Date</TableHead>
+              <TableHead className="w-[90px]">Date</TableHead>
               <TableHead>Room</TableHead>
               <TableHead>Staff</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead className="text-center">Guests</TableHead>
-              <TableHead className="text-center">Limit</TableHead>
-              <TableHead className="text-center">Actual</TableHead>
-              <TableHead className="text-center">Diff</TableHead>
-              <TableHead>Notes</TableHead>
+              <TableHead className="text-center w-[60px]">Type</TableHead>
+              <TableHead className="text-center w-[80px]">Guests</TableHead>
+              <TableHead className="text-center w-[60px]">Limit</TableHead>
+              <TableHead className="text-center w-[60px]">Actual</TableHead>
+              <TableHead className="text-center w-[60px]">Diff</TableHead>
+              <TableHead className="min-w-[150px]">Notes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {taskList.map((task) => (
-              <TableRow key={task.id}>
-                <TableCell>{formatDate(task.date)}</TableCell>
+              <TableRow key={task.id} className="text-xs">
+                <TableCell className="whitespace-nowrap">{formatDate(task.date)}</TableCell>
                 <TableCell>
                   <span
-                    className="inline-block w-3 h-3 rounded-full mr-2"
-                    style={{ backgroundColor: task.room.color || '#ccc' }}
+                    className="inline-block w-2.5 h-2.5 rounded-full mr-1.5 align-middle"
+                    style={{ backgroundColor: task.room.color || '#E5E7EB' }} // Default color
                   />
                   {task.room.name}
                 </TableCell>
-                <TableCell>{task.user?.name || "Unassigned"}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{task.cleaning_type}</Badge>
+                <TableCell>{task.user?.name || <span className="text-muted-foreground italic">Unassigned</span>}</TableCell>
+                <TableCell className="text-center">
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{task.cleaning_type}</Badge>
                 </TableCell>
-                <TableCell className="text-center">{task.guest_count}</TableCell>
+                 {/* *** MODIFICATION START: Use guest icon renderer *** */}
+                <TableCell className="text-center">
+                  {renderGuestIcons(task.guest_count)}
+                </TableCell>
+                 {/* *** MODIFICATION END *** */}
                 <TableCell className="text-center">{task.time_limit ?? "-"}</TableCell>
                 <TableCell className="text-center">{task.actual_time ?? "-"}</TableCell>
                 <TableCell className="text-center">
-                  {task.difference !== null && (
-                    <span className={task.difference > 0 ? "text-red-600" : "text-green-600"}>
+                  {task.difference !== null ? (
+                    <span className={cn(
+                        "font-medium",
+                        task.difference > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
+                    )}>
                       {task.difference > 0 ? "+" : ""}{task.difference}
                     </span>
-                  )}
+                  ) : "-"}
                 </TableCell>
-                <TableCell className="max-w-xs truncate">
-                  {task.housekeeping_notes || task.reception_notes || "-"}
+                <TableCell className="max-w-[200px] truncate" title={task.housekeeping_notes || task.reception_notes || undefined}>
+                  {task.housekeeping_notes ? `HK: ${task.housekeeping_notes}` : task.reception_notes ? `REC: ${task.reception_notes}` : <span className="text-muted-foreground italic">No notes</span>}
                 </TableCell>
               </TableRow>
             ))}
@@ -137,6 +170,47 @@ export default function Archive() {
       </div>
     )
   );
+
+  // --- Date filter rendering function ---
+  const renderDateFilters = (idPrefix: string) => (
+      <Card>
+          <CardHeader className="pb-3 pt-4">
+              <CardTitle className="text-base">Filter by Date Range</CardTitle>
+          </CardHeader>
+          <CardContent className="pb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                      <Label htmlFor={`${idPrefix}-start-date`} className="text-xs">Start Date</Label>
+                      <div className="relative">
+                          <Input
+                              id={`${idPrefix}-start-date`}
+                              type="date"
+                              value={startDate}
+                              onChange={(e) => setStartDate(e.target.value)}
+                              className="h-9 text-sm"
+                          />
+                          <Calendar className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      </div>
+                  </div>
+                  <div>
+                      <Label htmlFor={`${idPrefix}-end-date`} className="text-xs">End Date</Label>
+                      <div className="relative">
+                          <Input
+                              id={`${idPrefix}-end-date`}
+                              type="date"
+                              value={endDate}
+                              onChange={(e) => setEndDate(e.target.value)}
+                              className="h-9 text-sm"
+                              min={startDate || undefined} // Ensure end date is not before start date
+                          />
+                          <Calendar className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      </div>
+                  </div>
+              </div>
+          </CardContent>
+      </Card>
+  );
+
 
   return (
     <div className="space-y-4">
@@ -147,96 +221,32 @@ export default function Archive() {
 
       <Tabs defaultValue="regular" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
-          <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
+          <TabsTrigger value="regular">Hotel Rooms ({!loading ? regularTasks.length : '...'})</TabsTrigger>
+          <TabsTrigger value="other">Other Locations ({!loading ? otherTasks.length : '...'})</TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="regular" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Date Range Filter</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="start-date">Start Date</Label>
-                  <div className="relative">
-                    <Input
-                      id="start-date"
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                    />
-                    <Calendar className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="end-date">End Date</Label>
-                  <div className="relative">
-                    <Input
-                      id="end-date"
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
-                    <Calendar className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
+        {/* Regular Rooms Tab */}
+        <TabsContent value="regular" className="space-y-4">
+          {renderDateFilters("regular")}
           <Card>
             <CardHeader>
               <CardTitle>Completed Hotel Room Tasks</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {renderTaskTable(regularTasks, "No completed hotel room tasks found")}
+              {renderTaskTable(regularTasks, "No completed hotel room tasks found for this date range")}
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* Other Locations Tab */}
         <TabsContent value="other" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Date Range Filter</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="start-date-other">Start Date</Label>
-                  <div className="relative">
-                    <Input
-                      id="start-date-other"
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                    />
-                    <Calendar className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="end-date-other">End Date</Label>
-                  <div className="relative">
-                    <Input
-                      id="end-date-other"
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
-                    <Calendar className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
+           {renderDateFilters("other")}
           <Card>
             <CardHeader>
               <CardTitle>Completed Other Location Tasks</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {renderTaskTable(otherTasks, "No completed other location tasks found")}
+              {renderTaskTable(otherTasks, "No completed other location tasks found for this date range")}
             </CardContent>
           </Card>
         </TabsContent>
