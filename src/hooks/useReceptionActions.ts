@@ -6,7 +6,7 @@ import type { Database } from "@/integrations/supabase/types";
 import type { Room, Staff } from './useReceptionData';
 import { taskInputSchema, workLogSchema } from '@/lib/validation';
 // ==========================================
-// ===== CRUCIAL IMPORT - MUST BE HERE =====
+// ===== VERIFY THIS IMPORT LINE EXISTS =====
 import { useAuth } from '@/contexts/AuthContext';
 // ==========================================
 import type { IssueTask } from '@/components/reception/IssueDetailDialog'; // Assuming IssueTask includes issue_flag
@@ -56,10 +56,10 @@ export function useReceptionActions(
     onTaskDeleted?: () => void,
 ) {
   const { toast } = useToast();
-  // ========================================
-  // ===== CRUCIAL HOOK CALL - MUST BE HERE =====
+  // ============================================
+  // ===== VERIFY THIS HOOK CALL IS INSIDE =====
   const { userId } = useAuth();
-  // ========================================
+  // ============================================
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
   const [isSavingLog, setIsSavingLog] = useState(false);
   const [isSubmittingNewIssue, setIsSubmittingNewIssue] = useState(false);
@@ -420,6 +420,7 @@ export function useReceptionActions(
 
              // Determine the values to use for the limit query
               const finalRoomId = updates.roomId ?? currentTaskInfo.room_id; // Use updated roomId if available, else current
+
               const room = availableRooms.find(r => r.id === finalRoomId);
               const groupType = room?.group_type;
               const cleaningType = updates.cleaningType ?? currentTaskInfo.cleaning_type;
