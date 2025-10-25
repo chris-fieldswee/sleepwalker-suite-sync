@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Database } from "@/integrations/supabase/types";
 import type { Room, Staff } from './useReceptionData';
 import { taskInputSchema, workLogSchema } from '@/lib/validation';
-// *** ENSURE THIS IMPORT IS PRESENT ***
+// *** THIS LINE IS CRUCIAL ***
 import { useAuth } from '@/contexts/AuthContext';
 // Import IssueTask type if defined separately, or use inline definition
 import type { IssueTask } from '@/components/reception/IssueDetailDialog'; // Assuming IssueTask includes issue_flag
@@ -56,7 +56,7 @@ export function useReceptionActions(
 ) {
   const { toast } = useToast();
   // *** ENSURE useAuth() IS CALLED HERE ***
-  const { userId } = useAuth();
+  const { userId } = useAuth(); // Make sure this line exists and is called *inside* the function
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
   const [isSavingLog, setIsSavingLog] = useState(false);
   const [isSubmittingNewIssue, setIsSubmittingNewIssue] = useState(false);
@@ -139,7 +139,7 @@ export function useReceptionActions(
          break_minutes: logData.break_minutes || 0,
          laundry_minutes: logData.laundry_minutes || 0, // Assuming these exist if needed
          breakfast_minutes: logData.breakfast_minutes || 0, // Assuming these exist if needed
-         total_minutes: logData.total_minutes || 0, // This might be recalculated
+         total_minutes: logData.total_minutes || null, // Allow null, will recalculate
          notes: logData.notes || '',
        });
 
@@ -252,7 +252,7 @@ export function useReceptionActions(
         let filePath: string | undefined = undefined;
 
         try {
-            if (photo && userId) {
+            if (photo && userId) { // Check userId here
                 const fileExt = photo.name.split('.').pop();
                 // Ensure userId is part of the filename for easier tracking
                 const fileName = `${userId}_issue_${Date.now()}.${fileExt}`;
@@ -275,7 +275,14 @@ export function useReceptionActions(
                 } else {
                      throw new Error('Photo upload failed unexpectedly (no data returned).');
                 }
+            } else if (photo && !userId) {
+                // Handle case where photo is provided but userId isn't available (shouldn't happen if auth is set up)
+                console.error("Cannot upload photo: User ID is not available.");
+                toast({ title: "Upload Error", description: "Could not upload photo, user not identified.", variant: "destructive" });
+                setIsSubmittingNewIssue(false);
+                return false;
             }
+
 
             // Create a dedicated 'issue' task
             const taskToInsert = {
@@ -325,7 +332,7 @@ export function useReceptionActions(
         updates: Partial<{
             issue_flag: boolean | null;
             reception_notes: string | null;
-            user_id: string | null
+            user_id: string | null | 'unassigned'; // Allow 'unassigned'
         }>
     ): Promise<boolean> => {
         setIsUpdatingIssue(true);
@@ -409,7 +416,10 @@ export function useReceptionActions(
               }
 
              // Determine the values to use for the limit query
-              const finalRoomId = updates.roomId ?? taskId; // Use updated roomId if available
+              // Correction: Use task id from arguments, not updates object for current room lookup
+              const currentRoomId = (await supabase.from('tasks').select('room_id').eq('id', taskId).single()).data?.room_id;
+              const finalRoomId = updates.roomId ?? currentRoomId; // Use updated roomId if available, else current
+
               const room = availableRooms.find(r => r.id === finalRoomId);
               const groupType = room?.group_type;
               const cleaningType = updates.cleaningType ?? currentTaskInfo.cleaning_type;
