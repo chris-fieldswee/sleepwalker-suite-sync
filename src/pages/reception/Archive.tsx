@@ -9,9 +9,9 @@ import { Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { TaskTableRow } from "@/components/reception/TaskTableRow";
-import { TaskDetailDialog } from "@/components/reception/TaskDetailDialog"; // Import the detail dialog
+import { TaskDetailDialog } from "@/components/reception/TaskDetailDialog";
 import type { Database } from "@/integrations/supabase/types";
-import type { Staff, Room } from "@/hooks/useReceptionData"; // Import Staff and Room types
+import type { Staff, Room } from "@/hooks/useReceptionData";
 
 // Keep Task type consistent (you might want to centralize this type)
 type Task = {
@@ -26,15 +26,15 @@ type Task = {
   actual_time: number | null;
   difference: number | null;
   issue_flag: boolean;
-  issue_description: string | null;
-  issue_photo: string | null;
+  issue_description: string | null; // Needed for TaskDetailDialog
+  issue_photo: string | null; // Needed for TaskDetailDialog
   housekeeping_notes: string | null;
   reception_notes: string | null;
-  start_time: string | null;
-  pause_start: string | null;
-  pause_stop: string | null;
-  total_pause: number | null;
-  stop_time: string | null;
+  start_time: string | null; // Needed for TaskDetailDialog
+  stop_time: string | null; // Needed for TaskDetailDialog
+  pause_start: string | null; // Keep if needed by TaskDetailDialog or logic
+  pause_stop: string | null; // Keep if needed by TaskDetailDialog or logic
+  total_pause: number | null; // Keep if needed by TaskDetailDialog or logic
   created_at?: string;
 };
 
@@ -43,7 +43,7 @@ interface ArchiveProps {
   allStaff: Staff[];
   availableRooms: Room[];
   onUpdateTask: (taskId: string, updates: any) => Promise<boolean>;
-  onDeleteTask: (taskId: string) => Promise<boolean>;
+  onDeleteTask: (taskId: string) => Promise<boolean>; // Changed return type
   isUpdatingTask: boolean;
   isDeletingTask: boolean;
 }
@@ -79,12 +79,10 @@ export default function Archive({
           room:rooms!inner(id, name, color, group_type),
           user:users(id, name, first_name, last_name)
         `)
-        // Filter for done tasks OR tasks older than today (adjust logic as needed)
-        // This example keeps only 'done' tasks as per original logic.
-        .eq("status", "done")
+        .eq("status", "done") // Primarily fetch 'done' tasks for archive
         .order("date", { ascending: false })
-        .order("stop_time", { ascending: false })
-        .limit(500); // Consider pagination for very large archives
+        .order("stop_time", { ascending: false }) // Order by completion time
+        .limit(500); // Limit results for performance
 
       if (startDate) {
         query = query.gte("date", startDate);
@@ -112,17 +110,18 @@ export default function Archive({
       console.error("Error fetching archived tasks:", error);
       toast({
         title: "Error Loading Archive",
-        description: "Failed to load archived tasks.",
+        description: `Failed to load archived tasks: ${error.message}`,
         variant: "destructive",
       });
+      setArchivedTasks([]); // Clear tasks on error
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, toast]); // Include toast in dependency array
+  }, [startDate, endDate, toast]); // Include toast dependency
 
   useEffect(() => {
     fetchArchivedTasks();
-  }, [fetchArchivedTasks]); // Run fetch on mount and when fetch function changes
+  }, [fetchArchivedTasks]);
 
   // Handler to open the detail dialog
   const handleViewDetails = (task: Task) => {
@@ -130,13 +129,11 @@ export default function Archive({
     setIsDetailDialogOpen(true);
   };
 
-  // Handler for deleting task (closes dialog if the selected task is deleted)
+  // Handler for deleting task
   const handleDelete = async (taskId: string) => {
     const success = await onDeleteTask(taskId);
     if (success) {
-      // Refetch tasks to update the list
-      fetchArchivedTasks();
-      // Close dialog if the deleted task was the one being viewed
+      fetchArchivedTasks(); // Refetch after successful delete
       if (selectedTask?.id === taskId) {
         setIsDetailDialogOpen(false);
         setSelectedTask(null);
@@ -144,65 +141,65 @@ export default function Archive({
     }
   };
 
-  const formatDate = (dateString: string) => {
-    // ... (keep existing formatDate) ...
+  // Format date as DD.MM for display range
+  const formatDateForRange = (dateString: string) => {
+    if (!dateString) return '';
     try {
-        const date = new Date(dateString + 'T00:00:00'); // Parse as local date
-        if (isNaN(date.getTime())) return dateString;
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        return `${day}.${month}`;
+      // Assuming dateString is YYYY-MM-DD
+      const parts = dateString.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}.${parts[1]}.${parts[0]}`; // DD.MM.YYYY
+      }
+      // Fallback for unexpected formats
+      const date = new Date(dateString + 'T00:00:00Z'); // Use UTC to avoid timezone shifts
+      if (isNaN(date.getTime())) return dateString;
+       return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }); // Format as DD/MM/YYYY
     } catch (error) {
-        console.error("Date formatting error:", error, dateString);
-        return dateString;
+      console.error("Date formatting error:", error, dateString);
+      return dateString;
     }
   };
 
-  // Split tasks into groups
-  const regularTasks = archivedTasks.filter(task => task.room.group_type !== 'OTHER');
-  const otherTasks = archivedTasks.filter(task => task.room.group_type === 'OTHER');
 
   // Reusable function to render the table for a task list
   const renderTaskTable = (taskList: Task[], emptyMessage: string) => (
     loading ? (
-       // ... (keep existing loading indicator) ...
-       <div className="flex items-center justify-center py-12">
-         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-         <span className="ml-2">Loading archived tasks...</span>
-       </div>
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <span className="ml-2">Loading archived tasks...</span>
+      </div>
     ) : taskList.length === 0 ? (
-       // ... (keep existing empty state) ...
-       <div className="flex flex-col items-center justify-center py-12 text-center">
-         <p className="text-lg font-medium text-muted-foreground">{emptyMessage}</p>
-         <p className="text-sm text-muted-foreground">Adjust the date range to see more results</p>
-       </div>
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <p className="text-lg font-medium text-muted-foreground">{emptyMessage}</p>
+        <p className="text-sm text-muted-foreground">Adjust the date range or wait for tasks to be completed.</p>
+      </div>
     ) : (
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto"> {/* No max-height/scroll needed usually for archive */}
         <Table>
           <TableHeader>
-             {/* ... (keep existing table header) ... */}
-             <TableRow className="bg-muted/50">
-               <TableHead className="w-[100px]">Status</TableHead>
-               <TableHead>Room</TableHead>
-               <TableHead>Staff</TableHead>
-               <TableHead className="text-center w-[80px]">Type</TableHead>
-               <TableHead className="text-center w-[100px]">Guests</TableHead>
-               <TableHead className="text-center w-[60px]">Limit</TableHead>
-               <TableHead className="text-center w-[60px]">Actual</TableHead>
-               <TableHead className="text-center w-[60px]">Issue</TableHead>
-               <TableHead className="text-center w-[60px]">Notes</TableHead>
-               <TableHead className="text-right w-[100px]">Actions</TableHead>
-             </TableRow>
+            <TableRow className="bg-muted/50">
+              <TableHead className="w-[100px]">Status</TableHead>
+              <TableHead>Room</TableHead>
+              <TableHead>Staff</TableHead>
+              <TableHead className="text-center w-[80px]">Date</TableHead> {/* Date Header */}
+              <TableHead className="text-center w-[80px]">Type</TableHead>
+              <TableHead className="text-center w-[100px]">Guests</TableHead>
+              <TableHead className="text-center w-[60px]">Limit</TableHead>
+              <TableHead className="text-center w-[60px]">Actual</TableHead>
+              <TableHead className="text-center w-[60px]">Issue</TableHead>
+              <TableHead className="text-center w-[60px]">Notes</TableHead>
+              <TableHead className="text-right w-[100px]">Actions</TableHead>
+            </TableRow>
           </TableHeader>
           <TableBody>
             {taskList.map((task) => (
               <TaskTableRow
                 key={task.id}
                 task={task}
-                staff={allStaff} // Pass allStaff down if needed for display inside row (though archive usually doesn't need assignment changes)
-                onViewDetails={handleViewDetails} // Pass the handler
-                onDeleteTask={handleDelete} // Pass the handler
-                isDeleting={isDeletingTask} // Pass the loading state for delete button
+                staff={allStaff} // Pass staff for potential display consistency
+                onViewDetails={handleViewDetails}
+                onDeleteTask={handleDelete} // Pass delete handler
+                isDeleting={isDeletingTask} // Pass deleting state
               />
             ))}
           </TableBody>
@@ -212,71 +209,69 @@ export default function Archive({
   );
 
   const getDisplayDateRange = () => {
-     // ... (keep existing getDisplayDateRange) ...
-     if (startDate && endDate) {
-       return `${formatDate(startDate)} - ${formatDate(endDate)}`;
-     } else if (startDate) {
-       return `From ${formatDate(startDate)}`;
-     } else if (endDate) {
-       return `Until ${formatDate(endDate)}`;
-     }
-     return "All Time";
+    if (startDate && endDate) {
+      return `${formatDateForRange(startDate)} - ${formatDateForRange(endDate)}`;
+    } else if (startDate) {
+      return `From ${formatDateForRange(startDate)}`;
+    } else if (endDate) {
+      return `Until ${formatDateForRange(endDate)}`;
+    }
+    return "All Completed Tasks"; // More descriptive default
   };
 
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6"> {/* No pb-20 needed for archive */}
       {/* Header with Date Range Filters */}
       <Card>
-         {/* ... (keep existing card header/content for filters) ... */}
-         <CardHeader>
-           <CardTitle className="flex items-center gap-2">
-             <Calendar className="h-5 w-5" />
-             Archived Tasks - {getDisplayDateRange()}
-           </CardTitle>
-         </CardHeader>
-         <CardContent>
-           <div className="flex gap-4 items-end">
-             <div className="flex-1">
-               <Label htmlFor="start-date">Start Date</Label>
-               <Input
-                 id="start-date"
-                 type="date"
-                 value={startDate}
-                 onChange={(e) => setStartDate(e.target.value)}
-                 className="max-w-[200px]"
-               />
-             </div>
-             <div className="flex-1">
-               <Label htmlFor="end-date">End Date</Label>
-               <Input
-                 id="end-date"
-                 type="date"
-                 value={endDate}
-                 onChange={(e) => setEndDate(e.target.value)}
-                 className="max-w-[200px]"
-               />
-             </div>
-           </div>
-         </CardContent>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Archive - {getDisplayDateRange()}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1 w-full sm:w-auto">
+              <Label htmlFor="start-date">Start Date</Label>
+              <Input
+                id="start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full sm:max-w-[200px]" // Responsive width
+              />
+            </div>
+            <div className="flex-1 w-full sm:w-auto">
+              <Label htmlFor="end-date">End Date</Label>
+              <Input
+                id="end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate || undefined} // Prevent end date before start date
+                className="w-full sm:max-w-[200px]" // Responsive width
+              />
+            </div>
+          </div>
+        </CardContent>
       </Card>
 
       {/* Tabs for Hotel Rooms and Other Locations */}
       <Tabs defaultValue="hotel" className="w-full">
-         {/* ... (keep existing tabs list) ... */}
-         <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
-           <TabsTrigger value="hotel">
-             Hotel Rooms ({regularTasks.length})
-           </TabsTrigger>
-           <TabsTrigger value="other">
-             Other Locations ({otherTasks.length})
-           </TabsTrigger>
-         </TabsList>
+        <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+          <TabsTrigger value="hotel">
+            Hotel Rooms ({regularTasks.length})
+          </TabsTrigger>
+          <TabsTrigger value="other">
+            Other Locations ({otherTasks.length})
+          </TabsTrigger>
+        </TabsList>
 
         {/* Hotel Rooms Tab */}
         <TabsContent value="hotel" className="space-y-4">
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-6"> {/* Keep padding for Archive table */}
               {renderTaskTable(
                 regularTasks,
                 startDate || endDate
@@ -290,7 +285,7 @@ export default function Archive({
         {/* Other Locations Tab */}
         <TabsContent value="other" className="space-y-4">
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-6"> {/* Keep padding for Archive table */}
               {renderTaskTable(
                 otherTasks,
                 startDate || endDate
@@ -302,20 +297,20 @@ export default function Archive({
         </TabsContent>
       </Tabs>
 
-       {/* Task Detail Dialog */}
-       <TaskDetailDialog
-         task={selectedTask}
-         allStaff={allStaff}
-         availableRooms={availableRooms} // Pass available rooms for editing the room field
-         isOpen={isDetailDialogOpen}
-         onOpenChange={setIsDetailDialogOpen}
-         onUpdate={async (taskId, updates) => { // Handle update and refetch
+      {/* Task Detail Dialog */}
+      <TaskDetailDialog
+        task={selectedTask}
+        allStaff={allStaff}
+        availableRooms={availableRooms} // Pass available rooms
+        isOpen={isDetailDialogOpen}
+        onOpenChange={setIsDetailDialogOpen}
+        onUpdate={async (taskId, updates) => { // Handle update and refetch
             const success = await onUpdateTask(taskId, updates);
             if (success) fetchArchivedTasks(); // Refetch on successful update
             return success;
          }}
-         isUpdating={isUpdatingTask}
-       />
+        isUpdating={isUpdatingTask}
+      />
     </div>
   );
 }
