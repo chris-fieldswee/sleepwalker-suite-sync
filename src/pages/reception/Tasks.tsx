@@ -10,14 +10,16 @@ import { TaskTableRow } from "@/components/reception/TaskTableRow";
 import { AddTaskDialog } from "@/components/reception/AddTaskDialog";
 import { WorkLogDialog } from "@/components/reception/WorkLogDialog";
 import { TaskDetailDialog } from "@/components/reception/TaskDetailDialog";
-import { TaskSummaryFooter } from "@/components/reception/TaskSummaryFooter";
+import { TaskSummaryFooter } from "@/components/reception/TaskSummaryFooter"; // Import the footer
 import type { Database } from "@/integrations/supabase/types";
 
-// ... (keep existing Task, Staff, Room, WorkLog interfaces) ...
+type TaskStatus = Database["public"]["Enums"]["task_status"];
+type RoomGroup = Database["public"]["Enums"]["room_group"];
+
 export interface Task {
   id: string;
   date: string;
-  status: string;
+  status: string; // Keep as string if TaskTableRow uses string status
   room: { id: string; name: string; group_type: string; color: string | null };
   user: { id: string; name: string } | null;
   cleaning_type: Database["public"]["Enums"]["cleaning_type"];
@@ -26,15 +28,15 @@ export interface Task {
   actual_time: number | null;
   difference: number | null;
   issue_flag: boolean;
+  issue_description: string | null; // Added based on TaskTableRow usage
+  issue_photo: string | null; // Added based on TaskTableRow usage
   housekeeping_notes: string | null;
   reception_notes: string | null;
   start_time: string | null;
   stop_time: string | null;
-  issue_description: string | null;
-  issue_photo: string | null;
-  pause_start: string | null;
-  pause_stop: string | null;
-  total_pause: number | null;
+  pause_start: string | null; // Keep if needed by TaskDetailDialog or logic
+  pause_stop: string | null; // Keep if needed by TaskDetailDialog or logic
+  total_pause: number | null; // Keep if needed by TaskDetailDialog or logic
   created_at?: string;
 }
 
@@ -63,7 +65,7 @@ export interface WorkLog {
   notes: string | null;
   user: { name: string };
 }
-// ... (keep getTodayDateString, getDisplayDate, allRoomGroups) ...
+
 const getTodayDateString = () => new Date().toISOString().split("T")[0];
 
 const getDisplayDate = (dateStr: string | null) => {
@@ -86,11 +88,7 @@ const allRoomGroups: RoomGroupOption[] = [
   { value: 'OTHER', label: 'Other' },
 ];
 
-type TaskStatus = Database["public"]["Enums"]["task_status"];
-type RoomGroup = Database["public"]["Enums"]["room_group"];
-
 interface TasksProps {
-  // ... (keep existing props) ...
   tasks: Task[];
   allStaff: Staff[];
   availableRooms: Room[];
@@ -117,7 +115,7 @@ interface TasksProps {
   isSubmittingTask: boolean;
   isSavingLog: boolean;
   onUpdateTask: (taskId: string, updates: any) => Promise<boolean>;
-  onDeleteTask: (taskId: string) => Promise<boolean>;
+  onDeleteTask: (taskId: string) => Promise<boolean>; // Changed return type to Promise<boolean> based on useReceptionActions
   isUpdatingTask: boolean;
   isDeletingTask: boolean;
 }
@@ -152,17 +150,17 @@ export default function Tasks({
   const [activeTab, setActiveTab] = useState<"regular" | "other">("regular");
 
   const handleViewDetails = (task: Task) => {
-    // ... (keep existing handler) ...
     setSelectedTaskForDetail(task);
     setIsDetailDialogOpen(true);
   };
 
   const handleDelete = async (taskId: string) => {
-    // ... (keep existing handler) ...
-    const success = await onDeleteTask(taskId);
+    const success = await onDeleteTask(taskId); // Await the promise
+    // Close dialog only if deletion was successful AND it was the selected task
     if (success && selectedTaskForDetail?.id === taskId) {
       setIsDetailDialogOpen(false);
       setSelectedTaskForDetail(null);
+      // Data should refresh via the callback passed to useReceptionActions, no need to call onRefresh here explicitly
     }
   };
 
@@ -176,7 +174,6 @@ export default function Tasks({
 
   // Calculate totals based on the active tab
   const taskTotals = useMemo(() => {
-    // ... (keep existing calculation) ...
     const tasksToSum = activeTab === "regular" ? regularTasks : otherTasks;
     let totalLimit: number | null = 0;
     let totalActual: number | null = 0;
@@ -184,12 +181,16 @@ export default function Tasks({
     let actualIsNull = true;
 
     tasksToSum.forEach(task => {
-        if (task.time_limit !== null) {
-            totalLimit = (totalLimit ?? 0) + task.time_limit;
+        // Ensure time_limit is treated as a number
+        const limit = typeof task.time_limit === 'number' ? task.time_limit : null;
+        if (limit !== null) {
+            totalLimit = (totalLimit ?? 0) + limit;
             limitIsNull = false;
         }
-        if (task.actual_time !== null) {
-            totalActual = (totalActual ?? 0) + task.actual_time;
+        // Ensure actual_time is treated as a number
+        const actual = typeof task.actual_time === 'number' ? task.actual_time : null;
+        if (actual !== null) {
+            totalActual = (totalActual ?? 0) + actual;
             actualIsNull = false;
         }
     });
@@ -201,8 +202,6 @@ export default function Tasks({
     };
   }, [activeTab, regularTasks, otherTasks]);
 
-  // ** MODIFICATION: Added max-h-[calc(8_*_3.5rem)] overflow-y-auto to the div wrapping the table **
-  // Note: 3.5rem is an approximation for row height (h-12 + p-4). Adjust if needed.
   const renderTaskTable = (taskList: Task[], emptyMessage: string) => (
     loading && !refreshing ? (
       <div className="flex items-center justify-center py-12">
@@ -215,22 +214,22 @@ export default function Tasks({
         <p className="text-sm text-muted-foreground">Try adjusting filters or add a new task.</p>
       </div>
     ) : (
-       // Added max-height and overflow classes here
+      // Added max-height and overflow classes here
       <div className="overflow-x-auto max-h-[calc(8*3.5rem)] overflow-y-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 sticky top-0 z-10">
-              {/* Keep TableHead definitions */}
-               <TableHead className="font-semibold w-[100px]">Status</TableHead>
-               <TableHead className="font-semibold w-[100px]">Room</TableHead>
-               <TableHead className="font-semibold w-[150px]">Staff</TableHead>
-               <TableHead className="font-semibold text-center w-[60px]">Type</TableHead>
-               <TableHead className="font-semibold text-center w-[80px]">Guests</TableHead>
-               <TableHead className="font-semibold text-center w-[60px]">Limit</TableHead>
-               <TableHead className="font-semibold text-center w-[60px]">Actual</TableHead>
-               <TableHead className="font-semibold text-center w-[60px]">Issue</TableHead>
-               <TableHead className="font-semibold text-center w-[60px]">Notes</TableHead>
-               <TableHead className="font-semibold text-right w-[100px]">Actions</TableHead>
+              <TableHead className="font-semibold w-[100px]">Status</TableHead>
+              <TableHead className="font-semibold w-[100px]">Room</TableHead>
+              <TableHead className="font-semibold w-[150px]">Staff</TableHead>
+              <TableHead className="font-semibold text-center w-[80px]">Date</TableHead> {/* Date Header Added */}
+              <TableHead className="font-semibold text-center w-[60px]">Type</TableHead>
+              <TableHead className="font-semibold text-center w-[80px]">Guests</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Limit</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Actual</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Issue</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Notes</TableHead>
+              <TableHead className="font-semibold text-right w-[100px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -238,9 +237,9 @@ export default function Tasks({
               <TaskTableRow
                 key={task.id}
                 task={task}
-                staff={allStaff}
+                staff={allStaff} // Pass allStaff down for potential display needs in TaskTableRow
                 onViewDetails={handleViewDetails}
-                onDeleteTask={handleDelete}
+                onDeleteTask={handleDelete} // Corrected prop name
                 isDeleting={isDeletingTask}
               />
             ))}
@@ -249,138 +248,128 @@ export default function Tasks({
       </div>
     )
   );
-  // ** END MODIFICATION **
 
   return (
-    <div className="space-y-4 pb-20"> {/* Keep pb-20 */}
+    <div className="space-y-4 pb-20"> {/* Keep pb-20 for footer spacing */}
       {/* Header */}
       <div className="flex items-center justify-between">
-        {/* ... (keep existing header content) ... */}
         <div>
-           <h1 className="text-3xl font-bold">Tasks</h1>
-           <p className="text-muted-foreground mt-1">Manage active housekeeping tasks</p>
-         </div>
-         <div className="flex gap-2">
-           <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing || loading}>
-             <RefreshCw className={`mr-2 h-4 w-4 ${(refreshing || loading) ? "animate-spin" : ""}`} />
-             Refresh
-           </Button>
-           <WorkLogDialog
-             filterDate={filters.date || getTodayDateString()}
-             workLogs={workLogs}
-             allStaff={allStaff}
-             onSave={onSaveWorkLog}
-             isSaving={isSavingLog}
-           />
-           <AddTaskDialog
-             availableRooms={availableRooms}
-             allStaff={allStaff}
-             initialState={initialNewTaskState}
-             onSubmit={onAddTask}
-             isSubmitting={isSubmittingTask}
-           />
-         </div>
+          <h1 className="text-3xl font-bold">Tasks</h1>
+          <p className="text-muted-foreground mt-1">Manage active housekeeping tasks</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing || loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${(refreshing || loading) ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <WorkLogDialog
+            filterDate={filters.date || getTodayDateString()}
+            workLogs={workLogs}
+            allStaff={allStaff}
+            onSave={onSaveWorkLog}
+            isSaving={isSavingLog}
+          />
+          <AddTaskDialog
+            availableRooms={availableRooms}
+            allStaff={allStaff}
+            initialState={initialNewTaskState}
+            onSubmit={onAddTask}
+            isSubmitting={isSubmittingTask}
+          />
+        </div>
       </div>
 
       <Tabs defaultValue="regular" value={activeTab} onValueChange={(value) => setActiveTab(value as "regular" | "other")} className="w-full">
-        {/* ... (keep existing TabsList) ... */}
-         <TabsList className="grid w-full grid-cols-2">
-           <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
-           <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
-         </TabsList>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
+          <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="regular" className="space-y-4">
           <Card>
-             {/* ... (keep existing filter card content) ... */}
-             <CardHeader className="py-4">
-               <CardTitle className="text-lg">Filters</CardTitle>
-             </CardHeader>
-             <CardContent className="pt-0 pb-4">
-               <TaskFilters
-                 date={filters.date}
-                 status={filters.status}
-                 staffId={filters.staffId}
-                 roomGroup={filters.roomGroup}
-                 roomId={filters.roomId}
-                 staff={allStaff}
-                 availableRooms={regularRooms}
-                 roomGroups={regularRoomGroups}
-                 onDateChange={onDateChange}
-                 onStatusChange={onStatusChange}
-                 onStaffChange={onStaffChange}
-                 onRoomGroupChange={onRoomGroupChange}
-                 onRoomChange={onRoomChange}
-                 onClearFilters={onClearFilters}
-                 showRoomGroupFilter={true}
-               />
-             </CardContent>
-           </Card>
+            <CardHeader className="py-4">
+              <CardTitle className="text-lg">Filters</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <TaskFilters
+                date={filters.date}
+                status={filters.status}
+                staffId={filters.staffId}
+                roomGroup={filters.roomGroup}
+                roomId={filters.roomId}
+                staff={allStaff}
+                availableRooms={regularRooms}
+                roomGroups={regularRoomGroups}
+                onDateChange={onDateChange}
+                onStatusChange={onStatusChange}
+                onStaffChange={onStaffChange}
+                onRoomGroupChange={onRoomGroupChange}
+                onRoomChange={onRoomChange}
+                onClearFilters={onClearFilters}
+                showRoomGroupFilter={true}
+              />
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
               <CardTitle>Hotel Room Tasks for {getDisplayDate(filters.date)}</CardTitle>
             </CardHeader>
-             {/* ** MODIFICATION: No padding on CardContent for the table ** */}
-            <CardContent className="p-0">
+            <CardContent className="p-0"> {/* Removed padding */}
               {renderTaskTable(
                 regularTasks,
                 filters.date
-                  ? `No hotel room tasks found for ${getDisplayDate(filters.date)}`
-                  : "No upcoming hotel room tasks found"
+                  ? `No hotel room tasks found for ${getDisplayDate(filters.date)} with current filters`
+                  : "No upcoming hotel room tasks found with current filters"
               )}
             </CardContent>
-            {/* ** END MODIFICATION ** */}
           </Card>
         </TabsContent>
 
         <TabsContent value="other" className="space-y-4">
-           <Card>
-             {/* ... (keep existing filter card content) ... */}
-             <CardHeader className="py-4">
-               <CardTitle className="text-lg">Filters</CardTitle>
-             </CardHeader>
-             <CardContent className="pt-0 pb-4">
-               <TaskFilters
-                 date={filters.date}
-                 status={filters.status}
-                 staffId={filters.staffId}
-                 roomGroup="OTHER"
-                 roomId={filters.roomId}
-                 staff={allStaff}
-                 availableRooms={otherRooms}
-                 roomGroups={otherRoomGroups}
-                 onDateChange={onDateChange}
-                 onStatusChange={onStatusChange}
-                 onStaffChange={onStaffChange}
-                 onRoomGroupChange={onRoomGroupChange}
-                 onRoomChange={onRoomChange}
-                 onClearFilters={onClearFilters}
-                 showRoomGroupFilter={false}
-               />
-             </CardContent>
-           </Card>
+          <Card>
+            <CardHeader className="py-4">
+              <CardTitle className="text-lg">Filters</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <TaskFilters
+                date={filters.date}
+                status={filters.status}
+                staffId={filters.staffId}
+                roomGroup="OTHER" // Keep specific group filter if needed
+                roomId={filters.roomId}
+                staff={allStaff}
+                availableRooms={otherRooms}
+                roomGroups={otherRoomGroups} // Pass appropriate groups
+                onDateChange={onDateChange}
+                onStatusChange={onStatusChange}
+                onStaffChange={onStaffChange}
+                onRoomGroupChange={onRoomGroupChange} // This might be unused if showRoomGroupFilter=false
+                onRoomChange={onRoomChange}
+                onClearFilters={onClearFilters}
+                showRoomGroupFilter={false} // Hide group filter here
+              />
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
               <CardTitle>Other Location Tasks for {getDisplayDate(filters.date)}</CardTitle>
             </CardHeader>
-            {/* ** MODIFICATION: No padding on CardContent for the table ** */}
-            <CardContent className="p-0">
+            <CardContent className="p-0"> {/* Removed padding */}
               {renderTaskTable(
                 otherTasks,
                 filters.date
-                  ? `No other location tasks found for ${getDisplayDate(filters.date)}`
-                  : "No upcoming other location tasks found"
+                  ? `No other location tasks found for ${getDisplayDate(filters.date)} with current filters`
+                  : "No upcoming other location tasks found with current filters"
               )}
             </CardContent>
-             {/* ** END MODIFICATION ** */}
           </Card>
         </TabsContent>
       </Tabs>
 
       {/* Task Detail Dialog */}
       <TaskDetailDialog
-        // ... (keep existing props) ...
         task={selectedTaskForDetail}
         allStaff={allStaff}
         availableRooms={availableRooms}
