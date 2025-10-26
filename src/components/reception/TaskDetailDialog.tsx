@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays, Clock, User, DoorOpen, BedDouble, StickyNote, AlertTriangle, Image as ImageIcon } from "lucide-react";
+import { CalendarDays, Clock, User, DoorOpen, BedDouble, StickyNote, AlertTriangle, Image as ImageIcon, Edit2, X } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import type { Room, Staff } from '@/hooks/useReceptionData';
 import { cn } from "@/lib/utils";
@@ -19,12 +19,12 @@ type RoomGroup = Database["public"]["Enums"]["room_group"];
 
 // Cleaning type labels with full descriptive names
 const cleaningTypeLabels: Record<CleaningType, string> = {
-  W: "Wyjazd (Checkout)",
-  P: "Przyjazd (Check-in)",
-  T: "Trakt (Stay-over)",
-  O: "Odświeżenie (Refresh)",
-  G: "Generalne (Deep Clean)",
-  S: "Standard (Standard Clean)"
+  W: "Wyjazd",
+  P: "Przyjazd",
+  T: "Trakt",
+  O: "Odświeżenie",
+  G: "Generalne",
+  S: "Standard"
 };
 
 // Available cleaning types based on room group
@@ -93,9 +93,14 @@ export function TaskDetailDialog({
 }: TaskDetailDialogProps) {
     const { toast } = useToast();
     const [editableState, setEditableState] = useState<EditableTaskState | null>(null);
+    const [availableCleaningTypes, setAvailableCleaningTypes] = useState<CleaningType[]>([]);
+    const [isEditMode, setIsEditMode] = useState(false); // New state for edit mode
 
     useEffect(() => {
         if (isOpen && task) {
+            const roomGroup = availableRooms.find(r => r.id === task.room.id)?.group_type || null;
+            setAvailableCleaningTypes(getAvailableCleaningTypes(roomGroup));
+            
             setEditableState({
                 roomId: task.room.id,
                 cleaningType: task.cleaning_type,
@@ -105,13 +110,51 @@ export function TaskDetailDialog({
                 date: task.date,
                 timeLimit: task.time_limit,
             });
+            setIsEditMode(false); // Reset to view mode when dialog opens
         } else if (!isOpen) {
             setEditableState(null);
+            setAvailableCleaningTypes([]);
+            setIsEditMode(false);
         }
-    }, [task, isOpen]);
+    }, [task, isOpen, availableRooms]);
 
     const handleFieldChange = <K extends keyof EditableTaskState>(field: K, value: EditableTaskState[K]) => {
         setEditableState(prev => prev ? { ...prev, [field]: value } : null);
+        
+        // Update available cleaning types when room changes
+        if (field === 'roomId' && typeof value === 'string') {
+            const roomGroup = availableRooms.find(r => r.id === value)?.group_type || null;
+            const newAvailableTypes = getAvailableCleaningTypes(roomGroup);
+            setAvailableCleaningTypes(newAvailableTypes);
+            
+            // Reset cleaning type if it's not available for the new room group
+            if (prev && !newAvailableTypes.includes(prev.cleaningType)) {
+                setEditableState(p => p ? { ...p, cleaningType: newAvailableTypes[0] } : null);
+            }
+        }
+    };
+
+    const handleEditClick = () => {
+        setIsEditMode(true);
+    };
+
+    const handleCancelEdit = () => {
+        if (!task) return;
+        
+        // Reset to original values
+        const roomGroup = availableRooms.find(r => r.id === task.room.id)?.group_type || null;
+        setAvailableCleaningTypes(getAvailableCleaningTypes(roomGroup));
+        
+        setEditableState({
+            roomId: task.room.id,
+            cleaningType: task.cleaning_type,
+            guestCount: task.guest_count,
+            staffId: task.user?.id || 'unassigned',
+            notes: task.reception_notes || '',
+            date: task.date,
+            timeLimit: task.time_limit,
+        });
+        setIsEditMode(false);
     };
 
     const handleSave = async () => {
@@ -143,13 +186,13 @@ export function TaskDetailDialog({
 
         if (!changed) {
             toast({ title: "No Changes", description: "No details were modified." });
-            onOpenChange(false);
+            setIsEditMode(false);
             return;
         }
 
         const success = await onUpdate(task.id, updates);
         if (success) {
-            onOpenChange(false);
+            setIsEditMode(false);
         }
     };
 
@@ -201,9 +244,11 @@ export function TaskDetailDialog({
                 <DialogHeader>
                     <div className="flex justify-between items-start">
                         <div>
-                            <DialogTitle className="text-2xl">Task Details - {task.room.name}</DialogTitle>
+                            <DialogTitle className="text-2xl">
+                                {isEditMode ? 'Edit' : 'View'} Task - {task.room.name}
+                            </DialogTitle>
                             <DialogDescription>
-                                View and edit task information. Current status: <Badge className={cn(getStatusColor(task.status), "ml-1")}>{getStatusLabel(task.status)}</Badge>
+                                {isEditMode ? 'Modify task information below.' : 'Task details and information.'} Current status: <Badge className={cn(getStatusColor(task.status), "ml-1")}>{getStatusLabel(task.status)}</Badge>
                             </DialogDescription>
                         </div>
                         {task.issue_flag && <Badge variant="destructive" className="flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Issue Reported</Badge>}
@@ -214,57 +259,132 @@ export function TaskDetailDialog({
                     {/* Column 1: Core Task Info */}
                     <div className="space-y-4">
                         <div className="space-y-1">
-                            <Label htmlFor="detail-date" className="flex items-center gap-1 text-muted-foreground"><CalendarDays className="h-4 w-4"/>Date*</Label>
-                            <Input
-                                id="detail-date"
-                                type="date"
-                                value={editableState.date}
-                                onChange={(e) => handleFieldChange('date', e.target.value)}
-                                min={todayDateString}
-                                required
-                                disabled={isUpdating}
-                            />
+                            <Label htmlFor="detail-date" className="flex items-center gap-1 text-muted-foreground">
+                                <CalendarDays className="h-4 w-4"/>Date*
+                            </Label>
+                            {isEditMode ? (
+                                <Input
+                                    id="detail-date"
+                                    type="date"
+                                    value={editableState.date}
+                                    onChange={(e) => handleFieldChange('date', e.target.value)}
+                                    min={todayDateString}
+                                    required
+                                    disabled={isUpdating}
+                                />
+                            ) : (
+                                <p className="text-sm border p-2 rounded bg-muted/30">{formatDisplayDate(task.date)}</p>
+                            )}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="detail-room" className="flex items-center gap-1 text-muted-foreground"><DoorOpen className="h-4 w-4"/>Room*</Label>
-                            <Select value={editableState.roomId} onValueChange={(value) => handleFieldChange('roomId', value)} disabled={isUpdating}>
-                                <SelectTrigger id="detail-room"><SelectValue placeholder="Select a room" /></SelectTrigger>
-                                <SelectContent>{availableRooms.map(room => (<SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>))}</SelectContent>
-                            </Select>
+                            <Label htmlFor="detail-room" className="flex items-center gap-1 text-muted-foreground">
+                                <DoorOpen className="h-4 w-4"/>Room*
+                            </Label>
+                            {isEditMode ? (
+                                <Select value={editableState.roomId} onValueChange={(value) => handleFieldChange('roomId', value)} disabled={isUpdating}>
+                                    <SelectTrigger id="detail-room"><SelectValue placeholder="Select a room" /></SelectTrigger>
+                                    <SelectContent>{availableRooms.map(room => (<SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>))}</SelectContent>
+                                </Select>
+                            ) : (
+                                <p className="text-sm border p-2 rounded bg-muted/30">{task.room.name}</p>
+                            )}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="detail-cleaningType" className="flex items-center gap-1 text-muted-foreground"><BedDouble className="h-4 w-4"/>Type*</Label>
-                            <Select value={editableState.cleaningType} onValueChange={(value: CleaningType) => handleFieldChange('cleaningType', value)} disabled={isUpdating}>
-                                <SelectTrigger id="detail-cleaningType"><SelectValue placeholder="Select type" /></SelectTrigger>
-                                <SelectContent>{cleaningTypes.map(type => (<SelectItem key={type} value={type}>{type}</SelectItem>))}</SelectContent>
-                            </Select>
+                            <Label htmlFor="detail-cleaningType" className="flex items-center gap-1 text-muted-foreground">
+                                <BedDouble className="h-4 w-4"/>Type*
+                            </Label>
+                            {isEditMode ? (
+                                <Select value={editableState.cleaningType} onValueChange={(value: CleaningType) => handleFieldChange('cleaningType', value)} disabled={isUpdating}>
+                                    <SelectTrigger id="detail-cleaningType"><SelectValue placeholder="Select type" /></SelectTrigger>
+                                    <SelectContent>
+                                        {availableCleaningTypes.map(type => (
+                                            <SelectItem key={type} value={type}>
+                                                {cleaningTypeLabels[type]}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <p className="text-sm border p-2 rounded bg-muted/30">{cleaningTypeLabels[task.cleaning_type]}</p>
+                            )}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="detail-guestCount" className="flex items-center gap-1 text-muted-foreground"><User className="h-4 w-4"/>Guests*</Label>
-                            <Input id="detail-guestCount" type="number" min="1" max="10" value={editableState.guestCount} onChange={(e) => handleFieldChange('guestCount', parseInt(e.target.value, 10) || 1)} required disabled={isUpdating}/>
+                            <Label htmlFor="detail-guestCount" className="flex items-center gap-1 text-muted-foreground">
+                                <User className="h-4 w-4"/>Guests*
+                            </Label>
+                            {isEditMode ? (
+                                <Input 
+                                    id="detail-guestCount" 
+                                    type="number" 
+                                    min="1" 
+                                    max="10" 
+                                    value={editableState.guestCount} 
+                                    onChange={(e) => handleFieldChange('guestCount', parseInt(e.target.value, 10) || 1)} 
+                                    required 
+                                    disabled={isUpdating}
+                                />
+                            ) : (
+                                <p className="text-sm border p-2 rounded bg-muted/30">{task.guest_count}</p>
+                            )}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="detail-assignStaff" className="flex items-center gap-1 text-muted-foreground"><User className="h-4 w-4"/>Assigned Staff</Label>
-                            <Select value={editableState.staffId} onValueChange={(value) => handleFieldChange('staffId', value)} disabled={isUpdating}>
-                                <SelectTrigger id="detail-assignStaff"><SelectValue placeholder="Select staff..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                                    {allStaff.map(staff => (<SelectItem key={staff.id} value={staff.id}>{staff.name}</SelectItem>))}
-                                </SelectContent>
-                            </Select>
+                            <Label htmlFor="detail-assignStaff" className="flex items-center gap-1 text-muted-foreground">
+                                <User className="h-4 w-4"/>Assigned Staff
+                            </Label>
+                            {isEditMode ? (
+                                <Select value={editableState.staffId} onValueChange={(value) => handleFieldChange('staffId', value)} disabled={isUpdating}>
+                                    <SelectTrigger id="detail-assignStaff"><SelectValue placeholder="Select staff..." /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                                        {allStaff.map(staff => (<SelectItem key={staff.id} value={staff.id}>{staff.name}</SelectItem>))}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <p className="text-sm border p-2 rounded bg-muted/30">{task.user?.name || 'Unassigned'}</p>
+                            )}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="detail-notes" className="flex items-center gap-1 text-muted-foreground"><StickyNote className="h-4 w-4"/>Reception Notes</Label>
-                            <Textarea id="detail-notes" placeholder="Optional notes for housekeeping..." value={editableState.notes} onChange={(e) => handleFieldChange('notes', e.target.value)} className="min-h-[80px]" maxLength={2000} disabled={isUpdating}/>
-                            <p className="text-xs text-muted-foreground text-right">{editableState.notes.length} / 2000</p>
+                            <Label htmlFor="detail-notes" className="flex items-center gap-1 text-muted-foreground">
+                                <StickyNote className="h-4 w-4"/>Reception Notes
+                            </Label>
+                            {isEditMode ? (
+                                <>
+                                    <Textarea 
+                                        id="detail-notes" 
+                                        placeholder="Optional notes for housekeeping..." 
+                                        value={editableState.notes} 
+                                        onChange={(e) => handleFieldChange('notes', e.target.value)} 
+                                        className="min-h-[80px]" 
+                                        maxLength={2000} 
+                                        disabled={isUpdating}
+                                    />
+                                    <p className="text-xs text-muted-foreground text-right">{editableState.notes.length} / 2000</p>
+                                </>
+                            ) : (
+                                <p className="text-sm border p-2 rounded bg-muted/30 min-h-[40px]">{task.reception_notes || <span className="text-muted-foreground italic">No notes</span>}</p>
+                            )}
                         </div>
                     </div>
 
                     {/* Column 2: Time & Issue Info */}
                     <div className="space-y-4">
                         <div className="space-y-1">
-                            <Label htmlFor="detail-timeLimit" className="flex items-center gap-1 text-muted-foreground"><Clock className="h-4 w-4"/>Time Limit (min)</Label>
-                            <Input id="detail-timeLimit" type="number" min="0" value={editableState.timeLimit ?? ''} onChange={(e) => handleFieldChange('timeLimit', e.target.value ? parseInt(e.target.value, 10) : null)} placeholder="Optional" disabled={isUpdating}/>
+                            <Label htmlFor="detail-timeLimit" className="flex items-center gap-1 text-muted-foreground">
+                                <Clock className="h-4 w-4"/>Time Limit (min)
+                            </Label>
+                            {isEditMode ? (
+                                <Input 
+                                    id="detail-timeLimit" 
+                                    type="number" 
+                                    min="0" 
+                                    value={editableState.timeLimit ?? ''} 
+                                    onChange={(e) => handleFieldChange('timeLimit', e.target.value ? parseInt(e.target.value, 10) : null)} 
+                                    placeholder="Optional" 
+                                    disabled={isUpdating}
+                                />
+                            ) : (
+                                <p className="text-sm border p-2 rounded bg-muted/30">{task.time_limit ?? '-'} {task.time_limit ? 'min' : ''}</p>
+                            )}
                         </div>
                         <Card className="bg-muted/30">
                             <CardHeader className="p-3">
@@ -312,10 +432,25 @@ export function TaskDetailDialog({
                 </div>
 
                 <DialogFooter>
-                    <DialogClose asChild><Button type="button" variant="outline" disabled={isUpdating}>Cancel</Button></DialogClose>
-                    <Button type="button" onClick={handleSave} disabled={isUpdating}>
-                        {isUpdating ? "Saving..." : "Save Changes"}
-                    </Button>
+                    {isEditMode ? (
+                        <>
+                            <Button type="button" variant="outline" onClick={handleCancelEdit} disabled={isUpdating}>
+                                <X className="mr-2 h-4 w-4" /> Cancel
+                            </Button>
+                            <Button type="button" onClick={handleSave} disabled={isUpdating}>
+                                {isUpdating ? "Saving..." : "Save Changes"}
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <DialogClose asChild>
+                                <Button type="button" variant="outline">Close</Button>
+                            </DialogClose>
+                            <Button type="button" onClick={handleEditClick}>
+                                <Edit2 className="mr-2 h-4 w-4" /> Edit
+                            </Button>
+                        </>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>
