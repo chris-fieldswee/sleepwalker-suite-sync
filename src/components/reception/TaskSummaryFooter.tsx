@@ -1,14 +1,17 @@
 // src/components/reception/TaskSummaryFooter.tsx
-import { Clock, Timer } from "lucide-react";
+import { Clock, Timer, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TaskSummaryFooterProps {
   totalLimit: number | null;
   totalActual: number | null;
+  totalDifference: number | null;
   visibleTaskCount: number;
+  showActual?: boolean; // New prop to control whether to show actual metric
+  showDifference?: boolean; // New prop to control whether to show difference metric
 }
 
-export function TaskSummaryFooter({ totalLimit, totalActual, visibleTaskCount }: TaskSummaryFooterProps) {
+export function TaskSummaryFooter({ totalLimit, totalActual, totalDifference, visibleTaskCount, showActual = true, showDifference = false }: TaskSummaryFooterProps) {
   // Only render if there are visible tasks
   if (visibleTaskCount === 0) {
     return null;
@@ -27,20 +30,40 @@ export function TaskSummaryFooter({ totalLimit, totalActual, visibleTaskCount }:
           <span className="text-muted-foreground">Total Limit:</span>
           <span className="font-medium">{formatMinutes(totalLimit)}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Timer className="h-4 w-4 text-muted-foreground" />
-          <span className="text-muted-foreground">Total Actual:</span>
-          <span
-            className={cn(
-              "font-medium",
-              totalLimit !== null && totalActual !== null && totalActual > totalLimit
-                ? "text-red-600 dark:text-red-400"
-                : "text-green-600 dark:text-green-400"
-            )}
-          >
-            {formatMinutes(totalActual)}
-          </span>
-        </div>
+        {showActual && (
+          <div className="flex items-center gap-2">
+            <Timer className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Total Actual:</span>
+            <span
+              className={cn(
+                "font-medium",
+                totalLimit !== null && totalActual !== null && totalActual > totalLimit
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-green-600 dark:text-green-400"
+              )}
+            >
+              {formatMinutes(totalActual)}
+            </span>
+          </div>
+        )}
+        {showDifference && (
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Total Difference:</span>
+            <span
+              className={cn(
+                "font-medium",
+                totalDifference !== null && totalDifference > 0
+                  ? "text-red-600 dark:text-red-400"
+                  : totalDifference !== null && totalDifference < 0
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-muted-foreground"
+              )}
+            >
+              {totalDifference !== null ? `${totalDifference > 0 ? '+' : ''}${totalDifference} min` : '-'}
+            </span>
+          </div>
+        )}
       </div>
     </footer>
   );

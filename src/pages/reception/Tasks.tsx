@@ -147,7 +147,7 @@ export default function Tasks({
 }: TasksProps) {
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"regular" | "other">("regular");
+  const [activeTab, setActiveTab] = useState<"regular" | "other" | "all">("all");
 
   const handleViewDetails = (task: Task) => {
     setSelectedTaskForDetail(task);
@@ -167,6 +167,7 @@ export default function Tasks({
   // Split tasks and rooms
   const regularTasks = useMemo(() => tasks.filter(task => task.room.group_type !== 'OTHER'), [tasks]);
   const otherTasks = useMemo(() => tasks.filter(task => task.room.group_type === 'OTHER'), [tasks]);
+  const allTasks = useMemo(() => tasks, [tasks]); // All tasks combined
   const regularRooms = useMemo(() => availableRooms.filter(room => room.group_type !== 'OTHER'), [availableRooms]);
   const otherRooms = useMemo(() => availableRooms.filter(room => room.group_type === 'OTHER'), [availableRooms]);
   const regularRoomGroups: RoomGroupOption[] = allRoomGroups.filter(rg => rg.value !== 'OTHER');
@@ -174,7 +175,7 @@ export default function Tasks({
 
   // Calculate totals based on the active tab
   const taskTotals = useMemo(() => {
-    const tasksToSum = activeTab === "regular" ? regularTasks : otherTasks;
+    const tasksToSum = activeTab === "regular" ? regularTasks : activeTab === "other" ? otherTasks : allTasks;
     let totalLimit: number | null = 0;
     let totalActual: number | null = 0;
     let limitIsNull = true;
@@ -200,7 +201,7 @@ export default function Tasks({
         totalActual: actualIsNull ? null : totalActual,
         visibleTaskCount: tasksToSum.length
     };
-  }, [activeTab, regularTasks, otherTasks]);
+  }, [activeTab, regularTasks, otherTasks, allTasks]);
 
   const renderTaskTable = (taskList: Task[], emptyMessage: string) => (
     loading && !refreshing ? (
@@ -226,7 +227,6 @@ export default function Tasks({
               <TableHead className="font-semibold text-center w-[60px]">Type</TableHead>
               <TableHead className="font-semibold text-center w-[80px]">Guests</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Limit</TableHead>
-              <TableHead className="font-semibold text-center w-[60px]">Actual</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Issue</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Notes</TableHead>
               <TableHead className="font-semibold text-right w-[100px]">Actions</TableHead>
@@ -279,11 +279,53 @@ export default function Tasks({
         </div>
       </div>
 
-      <Tabs defaultValue="regular" value={activeTab} onValueChange={(value) => setActiveTab(value as "regular" | "other")} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+      <Tabs defaultValue="all" value={activeTab} onValueChange={(value) => setActiveTab(value as "regular" | "other" | "all")} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="all">All Locations ({allTasks.length})</TabsTrigger>
           <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
           <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="all" className="space-y-4">
+          <Card>
+            <CardHeader className="py-4">
+              <CardTitle className="text-lg">Filters</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <TaskFilters
+                date={filters.date}
+                status={filters.status}
+                staffId={filters.staffId}
+                roomGroup={filters.roomGroup}
+                roomId={filters.roomId}
+                staff={allStaff}
+                availableRooms={availableRooms} // All rooms for all locations
+                roomGroups={allRoomGroups} // All room groups
+                onDateChange={onDateChange}
+                onStatusChange={onStatusChange}
+                onStaffChange={onStaffChange}
+                onRoomGroupChange={onRoomGroupChange}
+                onRoomChange={onRoomChange}
+                onClearFilters={onClearFilters}
+                showRoomGroupFilter={true}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>All Location Tasks for {getDisplayDate(filters.date)}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0"> {/* Removed padding */}
+              {renderTaskTable(
+                allTasks,
+                filters.date
+                  ? `No tasks found for ${getDisplayDate(filters.date)} with current filters`
+                  : "No upcoming tasks found with current filters"
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="regular" className="space-y-4">
           <Card>
@@ -383,7 +425,10 @@ export default function Tasks({
       <TaskSummaryFooter
         totalLimit={taskTotals.totalLimit}
         totalActual={taskTotals.totalActual}
+        totalDifference={null}
         visibleTaskCount={taskTotals.visibleTaskCount}
+        showActual={false}
+        showDifference={false}
       />
     </div>
   );

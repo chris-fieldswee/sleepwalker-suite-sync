@@ -157,10 +157,6 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
         </td>
         {/* Limit */}
         <td className="p-2 align-middle text-center">{task.time_limit ?? '-'}</td>
-        {/* Actual */}
-        <td className="p-2 align-middle text-center">
-          {task.actual_time !== null ? task.actual_time : "-"}
-        </td>
         {/* Issue */}
         <td className="p-2 align-middle text-center">
           {task.issue_flag ? (

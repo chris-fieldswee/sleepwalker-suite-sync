@@ -1,30 +1,26 @@
-// src/components/reception/TaskFilters.tsx
+// src/components/reception/ArchiveTaskFilters.tsx
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import type { Staff, Room } from '@/hooks/useReceptionData'; // Import Room type
-import type { Database } from "@/integrations/supabase/types"; // Import Database types
+import type { Staff, Room } from '@/hooks/useReceptionData';
+import type { Database } from "@/integrations/supabase/types";
 
 type TaskStatus = Database["public"]["Enums"]["task_status"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
 
-// Define statuses available in the filter dropdown
-const filterableStatuses: Array<{ value: TaskStatus | 'all', label: string }> = [
-    { value: 'all', label: 'All Active' },
+// Define statuses available in the archive filter dropdown (limited set)
+const archiveFilterableStatuses: Array<{ value: TaskStatus | 'all', label: string }> = [
+    { value: 'all', label: 'All Statuses' },
     { value: 'todo', label: 'To Clean' },
-    { value: 'in_progress', label: 'In Progress' },
+    { value: 'done', label: 'Done' },
     { value: 'paused', label: 'Paused' },
-    { value: 'repair_needed', label: 'Repair Needed' },
 ];
 
-// *** MODIFICATION START: Define room group options type ***
 export type RoomGroupOption = { value: RoomGroup | 'all', label: string };
-// *** MODIFICATION END ***
 
-
-interface TaskFiltersProps {
+interface ArchiveTaskFiltersProps {
   date: string | null;
   status: TaskStatus | 'all';
   staffId: string;
@@ -32,9 +28,7 @@ interface TaskFiltersProps {
   roomId: string;
   staff: Staff[];
   availableRooms: Room[];
-  // *** MODIFICATION START: Add roomGroups prop ***
   roomGroups: RoomGroupOption[];
-  // *** MODIFICATION END ***
   onDateChange: (date: string | null) => void;
   onStatusChange: (status: TaskStatus | 'all') => void;
   onStaffChange: (staffId: string) => void;
@@ -44,7 +38,7 @@ interface TaskFiltersProps {
   showRoomGroupFilter?: boolean;
 }
 
-export const TaskFilters = ({
+export const ArchiveTaskFilters = ({
   date,
   status,
   staffId,
@@ -52,9 +46,7 @@ export const TaskFilters = ({
   roomId,
   staff,
   availableRooms,
-  // *** MODIFICATION START: Destructure roomGroups prop ***
   roomGroups,
-  // *** MODIFICATION END ***
   onDateChange,
   onStatusChange,
   onStaffChange,
@@ -62,15 +54,18 @@ export const TaskFilters = ({
   onRoomChange,
   onClearFilters,
   showRoomGroupFilter = true,
-}: TaskFiltersProps) => {
+}: ArchiveTaskFiltersProps) => {
 
   const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       onDateChange(e.target.value || null);
   };
 
+  // Get today's date for max date restriction
+  const today = new Date().toISOString().split('T')[0];
+
   return (
     <div className={`grid gap-4 md:grid-cols-2 ${showRoomGroupFilter ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} mb-4 items-end`}>
-      {/* Date Filter */}
+      {/* Date Filter - Only allows past dates */}
       <div className="space-y-1">
         <Label htmlFor="date-filter">Date</Label>
         <Input
@@ -78,12 +73,12 @@ export const TaskFilters = ({
           type="date"
           value={date ?? ''}
           onChange={handleDateInputChange}
-          min={new Date().toISOString().split('T')[0]} // Prevent selecting past dates
+          max={today} // Only allow dates up to yesterday
           className="bg-card h-9 text-sm"
         />
       </div>
 
-      {/* Status Filter */}
+      {/* Status Filter - Limited options */}
       <div className="space-y-1">
         <Label htmlFor="status-filter">Status</Label>
         <Select value={status} onValueChange={onStatusChange}>
@@ -91,7 +86,7 @@ export const TaskFilters = ({
             <SelectValue placeholder="Filter status..." />
           </SelectTrigger>
           <SelectContent className="bg-card z-50">
-            {filterableStatuses.map(s => (
+            {archiveFilterableStatuses.map(s => (
                 <SelectItem key={s.value} value={s.value} className="text-sm">
                     {s.label}
                 </SelectItem>
@@ -128,13 +123,11 @@ export const TaskFilters = ({
               <SelectValue placeholder="Filter group..." />
             </SelectTrigger>
             <SelectContent className="bg-card z-50">
-              {/* *** MODIFICATION START: Use roomGroups prop *** */}
               {roomGroups.map(rg => (
                   <SelectItem key={rg.value} value={rg.value} className="text-sm">
                       {rg.label}
                   </SelectItem>
               ))}
-              {/* *** MODIFICATION END *** */}
             </SelectContent>
           </Select>
         </div>
