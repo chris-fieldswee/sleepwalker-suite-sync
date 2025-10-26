@@ -15,7 +15,28 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
-const cleaningTypes: CleaningType[] = ["W", "P", "T", "O", "G", "S"];
+type RoomGroup = Database["public"]["Enums"]["room_group"];
+
+// Cleaning type labels with full descriptive names
+const cleaningTypeLabels: Record<CleaningType, string> = {
+  W: "Wyjazd (Checkout)",
+  P: "Przyjazd (Check-in)",
+  T: "Trakt (Stay-over)",
+  O: "Odświeżenie (Refresh)",
+  G: "Generalne (Deep Clean)",
+  S: "Standard (Standard Clean)"
+};
+
+// Available cleaning types based on room group
+const getAvailableCleaningTypes = (roomGroup: RoomGroup | null): CleaningType[] => {
+  if (!roomGroup) return ['W', 'P', 'T', 'O', 'G', 'S'];
+  
+  if (roomGroup === 'OTHER') {
+    return ['S', 'G'];
+  }
+  
+  return ['W', 'P', 'T', 'O', 'G'];
+};
 
 interface Task {
   id: string;
