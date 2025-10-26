@@ -1,5 +1,5 @@
 // src/pages/reception/Tasks.tsx
-import { useState, useMemo } from "react"; // Import useMemo
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableHeader, TableRow, TableHead } from "@/components/ui/table";
@@ -10,7 +10,7 @@ import { TaskTableRow } from "@/components/reception/TaskTableRow";
 import { AddTaskDialog } from "@/components/reception/AddTaskDialog";
 import { WorkLogDialog } from "@/components/reception/WorkLogDialog";
 import { TaskDetailDialog } from "@/components/reception/TaskDetailDialog";
-import { TaskSummaryFooter } from "@/components/reception/TaskSummaryFooter"; // Import the new footer
+import { TaskSummaryFooter } from "@/components/reception/TaskSummaryFooter";
 import type { Database } from "@/integrations/supabase/types";
 
 // ... (keep existing Task, Staff, Room, WorkLog interfaces) ...
@@ -86,7 +86,6 @@ const allRoomGroups: RoomGroupOption[] = [
   { value: 'OTHER', label: 'Other' },
 ];
 
-
 type TaskStatus = Database["public"]["Enums"]["task_status"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
 
@@ -150,15 +149,16 @@ export default function Tasks({
 }: TasksProps) {
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"regular" | "other">("regular"); // State to track active tab
+  const [activeTab, setActiveTab] = useState<"regular" | "other">("regular");
 
   const handleViewDetails = (task: Task) => {
+    // ... (keep existing handler) ...
     setSelectedTaskForDetail(task);
     setIsDetailDialogOpen(true);
   };
 
   const handleDelete = async (taskId: string) => {
-    // ... (keep existing delete logic) ...
+    // ... (keep existing handler) ...
     const success = await onDeleteTask(taskId);
     if (success && selectedTaskForDetail?.id === taskId) {
       setIsDetailDialogOpen(false);
@@ -166,8 +166,7 @@ export default function Tasks({
     }
   };
 
-
-  // Split tasks and rooms (Memoize this if performance is critical)
+  // Split tasks and rooms
   const regularTasks = useMemo(() => tasks.filter(task => task.room.group_type !== 'OTHER'), [tasks]);
   const otherTasks = useMemo(() => tasks.filter(task => task.room.group_type === 'OTHER'), [tasks]);
   const regularRooms = useMemo(() => availableRooms.filter(room => room.group_type !== 'OTHER'), [availableRooms]);
@@ -175,13 +174,14 @@ export default function Tasks({
   const regularRoomGroups: RoomGroupOption[] = allRoomGroups.filter(rg => rg.value !== 'OTHER');
   const otherRoomGroups: RoomGroupOption[] = allRoomGroups.filter(rg => rg.value === 'all' || rg.value === 'OTHER');
 
-  // ** NEW: Calculate totals based on the active tab **
+  // Calculate totals based on the active tab
   const taskTotals = useMemo(() => {
+    // ... (keep existing calculation) ...
     const tasksToSum = activeTab === "regular" ? regularTasks : otherTasks;
     let totalLimit: number | null = 0;
     let totalActual: number | null = 0;
-    let limitIsNull = true; // Track if any limit is non-null
-    let actualIsNull = true; // Track if any actual is non-null
+    let limitIsNull = true;
+    let actualIsNull = true;
 
     tasksToSum.forEach(task => {
         if (task.time_limit !== null) {
@@ -195,30 +195,32 @@ export default function Tasks({
     });
 
     return {
-        totalLimit: limitIsNull ? null : totalLimit, // Return null if no tasks had a limit
-        totalActual: actualIsNull ? null : totalActual, // Return null if no tasks had actual time
+        totalLimit: limitIsNull ? null : totalLimit,
+        totalActual: actualIsNull ? null : totalActual,
         visibleTaskCount: tasksToSum.length
     };
   }, [activeTab, regularTasks, otherTasks]);
 
-
+  // ** MODIFICATION: Added max-h-[calc(8_*_3.5rem)] overflow-y-auto to the div wrapping the table **
+  // Note: 3.5rem is an approximation for row height (h-12 + p-4). Adjust if needed.
   const renderTaskTable = (taskList: Task[], emptyMessage: string) => (
-    // ... (keep existing renderTaskTable logic) ...
-     loading && !refreshing ? (
-       <div className="flex items-center justify-center py-12">
-         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-         <span className="ml-2">Loading tasks...</span>
-       </div>
-     ) : taskList.length === 0 ? (
-       <div className="flex flex-col items-center justify-center py-12 text-center">
-         <p className="text-lg font-medium text-muted-foreground">{emptyMessage}</p>
-         <p className="text-sm text-muted-foreground">Try adjusting filters or add a new task.</p>
-       </div>
-     ) : (
-       <div className="overflow-x-auto">
-         <Table>
-           <TableHeader>
-             <TableRow className="bg-muted/50 sticky top-0 z-10">
+    loading && !refreshing ? (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <span className="ml-2">Loading tasks...</span>
+      </div>
+    ) : taskList.length === 0 ? (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <p className="text-lg font-medium text-muted-foreground">{emptyMessage}</p>
+        <p className="text-sm text-muted-foreground">Try adjusting filters or add a new task.</p>
+      </div>
+    ) : (
+       // Added max-height and overflow classes here
+      <div className="overflow-x-auto max-h-[calc(8*3.5rem)] overflow-y-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50 sticky top-0 z-10">
+              {/* Keep TableHead definitions */}
                <TableHead className="font-semibold w-[100px]">Status</TableHead>
                <TableHead className="font-semibold w-[100px]">Room</TableHead>
                <TableHead className="font-semibold w-[150px]">Staff</TableHead>
@@ -229,32 +231,32 @@ export default function Tasks({
                <TableHead className="font-semibold text-center w-[60px]">Issue</TableHead>
                <TableHead className="font-semibold text-center w-[60px]">Notes</TableHead>
                <TableHead className="font-semibold text-right w-[100px]">Actions</TableHead>
-             </TableRow>
-           </TableHeader>
-           <TableBody>
-             {taskList.map((task) => (
-               <TaskTableRow
-                 key={task.id}
-                 task={task}
-                 staff={allStaff}
-                 onViewDetails={handleViewDetails}
-                 onDeleteTask={handleDelete}
-                 isDeleting={isDeletingTask}
-               />
-             ))}
-           </TableBody>
-         </Table>
-       </div>
-     )
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {taskList.map((task) => (
+              <TaskTableRow
+                key={task.id}
+                task={task}
+                staff={allStaff}
+                onViewDetails={handleViewDetails}
+                onDeleteTask={handleDelete}
+                isDeleting={isDeletingTask}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    )
   );
+  // ** END MODIFICATION **
 
   return (
-    // Add padding-bottom to main container to prevent content overlap with footer
-    <div className="space-y-4 pb-20">
+    <div className="space-y-4 pb-20"> {/* Keep pb-20 */}
       {/* Header */}
       <div className="flex items-center justify-between">
         {/* ... (keep existing header content) ... */}
-         <div>
+        <div>
            <h1 className="text-3xl font-bold">Tasks</h1>
            <p className="text-muted-foreground mt-1">Manage active housekeeping tasks</p>
          </div>
@@ -280,16 +282,16 @@ export default function Tasks({
          </div>
       </div>
 
-       {/* ** MODIFICATION: Added onValueChange to Tabs to track active tab ** */}
       <Tabs defaultValue="regular" value={activeTab} onValueChange={(value) => setActiveTab(value as "regular" | "other")} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
-          <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
-        </TabsList>
+        {/* ... (keep existing TabsList) ... */}
+         <TabsList className="grid w-full grid-cols-2">
+           <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
+           <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
+         </TabsList>
 
         <TabsContent value="regular" className="space-y-4">
-           {/* ... (keep regular tasks filters and table) ... */}
-           <Card>
+          <Card>
+             {/* ... (keep existing filter card content) ... */}
              <CardHeader className="py-4">
                <CardTitle className="text-lg">Filters</CardTitle>
              </CardHeader>
@@ -314,24 +316,26 @@ export default function Tasks({
              </CardContent>
            </Card>
 
-           <Card>
-             <CardHeader>
-               <CardTitle>Hotel Room Tasks for {getDisplayDate(filters.date)}</CardTitle>
-             </CardHeader>
-             <CardContent className="p-0">
-               {renderTaskTable(
-                 regularTasks,
-                 filters.date
-                   ? `No hotel room tasks found for ${getDisplayDate(filters.date)}`
-                   : "No upcoming hotel room tasks found"
-               )}
-             </CardContent>
-           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Hotel Room Tasks for {getDisplayDate(filters.date)}</CardTitle>
+            </CardHeader>
+             {/* ** MODIFICATION: No padding on CardContent for the table ** */}
+            <CardContent className="p-0">
+              {renderTaskTable(
+                regularTasks,
+                filters.date
+                  ? `No hotel room tasks found for ${getDisplayDate(filters.date)}`
+                  : "No upcoming hotel room tasks found"
+              )}
+            </CardContent>
+            {/* ** END MODIFICATION ** */}
+          </Card>
         </TabsContent>
 
         <TabsContent value="other" className="space-y-4">
-           {/* ... (keep other tasks filters and table) ... */}
            <Card>
+             {/* ... (keep existing filter card content) ... */}
              <CardHeader className="py-4">
                <CardTitle className="text-lg">Filters</CardTitle>
              </CardHeader>
@@ -340,41 +344,43 @@ export default function Tasks({
                  date={filters.date}
                  status={filters.status}
                  staffId={filters.staffId}
-                 roomGroup="OTHER" // Keep specific group filter if needed
+                 roomGroup="OTHER"
                  roomId={filters.roomId}
                  staff={allStaff}
                  availableRooms={otherRooms}
-                 roomGroups={otherRoomGroups} // Pass appropriate groups
+                 roomGroups={otherRoomGroups}
                  onDateChange={onDateChange}
                  onStatusChange={onStatusChange}
                  onStaffChange={onStaffChange}
-                 onRoomGroupChange={onRoomGroupChange} // This might be unused if showRoomGroupFilter=false
+                 onRoomGroupChange={onRoomGroupChange}
                  onRoomChange={onRoomChange}
                  onClearFilters={onClearFilters}
-                 showRoomGroupFilter={false} // Hide group filter here
+                 showRoomGroupFilter={false}
                />
              </CardContent>
            </Card>
 
-           <Card>
-             <CardHeader>
-               <CardTitle>Other Location Tasks for {getDisplayDate(filters.date)}</CardTitle>
-             </CardHeader>
-             <CardContent className="p-0">
-               {renderTaskTable(
-                 otherTasks,
-                 filters.date
-                   ? `No other location tasks found for ${getDisplayDate(filters.date)}`
-                   : "No upcoming other location tasks found"
-               )}
-             </CardContent>
-           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Other Location Tasks for {getDisplayDate(filters.date)}</CardTitle>
+            </CardHeader>
+            {/* ** MODIFICATION: No padding on CardContent for the table ** */}
+            <CardContent className="p-0">
+              {renderTaskTable(
+                otherTasks,
+                filters.date
+                  ? `No other location tasks found for ${getDisplayDate(filters.date)}`
+                  : "No upcoming other location tasks found"
+              )}
+            </CardContent>
+             {/* ** END MODIFICATION ** */}
+          </Card>
         </TabsContent>
       </Tabs>
 
       {/* Task Detail Dialog */}
       <TaskDetailDialog
-        // ... (keep existing TaskDetailDialog props) ...
+        // ... (keep existing props) ...
         task={selectedTaskForDetail}
         allStaff={allStaff}
         availableRooms={availableRooms}
@@ -384,7 +390,7 @@ export default function Tasks({
         isUpdating={isUpdatingTask}
       />
 
-      {/* ** NEW: Render the TaskSummaryFooter ** */}
+      {/* Render the TaskSummaryFooter */}
       <TaskSummaryFooter
         totalLimit={taskTotals.totalLimit}
         totalActual={taskTotals.totalActual}
