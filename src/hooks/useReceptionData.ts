@@ -1,5 +1,5 @@
 // src/hooks/useReceptionData.ts
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'; // Ensured useRef is imported
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from "@/integrations/supabase/types";
@@ -87,14 +87,14 @@ export function useReceptionData() {
   const fetchRooms = useCallback(async () => {
     const { data, error } = await supabase.from("rooms").select("id, name, group_type, capacity, color").eq("active", true).order("name");
     if (error) { console.error("Error fetching rooms:", error); toast({ title: "Error", description: "Could not load rooms.", variant: "destructive" }); }
-    else if (isMountedRef.current) { setAvailableRooms(data || []); } // Check mount status
+    else if (isMountedRef.current) { setAvailableRooms(data || []); }
     return data;
   }, [toast]);
 
   const fetchStaff = useCallback(async () => {
      const { data, error } = await supabase.from("users").select("id, name, first_name, last_name, role").eq("role", "housekeeping").eq("active", true).order("name");
      if (error) { console.error("Error fetching staff:", error); toast({ title: "Error", description: "Failed to fetch staff list.", variant: "destructive"}); }
-     else if (isMountedRef.current) { // Check mount status
+     else if (isMountedRef.current) {
        const staffWithDisplayNames = (data || []).map(staff => ({
          ...staff,
          name: staff.first_name && staff.last_name
@@ -143,7 +143,7 @@ export function useReceptionData() {
         else query = query.eq("user_id", staffId);
      }
 
-     // Apply Room ID Filter (Applied after group filtering)
+     // Apply Room ID Filter - now applied client-side after group filtering
      // Room Group filter is applied client-side after fetch
 
     const { data, error } = await query;
@@ -151,7 +151,7 @@ export function useReceptionData() {
     if (error) {
         console.error("Error fetching tasks:", error);
         toast({ title: "Error", description: `Failed to fetch tasks: ${error.message}`, variant: "destructive" });
-        return []; // Return empty array on error
+        return [];
     } else {
         // Client-side filter for room group
         let filteredData = data || [];
@@ -160,7 +160,8 @@ export function useReceptionData() {
         }
         // Client-side filter for room ID (if not 'all')
         if (roomId !== 'all') {
-            filteredData = filteredData.filter((task: any) => task.room_id === roomId);
+            // Ensure room_id exists before filtering
+            filteredData = filteredData.filter((task: any) => task.room && task.room.id === roomId);
         }
 
         // Construct display name for user
@@ -184,8 +185,8 @@ export function useReceptionData() {
       .select(`id, user_id, date, time_in, time_out, total_minutes, break_minutes, notes, user:users!inner(name)`)
       .eq("date", date);
     if (error) { console.error("Error fetching work logs:", error); toast({ title: "Error", description: "Failed to fetch work logs.", variant: "destructive" }); return []; }
-    else if (isMountedRef.current) { return (data as WorkLog[]) || []; } // Check mount status
-    else { return []; } // Return empty if unmounted
+    else if (isMountedRef.current) { return (data as WorkLog[]) || []; }
+    else { return []; }
   }, [toast]);
 
 
@@ -199,48 +200,44 @@ export function useReceptionData() {
         fetchStaff(),
         fetchRooms(),
         fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId),
-        fetchWorkLogs(filterDate || getTodayDateString()) // Fetch logs for today if no date selected initially
+        fetchWorkLogs(filterDate || getTodayDateString())
     ]).then(([, , tasksData, workLogsData]) => {
-        if (isMounted) { // Check local mount variable
+        if (isMounted) {
             setTasks(tasksData || []);
             setWorkLogs(workLogsData || []);
         }
     }).catch(error => {
         console.error("Initial data fetch failed:", error);
-        // Maybe show a toast here
     }).finally(() => {
-        if (isMounted) setLoading(false); // Check local mount variable
+        if (isMounted) setLoading(false);
     });
 
     // Realtime Subscriptions
     let tasksChannel: ReturnType<typeof supabase.channel> | null = null;
     let workLogChannel: ReturnType<typeof supabase.channel> | null = null;
 
-    // Determine date filter string for subscription
     const dateFilterString = filterDate ? `date=eq.${filterDate}` : `date=gte.${getTodayDateString()}`;
-    // Simpler channel name based primarily on date for stability
     const channelDateSuffix = filterDate || 'upcoming';
 
     console.log("Setting up tasks subscription with filter:", dateFilterString);
 
     tasksChannel = supabase
-      .channel(`reception-tasks-channel-${channelDateSuffix}`) // Simplified channel name
+      .channel(`reception-tasks-channel-${channelDateSuffix}`)
       .on<Task>(
         "postgres_changes",
         {
             event: "*",
             schema: "public",
             table: "tasks",
-            filter: dateFilterString // Subscribe based on date range
+            filter: dateFilterString
         },
         (payload) => {
           console.log("Reception Task Update Received:", payload.eventType, payload.new?.id || payload.old?.id);
-           // Refetch tasks using *current UI filters* when a relevant change occurs
-           if (isMountedRef.current) { // Check ref for mount status in async callback
+           if (isMountedRef.current) {
                fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId).then(updatedTasks => {
-                  if (isMountedRef.current) { // Check again after async
+                  if (isMountedRef.current) {
                     console.log("Refetched tasks after realtime update:", updatedTasks.length);
-                    setTasks(updatedTasks);
+                    setTasks(updatedTasks); // Update the state with newly fetched tasks
                   }
                });
            }
@@ -251,7 +248,6 @@ export function useReceptionData() {
           else console.log("Task subscription status:", status);
       });
 
-    // Subscribe to work logs for the specific date being viewed or today
     const workLogSubscriptionDate = filterDate || getTodayDateString();
 
     workLogChannel = supabase
@@ -259,11 +255,10 @@ export function useReceptionData() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'work_logs', filter: `date=eq.${workLogSubscriptionDate}` },
         (payload) => {
           console.log('Work log change received:', payload);
-           if (isMountedRef.current) { // Check mount status
+           if (isMountedRef.current) {
               fetchWorkLogs(workLogSubscriptionDate).then(updatedLogs => {
-                  if (isMountedRef.current) { // Check again after async
+                  if (isMountedRef.current) {
                      console.log("Refetched work logs after realtime update:", updatedLogs.length);
-                     // Update state only if the logs are for the currently relevant date
                      if (filterDate === workLogSubscriptionDate || (filterDate === null && workLogSubscriptionDate === getTodayDateString())) {
                          setWorkLogs(updatedLogs);
                      }
@@ -279,7 +274,7 @@ export function useReceptionData() {
 
     // Cleanup
     return () => {
-        isMounted = false; // Set local variable for immediate effect within this cleanup
+        isMounted = false;
         console.log("Removing reception realtime channels");
         if (tasksChannel) supabase.removeChannel(tasksChannel).catch(err => console.error("Error removing tasks channel:", err));
         if (workLogChannel) supabase.removeChannel(workLogChannel).catch(err => console.error("Error removing work log channel:", err));
@@ -294,7 +289,6 @@ export function useReceptionData() {
     setLoading(true);
     try {
         const currentSelectedDate = filterDate || getTodayDateString();
-        // Use await Promise.allSettled to handle potential errors in individual fetches gracefully
         const results = await Promise.allSettled([
             fetchStaff(),
             fetchRooms(),
@@ -302,9 +296,15 @@ export function useReceptionData() {
             fetchWorkLogs(currentSelectedDate)
         ]);
 
-        // Process results only if component is still mounted
         if (isMountedRef.current) {
             let refreshError = false;
+            // Update state based on fulfilled promises
+            if (results[0].status === 'fulfilled') { /* Potentially update staff if needed, handled by fetchStaff already */ }
+            else { console.error("Refresh failed for staff:", results[0].reason); refreshError = true; }
+
+            if (results[1].status === 'fulfilled') { /* Potentially update rooms if needed, handled by fetchRooms already */ }
+            else { console.error("Refresh failed for rooms:", results[1].reason); refreshError = true; }
+
             if (results[2].status === 'fulfilled') {
                 setTasks(results[2].value || []);
             } else {
@@ -317,10 +317,6 @@ export function useReceptionData() {
                 console.error("Refresh failed for work logs:", results[3].reason);
                 refreshError = true;
             }
-             // We might not need to reset staff/rooms if they rarely change, but included here for completeness
-             if (results[0].status === 'rejected') { console.error("Refresh failed for staff:", results[0].reason); refreshError = true; }
-             if (results[1].status === 'rejected') { console.error("Refresh failed for rooms:", results[1].reason); refreshError = true; }
-
 
             if (refreshError) {
                 toast({ title: "Refresh Partially Failed", description: "Some data could not be refreshed.", variant: "destructive" });
@@ -328,13 +324,12 @@ export function useReceptionData() {
                 toast({ title: "Data refreshed" });
             }
         }
-    } catch (error: any) { // Catch unexpected errors during Promise.allSettled itself
+    } catch (error: any) {
         console.error("Unexpected error during refresh:", error);
          if (isMountedRef.current) {
              toast({ title: "Error", description: "An unexpected error occurred during refresh.", variant: "destructive" });
          }
     } finally {
-        // Use setTimeout for UI settling, check mount status before setting state
         setTimeout(() => {
              if (isMountedRef.current) {
                 setLoading(false);
@@ -355,11 +350,13 @@ export function useReceptionData() {
   // --- Derived State (Stats calculation) ---
   const stats = useMemo(() => {
     // ** CORRECTED: Calculate directly from `tasks` state **
-    const currentTasks = Array.isArray(tasks) ? tasks : [];
+    const currentTasks = Array.isArray(tasks) ? tasks : []; // Ensure tasks is an array
     const relevantDate = filterDate || getTodayDateString(); // Date for 'done' count
 
+    console.log(`Calculating stats based on ${currentTasks.length} tasks for date ${relevantDate}`); // Debug log
+
     return {
-      // Total count of tasks currently displayed (respecting filters implicitly via `tasks` state)
+      // Total count of tasks currently held in the `tasks` state (after fetching/filtering)
       // that are in an "active" state (not 'done').
       total: currentTasks.filter(t => ACTIVE_TASK_STATUSES.includes(t.status)).length,
 
