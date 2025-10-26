@@ -1,5 +1,5 @@
 // src/pages/reception/Archive.tsx
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableHeader, TableRow, TableHead } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -65,6 +65,16 @@ export default function Archive({
   // State for Task Detail Dialog
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+
+  // Split tasks by room group type
+  const regularTasks = useMemo(() => 
+    archivedTasks.filter(task => task.room.group_type !== 'OTHER'), 
+    [archivedTasks]
+  );
+  const otherTasks = useMemo(() => 
+    archivedTasks.filter(task => task.room.group_type === 'OTHER'), 
+    [archivedTasks]
+  );
 
   // Fetch tasks when date range changes
   const fetchArchivedTasks = useCallback(async () => {
