@@ -12,7 +12,6 @@ export interface Room {
     name: string;
     group_type: RoomGroup;
     capacity: number;
-    // Add color if you need it for the room filter dropdown, otherwise optional
     color?: string | null;
 }
 export interface Task {
@@ -31,6 +30,11 @@ export interface Task {
   reception_notes: string | null;
   start_time: string | null;
   stop_time: string | null;
+  issue_description: string | null;
+  issue_photo: string | null;
+  pause_start: string | null;
+  pause_stop: string | null;
+  total_pause: number | null;
   created_at?: string;
 }
 export interface Staff {
@@ -69,11 +73,10 @@ export function useReceptionData() {
   const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>("all"); // Default to show all active
   const [filterStaffId, setFilterStaffId] = useState<string>("all");
   const [filterRoomGroup, setFilterRoomGroup] = useState<RoomGroup | 'all'>("all");
-  const [filterRoomId, setFilterRoomId] = useState<string>("all"); // Added Room ID filter
+  const [filterRoomId, setFilterRoomId] = useState<string>("all");
 
   // --- Data Fetching Callbacks ---
   const fetchRooms = useCallback(async () => {
-    // Select color if needed for dropdown styling
     const { data, error } = await supabase.from("rooms").select("id, name, group_type, capacity, color").eq("active", true).order("name");
     if (error) { console.error("Error fetching rooms:", error); toast({ title: "Error", description: "Could not load rooms.", variant: "destructive" }); }
     else { setAvailableRooms(data || []); }
@@ -81,9 +84,18 @@ export function useReceptionData() {
   }, [toast]);
 
   const fetchStaff = useCallback(async () => {
-     const { data, error } = await supabase.from("users").select("id, name, role").eq("role", "housekeeping").eq("active", true).order("name");
+     const { data, error } = await supabase.from("users").select("id, name, first_name, last_name, role").eq("role", "housekeeping").eq("active", true).order("name");
      if (error) { console.error("Error fetching staff:", error); toast({ title: "Error", description: "Failed to fetch staff list.", variant: "destructive"}); }
-     else { setAllStaff(data || []); }
+     else {
+       // Construct display name from first_name and last_name if available
+       const staffWithDisplayNames = (data || []).map(staff => ({
+         ...staff,
+         name: staff.first_name && staff.last_name 
+           ? `${staff.first_name} ${staff.last_name}` 
+           : staff.name
+       }));
+       setAllStaff(staffWithDisplayNames);
+     }
      return data;
   }, [toast]);
 
@@ -93,17 +105,17 @@ export function useReceptionData() {
       status: TaskStatus | 'all',
       staffId: string,
       roomGroup: RoomGroup | 'all',
-      roomId: string // Added roomId parameter
+      roomId: string
     ) => {
      let query = supabase.from("tasks")
       .select(`
         id, date, status, cleaning_type, guest_count, time_limit, actual_time,
         difference, issue_flag, housekeeping_notes, reception_notes, start_time,
-        stop_time, created_at,
+        stop_time, issue_description, issue_photo, pause_start, pause_stop, total_pause, created_at,
         room:rooms!inner(id, name, group_type, color),
-        user:users(id, name)
+        user:users(id, name, first_name, last_name)
       `)
-      .order("created_at", { ascending: true }); // Primary sort by creation time or room name?
+      .order("created_at", { ascending: true });
 
      // Apply date filter (gte today if null, eq specific date otherwise)
      if (date === null) {
@@ -114,9 +126,9 @@ export function useReceptionData() {
 
      // Apply Status Filter
      if (status === "all") {
-         query = query.in("status", ACTIVE_TASK_STATUSES); // Fetch only active statuses
+         query = query.in("status", ACTIVE_TASK_STATUSES);
      } else {
-         query = query.eq("status", status); // Fetch specific status
+         query = query.eq("status", status);
      }
 
      // Apply Staff Filter
@@ -124,9 +136,6 @@ export function useReceptionData() {
         if (staffId === "unassigned") query = query.is("user_id", null);
         else query = query.eq("user_id", staffId);
      }
-
-     // Apply Room Group Filter (applied client-side below for now, could be done in DB)
-     // if (roomGroup !== 'all') { /* DB filter possible here */ }
 
      // Apply Room ID Filter
      if (roomId !== 'all') {
@@ -144,9 +153,21 @@ export function useReceptionData() {
         const groupFilteredData = roomGroup !== 'all'
             ? (data || []).filter((task: any) => task.room.group_type === roomGroup)
             : (data || []);
-        return groupFilteredData as Task[];
+        
+        // Construct display name for user if first_name and last_name exist
+        const tasksWithDisplayNames = groupFilteredData.map((task: any) => ({
+          ...task,
+          user: task.user ? {
+            ...task.user,
+            name: task.user.first_name && task.user.last_name
+              ? `${task.user.first_name} ${task.user.last_name}`
+              : task.user.name
+          } : null
+        }));
+        
+        return tasksWithDisplayNames as Task[];
     }
-  }, [toast]); // Dependencies: only toast needed directly here
+  }, [toast]);
 
  const fetchWorkLogs = useCallback(async (date: string | null) => {
     if (!date) return [];
@@ -167,7 +188,7 @@ export function useReceptionData() {
     Promise.all([
         fetchStaff(),
         fetchRooms(),
-        fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId), // Pass roomId
+        fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId),
         fetchWorkLogs(filterDate)
     ]).then(([, , tasksData, workLogsData]) => {
         if (isMounted) {
@@ -184,30 +205,24 @@ export function useReceptionData() {
     let tasksChannel: any = null;
     let workLogChannel: any = null;
 
-    const currentFilterDate = filterDate || getTodayDateString(); // Use today if date filter is null for channel
-    const dateFilterString = filterDate ? `date=eq.${filterDate}` : `date=gte.${getTodayDateString()}`; // Adjust filter for subscription
+    const currentFilterDate = filterDate || getTodayDateString();
+    const dateFilterString = filterDate ? `date=eq.${filterDate}` : `date=gte.${getTodayDateString()}`;
 
     tasksChannel = supabase
-      .channel(`reception-tasks-channel-${currentFilterDate}-${filterStatus}-${filterStaffId}-${filterRoomGroup}-${filterRoomId}`) // More specific channel
+      .channel(`reception-tasks-channel-${currentFilterDate}-${filterStatus}-${filterStaffId}-${filterRoomGroup}-${filterRoomId}`)
       .on<Task>(
         "postgres_changes",
         {
             event: "*",
             schema: "public",
             table: "tasks",
-            // Apply essential filters to subscription if possible
-            // Note: Complex filters like .in() might not work perfectly here,
-            // but date and user_id should. Rely on refetch for accuracy.
             filter: `${dateFilterString}${filterStaffId !== 'all' && filterStaffId !== 'unassigned' ? `&user_id=eq.${filterStaffId}` : ''}`
         },
         (payload) => {
           console.log("Reception Task Update:", payload);
-          // Refetch tasks based on *current filters* when any relevant change occurs
-          // Check if the changed task still matches current filters before updating state
            fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId).then(updatedTasks => {
               if (isMounted) setTasks(updatedTasks);
            });
-           // Add/Update notification logic if needed
         }
       )
       .subscribe((status, err) => {
@@ -242,7 +257,7 @@ export function useReceptionData() {
         if (workLogChannel) supabase.removeChannel(workLogChannel).catch(err => console.error("Error removing work log channel:", err));
     };
   // Re-run effect if any filter changes
-  }, [filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId, fetchStaff, fetchRooms, fetchTasks, fetchWorkLogs, toast]); // Added filterRoomId
+  }, [filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId, fetchStaff, fetchRooms, fetchTasks, fetchWorkLogs, toast]);
 
   // --- Actions ---
   const handleRefresh = async () => {
@@ -253,7 +268,7 @@ export function useReceptionData() {
         await Promise.all([
             fetchStaff(),
             fetchRooms(),
-            fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId).then(setTasks), // Pass roomId
+            fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId).then(setTasks),
             fetchWorkLogs(filterDate).then(setWorkLogs)
         ]);
         toast({ title: "Data refreshed" });
@@ -277,15 +292,11 @@ export function useReceptionData() {
   // --- Derived State (Stats calculation remains the same, based on fetched tasks) ---
   const stats = useMemo(() => {
     const currentTasks = Array.isArray(tasks) ? tasks : [];
-    // Stats now reflect only the *currently fetched* (potentially filtered) tasks
-    const totalFetched = currentTasks.length;
-    // Note: 'done' tasks are excluded by fetchTasks unless status filter is 'done' (which we removed from UI)
-    // 'repair' count is based on issue_flag within the fetched tasks.
     return {
-      total: totalFetched, // Represents total matching current filters (excluding 'done' by default)
+      total: currentTasks.length,
       todo: currentTasks.filter((t) => t.status === "todo").length,
       inProgress: currentTasks.filter((t) => t.status === "in_progress").length,
-      done: currentTasks.filter((t) => t.status === "done").length, // Will usually be 0 unless fetching specifically
+      done: currentTasks.filter((t) => t.status === "done").length,
       repair: currentTasks.filter((t) => t.issue_flag).length,
     };
   }, [tasks]);
@@ -293,9 +304,7 @@ export function useReceptionData() {
 
   return {
     tasks, allStaff, availableRooms, workLogs, loading, refreshing,
-    // Include roomId in filters
     filters: { date: filterDate, status: filterStatus, staffId: filterStaffId, roomGroup: filterRoomGroup, roomId: filterRoomId },
-    // Include setter for roomId
     filterSetters: { setDate: setFilterDate, setStatus: setFilterStatus, setStaffId: setFilterStaffId, setRoomGroup: setFilterRoomGroup, setRoomId: setFilterRoomId },
     actions: { refresh: handleRefresh, clearFilters: handleClearFilters },
     stats, fetchWorkLogs

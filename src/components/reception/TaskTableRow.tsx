@@ -77,6 +77,15 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
     return labels[status] || status;
   };
 
+  const cleaningTypeLabels: Record<string, string> = {
+    W: "Wyjazd",
+    P: "Przyjazd",
+    T: "Trakt",
+    O: "Odświeżenie",
+    G: "Generalne",
+    S: "Standard"
+  };
+
   // Render guest icons (remains the same)
   const renderGuestIcons = (count: number) => {
     const icons = [];
@@ -109,7 +118,7 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
         {/* Staff */}
         <td className="p-2 align-middle text-muted-foreground">{task.user?.name || <span className="italic text-muted-foreground/70">Unassigned</span>}</td>
         {/* Type */}
-        <td className="p-2 align-middle text-center">{task.cleaning_type}</td>
+        <td className="p-2 align-middle text-center">{cleaningTypeLabels[task.cleaning_type] || task.cleaning_type}</td>
         {/* Guests */}
         <td className="p-2 align-middle">
           {renderGuestIcons(task.guest_count)}

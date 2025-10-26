@@ -212,10 +212,10 @@ export function IssueDetailDialog({
                     {currentIssueStatus === 'To Fix' ? (
                         <Button
                             type="button"
-                            variant="success" // Assuming you have a success variant or use default/outline
+                            variant="default"
                             onClick={handleMarkFixed}
                             disabled={isSaving}
-                            className="bg-green-600 hover:bg-green-700 text-white" // Example styling
+                            className="bg-green-600 hover:bg-green-700 text-white"
                         >
                             <CheckSquare className="mr-2 h-4 w-4" /> Mark as Fixed
                         </Button>

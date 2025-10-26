@@ -21,7 +21,7 @@ export interface Task {
   status: string;
   room: { id: string; name: string; group_type: string; color: string | null };
   user: { id: string; name: string } | null;
-  cleaning_type: string;
+  cleaning_type: Database["public"]["Enums"]["cleaning_type"];
   guest_count: number;
   time_limit: number | null;
   actual_time: number | null;
@@ -31,6 +31,11 @@ export interface Task {
   reception_notes: string | null;
   start_time: string | null;
   stop_time: string | null;
+  issue_description: string | null;
+  issue_photo: string | null;
+  pause_start: string | null;
+  pause_stop: string | null;
+  total_pause: number | null;
   created_at?: string;
 }
 

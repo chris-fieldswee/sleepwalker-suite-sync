@@ -10,6 +10,7 @@ import { Plus } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import type { Room, Staff } from '@/hooks/useReceptionData';
 import type { NewTaskState } from '@/hooks/useReceptionActions';
+import { supabase } from '@/integrations/supabase/client';
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
@@ -69,11 +70,34 @@ export function AddTaskDialog({
     const [newTask, setNewTask] = useState<NewTaskState>(initialState);
     const prevIsOpen = useRef(isOpen);
     const [todayDateString, setTodayDateString] = useState<string>('');
+    const [assignedRoomIds, setAssignedRoomIds] = useState<Set<string>>(new Set());
 
     // Set today's date string once on mount
     useEffect(() => {
         setTodayDateString(getTodayDateString());
     }, []);
+
+    // Fetch assigned rooms for the selected date
+    useEffect(() => {
+        if (!newTask.date) return;
+        
+        const fetchAssignedRooms = async () => {
+            const { data, error } = await supabase
+                .from('tasks')
+                .select('room_id')
+                .eq('date', newTask.date);
+            
+            if (error) {
+                console.error('Error fetching assigned rooms:', error);
+                return;
+            }
+            
+            const roomIds = new Set(data?.map(task => task.room_id).filter(Boolean) as string[]);
+            setAssignedRoomIds(roomIds);
+        };
+        
+        fetchAssignedRooms();
+    }, [newTask.date]);
 
     // Get unique room groups from available rooms
     const availableGroups = useMemo(() => {
@@ -82,13 +106,13 @@ export function AddTaskDialog({
         return Array.from(groups).sort();
     }, [availableRooms]);
 
-    // Filter rooms by selected group
+    // Filter rooms by selected group and exclude already assigned rooms
     const filteredRooms = useMemo(() => {
         if (!selectedGroup) return [];
         return availableRooms
-            .filter(room => room.group_type === selectedGroup)
+            .filter(room => room.group_type === selectedGroup && !assignedRoomIds.has(room.id))
             .sort((a, b) => a.name.localeCompare(b.name));
-    }, [selectedGroup, availableRooms]);
+    }, [selectedGroup, availableRooms, assignedRoomIds]);
 
     // Get available cleaning types based on selected group
     const availableCleaningTypes = useMemo(() => {
@@ -201,7 +225,7 @@ export function AddTaskDialog({
                             disabled={!selectedGroup}
                         >
                             <SelectTrigger id="room-modal" className="col-span-3">
-                                <SelectValue placeholder={selectedGroup ? "Select a room" : "Select group first"} />
+                                <SelectValue placeholder={selectedGroup ? (filteredRooms.length > 0 ? "Select a room" : "No rooms available") : "Select group first"} />
                             </SelectTrigger>
                             <SelectContent>
                                 {filteredRooms.map(room => (

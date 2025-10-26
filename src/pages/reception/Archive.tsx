@@ -5,12 +5,20 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-// *** MODIFICATION START: Import User icon ***
 import { Calendar, User } from "lucide-react";
-// *** MODIFICATION END ***
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils"; // Import cn utility
+import { cn } from "@/lib/utils";
+
+// Cleaning type labels with full descriptive names
+const cleaningTypeLabels: Record<string, string> = {
+  W: "Wyjazd",
+  P: "Przyjazd",
+  T: "Trakt",
+  O: "Odświeżenie",
+  G: "Generalne",
+  S: "Standard"
+};
 
 type Task = {
   id: string;
@@ -141,7 +149,7 @@ export default function Archive() {
                 </TableCell>
                 <TableCell>{task.user?.name || <span className="text-muted-foreground italic">Unassigned</span>}</TableCell>
                 <TableCell className="text-center">
-                  <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{task.cleaning_type}</Badge>
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{cleaningTypeLabels[task.cleaning_type] || task.cleaning_type}</Badge>
                 </TableCell>
                  {/* *** MODIFICATION START: Use guest icon renderer *** */}
                 <TableCell className="text-center">

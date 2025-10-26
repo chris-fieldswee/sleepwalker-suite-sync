@@ -128,7 +128,7 @@ export function TaskDetailDialog({
             setAvailableCleaningTypes(newAvailableTypes);
             
             // Reset cleaning type if it's not available for the new room group
-            if (prev && !newAvailableTypes.includes(prev.cleaningType)) {
+            if (editableState && !newAvailableTypes.includes(editableState.cleaningType)) {
                 setEditableState(p => p ? { ...p, cleaningType: newAvailableTypes[0] } : null);
             }
         }
