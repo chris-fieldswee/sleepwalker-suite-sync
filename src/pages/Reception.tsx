@@ -1,6 +1,6 @@
 // src/pages/Reception.tsx
 import { Routes, Route } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext"; // ✅ Add this import
+import { useAuth } from "@/contexts/AuthContext";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ReceptionSidebar } from "@/components/reception/ReceptionSidebar";
 import { useReceptionData } from "@/hooks/useReceptionData";
@@ -13,7 +13,7 @@ import Archive from "./reception/Archive";
 import Issues from "./reception/Issues";
 
 export default function Reception() {
-  const { signOut } = useAuth(); // ✅ Now this will work
+  const { signOut } = useAuth();
 
   const {
     tasks,
@@ -26,7 +26,7 @@ export default function Reception() {
     filterSetters,
     actions: dataActions,
     stats,
-    fetchWorkLogs
+    fetchWorkLogs // Keep fetchWorkLogs if needed elsewhere, Archive doesn't directly use it
   } = useReceptionData();
 
   const {
@@ -39,10 +39,10 @@ export default function Reception() {
     isSubmittingNewIssue,
     handleUpdateIssue,
     isUpdatingIssue,
-    handleUpdateTask,
-    isUpdatingTask,
-    handleDeleteTask,
-    isDeletingTask,
+    handleUpdateTask, // Needed for Tasks and Archive
+    isUpdatingTask,   // Needed for Tasks and Archive
+    handleDeleteTask, // Needed for Tasks and Archive
+    isDeletingTask,   // Needed for Tasks and Archive
   } = useReceptionActions(
       availableRooms,
       dataActions.refresh, // onTaskAdded
@@ -104,6 +104,20 @@ export default function Reception() {
                     initialNewTaskState={initialNewTaskState}
                     isSubmittingTask={isSubmittingTask}
                     isSavingLog={isSavingLog}
+                    onUpdateTask={handleUpdateTask} // Pass update handler
+                    onDeleteTask={handleDeleteTask} // Pass delete handler
+                    isUpdatingTask={isUpdatingTask} // Pass updating state
+                    isDeletingTask={isDeletingTask} // Pass deleting state
+                  />
+                }
+              />
+              {/* *** MODIFICATION START: Pass props to Archive route *** */}
+              <Route
+                path="archive"
+                element={
+                  <Archive
+                    allStaff={allStaff}
+                    availableRooms={availableRooms}
                     onUpdateTask={handleUpdateTask}
                     onDeleteTask={handleDeleteTask}
                     isUpdatingTask={isUpdatingTask}
@@ -111,7 +125,7 @@ export default function Reception() {
                   />
                 }
               />
-              <Route path="archive" element={<Archive />} />
+              {/* *** MODIFICATION END *** */}
               <Route
                 path="issues"
                 element={
