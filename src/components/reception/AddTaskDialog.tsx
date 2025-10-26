@@ -16,12 +16,12 @@ type RoomGroup = Database["public"]["Enums"]["room_group"];
 
 // Cleaning type labels with full descriptive names
 const cleaningTypeLabels: Record<CleaningType, string> = {
-  W: "Wyjazd (Checkout)",
-  P: "Przyjazd (Check-in)",
-  T: "Trakt (Stay-over)",
-  O: "Odświeżenie (Refresh)",
-  G: "Generalne (Deep Clean)",
-  S: "Standard (Standard Clean)"
+  W: "Wyjazd",
+  P: "Przyjazd",
+  T: "Trakt",
+  O: "Odświeżenie",
+  G: "Generalne",
+  S: "Standard"
 };
 
 // Room group labels
