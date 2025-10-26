@@ -12,6 +12,7 @@ export interface Room {
     name: string;
     group_type: RoomGroup;
     capacity: number;
+    // Add color if you need it for the room filter dropdown, otherwise optional
     color?: string | null;
 }
 export interface Task {
@@ -30,11 +31,6 @@ export interface Task {
   reception_notes: string | null;
   start_time: string | null;
   stop_time: string | null;
-  issue_description: string | null;
-  issue_photo: string | null;
-  pause_start: string | null;
-  pause_stop: string | null;
-  total_pause: number | null;
   created_at?: string;
 }
 export interface Staff {
@@ -69,15 +65,15 @@ export function useReceptionData() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Filters State
-  const [filterDate, setFilterDate] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>("all");
+  const [filterDate, setFilterDate] = useState<string | null>(getTodayDateString()); // Default to today
+  const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>("all"); // Default to show all active
   const [filterStaffId, setFilterStaffId] = useState<string>("all");
   const [filterRoomGroup, setFilterRoomGroup] = useState<RoomGroup | 'all'>("all");
-  const [filterRoomId, setFilterRoomId] = useState<string>("all");
+  const [filterRoomId, setFilterRoomId] = useState<string>("all"); // Added Room ID filter
 
   // --- Data Fetching Callbacks ---
   const fetchRooms = useCallback(async () => {
-    // ... (fetchRooms implementation remains the same) ...
+    // Select color if needed for dropdown styling
     const { data, error } = await supabase.from("rooms").select("id, name, group_type, capacity, color").eq("active", true).order("name");
     if (error) { console.error("Error fetching rooms:", error); toast({ title: "Error", description: "Could not load rooms.", variant: "destructive" }); }
     else { setAvailableRooms(data || []); }
@@ -85,56 +81,54 @@ export function useReceptionData() {
   }, [toast]);
 
   const fetchStaff = useCallback(async () => {
-     // ... (fetchStaff implementation remains the same) ...
-     const { data, error } = await supabase.from("users").select("id, name, first_name, last_name, role").eq("role", "housekeeping").eq("active", true).order("name");
+     const { data, error } = await supabase.from("users").select("id, name, role").eq("role", "housekeeping").eq("active", true).order("name");
      if (error) { console.error("Error fetching staff:", error); toast({ title: "Error", description: "Failed to fetch staff list.", variant: "destructive"}); }
-     else {
-       const staffWithDisplayNames = (data || []).map(staff => ({
-         ...staff,
-         name: staff.first_name && staff.last_name
-           ? `${staff.first_name} ${staff.last_name}`
-           : staff.name
-       }));
-       setAllStaff(staffWithDisplayNames);
-     }
+     else { setAllStaff(data || []); }
      return data;
   }, [toast]);
 
+  // Updated fetchTasks
   const fetchTasks = useCallback(async (
       date: string | null,
       status: TaskStatus | 'all',
       staffId: string,
       roomGroup: RoomGroup | 'all',
-      roomId: string
+      roomId: string // Added roomId parameter
     ) => {
-     // ... (fetchTasks implementation remains the same) ...
      let query = supabase.from("tasks")
       .select(`
         id, date, status, cleaning_type, guest_count, time_limit, actual_time,
         difference, issue_flag, housekeeping_notes, reception_notes, start_time,
-        stop_time, issue_description, issue_photo, pause_start, pause_stop, total_pause, created_at,
+        stop_time, created_at,
         room:rooms!inner(id, name, group_type, color),
-        user:users(id, name, first_name, last_name)
+        user:users(id, name)
       `)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true }); // Primary sort by creation time or room name?
 
+     // Apply date filter (gte today if null, eq specific date otherwise)
      if (date === null) {
         query = query.gte('date', getTodayDateString());
      } else {
         query = query.eq("date", date);
      }
 
+     // Apply Status Filter
      if (status === "all") {
-         query = query.in("status", ACTIVE_TASK_STATUSES);
+         query = query.in("status", ACTIVE_TASK_STATUSES); // Fetch only active statuses
      } else {
-         query = query.eq("status", status);
+         query = query.eq("status", status); // Fetch specific status
      }
 
+     // Apply Staff Filter
      if (staffId !== "all") {
         if (staffId === "unassigned") query = query.is("user_id", null);
         else query = query.eq("user_id", staffId);
      }
 
+     // Apply Room Group Filter (applied client-side below for now, could be done in DB)
+     // if (roomGroup !== 'all') { /* DB filter possible here */ }
+
+     // Apply Room ID Filter
      if (roomId !== 'all') {
          query = query.eq("room_id", roomId);
      }
@@ -146,26 +140,15 @@ export function useReceptionData() {
         toast({ title: "Error", description: `Failed to fetch tasks: ${error.message}`, variant: "destructive" });
         return [];
     } else {
+        // Client-side filter for room group (if not done in DB query)
         const groupFilteredData = roomGroup !== 'all'
             ? (data || []).filter((task: any) => task.room.group_type === roomGroup)
             : (data || []);
-
-        const tasksWithDisplayNames = groupFilteredData.map((task: any) => ({
-          ...task,
-          user: task.user ? {
-            ...task.user,
-            name: task.user.first_name && task.user.last_name
-              ? `${task.user.first_name} ${task.user.last_name}`
-              : task.user.name
-          } : null
-        }));
-
-        return tasksWithDisplayNames as Task[];
+        return groupFilteredData as Task[];
     }
-  }, [toast]);
+  }, [toast]); // Dependencies: only toast needed directly here
 
  const fetchWorkLogs = useCallback(async (date: string | null) => {
-    // ... (fetchWorkLogs implementation remains the same) ...
     if (!date) return [];
     const { data, error } = await supabase.from("work_logs")
       .select(`id, user_id, date, time_in, time_out, total_minutes, break_minutes, notes, user:users!inner(name)`)
@@ -177,15 +160,15 @@ export function useReceptionData() {
 
   // --- Main useEffect for Initial Load & Realtime ---
   useEffect(() => {
-    // ... (useEffect logic remains the same) ...
     let isMounted = true;
     setLoading(true);
 
+    // Initial data fetch uses current filter state
     Promise.all([
         fetchStaff(),
         fetchRooms(),
-        fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId),
-        fetchWorkLogs(filterDate || getTodayDateString()) // Fetch logs for today if no date selected initially
+        fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId), // Pass roomId
+        fetchWorkLogs(filterDate)
     ]).then(([, , tasksData, workLogsData]) => {
         if (isMounted) {
             setTasks(tasksData || []);
@@ -201,33 +184,30 @@ export function useReceptionData() {
     let tasksChannel: any = null;
     let workLogChannel: any = null;
 
-    const currentFilterDate = filterDate || getTodayDateString();
-    // Simplified filter for realtime - focus on date and maybe staff if needed, avoid over-filtering
-    const dateFilterString = filterDate ? `date=eq.${filterDate}` : `date=gte.${getTodayDateString()}`;
-    // Consider if staff filtering is essential for realtime or if refetching covers it
-    const staffFilterString = filterStaffId !== 'all' && filterStaffId !== 'unassigned' ? `&user_id=eq.${filterStaffId}` : '';
-
-    console.log("Setting up tasks subscription with filter:", `${dateFilterString}${staffFilterString}`);
+    const currentFilterDate = filterDate || getTodayDateString(); // Use today if date filter is null for channel
+    const dateFilterString = filterDate ? `date=eq.${filterDate}` : `date=gte.${getTodayDateString()}`; // Adjust filter for subscription
 
     tasksChannel = supabase
-      .channel(`reception-tasks-channel-${currentFilterDate}-${filterStaffId}`) // Simplified channel name
+      .channel(`reception-tasks-channel-${currentFilterDate}-${filterStatus}-${filterStaffId}-${filterRoomGroup}-${filterRoomId}`) // More specific channel
       .on<Task>(
         "postgres_changes",
         {
             event: "*",
             schema: "public",
             table: "tasks",
-            filter: `${dateFilterString}${staffFilterString}`
+            // Apply essential filters to subscription if possible
+            // Note: Complex filters like .in() might not work perfectly here,
+            // but date and user_id should. Rely on refetch for accuracy.
+            filter: `${dateFilterString}${filterStaffId !== 'all' && filterStaffId !== 'unassigned' ? `&user_id=eq.${filterStaffId}` : ''}`
         },
         (payload) => {
-          console.log("Reception Task Update Received:", payload.eventType, payload.new?.id || payload.old?.id);
-           // Refetch tasks based on current filters when a change occurs
+          console.log("Reception Task Update:", payload);
+          // Refetch tasks based on *current filters* when any relevant change occurs
+          // Check if the changed task still matches current filters before updating state
            fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId).then(updatedTasks => {
-              if (isMounted) {
-                console.log("Refetched tasks after realtime update:", updatedTasks.length);
-                setTasks(updatedTasks);
-              }
+              if (isMounted) setTasks(updatedTasks);
            });
+           // Add/Update notification logic if needed
         }
       )
       .subscribe((status, err) => {
@@ -235,30 +215,24 @@ export function useReceptionData() {
           else console.log("Task subscription status:", status);
       });
 
-    // Determine the date for work log subscription
-    const workLogSubscriptionDate = filterDate || getTodayDateString(); // Subscribe for today if no date filter
-
-    workLogChannel = supabase
-        .channel(`reception-work-logs-channel-date-${workLogSubscriptionDate}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'work_logs', filter: `date=eq.${workLogSubscriptionDate}` },
-        (payload) => {
-          console.log('Work log change received:', payload);
-          // Refetch work logs only for the specific date the channel is listening to
-          fetchWorkLogs(workLogSubscriptionDate).then(updatedLogs => {
-              if (isMounted) {
-                 console.log("Refetched work logs after realtime update:", updatedLogs.length);
-                 // Only update if the fetched date matches the current filter date (or if filter is null and fetched date is today)
-                 if (filterDate === workLogSubscriptionDate || (filterDate === null && workLogSubscriptionDate === getTodayDateString())) {
-                     setWorkLogs(updatedLogs);
-                 }
-              }
-          });
-        })
-        .subscribe((status, err) => {
-            if (err) console.error("Work log subscription error:", err);
-            else console.log("Work log subscription status:", status);
-        });
-
+    // Work log subscription (only if a specific date is selected)
+    if (filterDate) {
+        workLogChannel = supabase
+            .channel(`reception-work-logs-channel-date-${filterDate}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'work_logs', filter: `date=eq.${filterDate}` },
+            (payload) => {
+              console.log('Work log change received:', payload);
+              fetchWorkLogs(filterDate).then(updatedLogs => {
+                  if (isMounted) setWorkLogs(updatedLogs);
+              });
+            })
+            .subscribe((status, err) => {
+                if (err) console.error("Work log subscription error:", err);
+                else console.log("Work log subscription status:", status);
+            });
+    } else {
+        console.log("Work log realtime updates paused (no specific date selected).");
+    }
 
     // Cleanup
     return () => {
@@ -268,74 +242,62 @@ export function useReceptionData() {
         if (workLogChannel) supabase.removeChannel(workLogChannel).catch(err => console.error("Error removing work log channel:", err));
     };
   // Re-run effect if any filter changes
-  }, [filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId, fetchStaff, fetchRooms, fetchTasks, fetchWorkLogs, toast]);
+  }, [filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId, fetchStaff, fetchRooms, fetchTasks, fetchWorkLogs, toast]); // Added filterRoomId
 
   // --- Actions ---
   const handleRefresh = async () => {
-    // ... (handleRefresh implementation remains the same) ...
     if (refreshing || loading) return;
     setRefreshing(true);
-    setLoading(true); // Ensure loading is true during refresh
+    setLoading(true);
     try {
-        const currentSelectedDate = filterDate || getTodayDateString(); // Use today if filterDate is null
         await Promise.all([
             fetchStaff(),
             fetchRooms(),
-            fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId).then(setTasks),
-            fetchWorkLogs(currentSelectedDate).then(setWorkLogs) // Fetch logs for the relevant date
+            fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId).then(setTasks), // Pass roomId
+            fetchWorkLogs(filterDate).then(setWorkLogs)
         ]);
         toast({ title: "Data refreshed" });
-    } catch (error: any) { // Added type annotation
+    } catch (error) {
         console.error("Refresh failed:", error);
-        toast({ title: "Error", description: `Failed to refresh data: ${error.message}`, variant: "destructive" });
+        toast({ title: "Error", description: "Failed to refresh data.", variant: "destructive" });
     } finally {
-        // Use a small delay to allow UI to settle before removing loading/refreshing state
-        setTimeout(() => {
-             if (isMountedRef.current) { // Check if component is still mounted
-                setLoading(false);
-                setRefreshing(false);
-             }
-        }, 300);
+        setTimeout(() => { setLoading(false); setRefreshing(false); }, 300);
     }
   };
-   // Add a ref to track mount status for handleRefresh cleanup
-   const isMountedRef = useRef(true);
-   useEffect(() => {
-       isMountedRef.current = true;
-       return () => { isMountedRef.current = false; };
-   }, []);
 
-
+  // Updated handleClearFilters
   const handleClearFilters = () => {
-    // ... (handleClearFilters implementation remains the same) ...
-    setFilterDate(null);
-    setFilterStatus("all");
+    setFilterDate(getTodayDateString()); // Default back to today
+    setFilterStatus("all"); // Default to all active
     setFilterStaffId("all");
     setFilterRoomGroup("all");
-    setFilterRoomId("all");
+    setFilterRoomId("all"); // Reset room filter
   };
 
-  // --- Derived State (Stats calculation) ---
-  // ** CORRECTED: Calculate stats based on the `tasks` state variable **
+  // --- Derived State (Stats calculation remains the same, based on fetched tasks) ---
   const stats = useMemo(() => {
-    const currentTasks = Array.isArray(tasks) ? tasks : []; // Ensure tasks is an array
+    const currentTasks = Array.isArray(tasks) ? tasks : [];
+    // Stats now reflect only the *currently fetched* (potentially filtered) tasks
+    const totalFetched = currentTasks.length;
+    // Note: 'done' tasks are excluded by fetchTasks unless status filter is 'done' (which we removed from UI)
+    // 'repair' count is based on issue_flag within the fetched tasks.
     return {
-      total: currentTasks.filter(t => ACTIVE_TASK_STATUSES.includes(t.status)).length, // Count only active tasks for total
+      total: totalFetched, // Represents total matching current filters (excluding 'done' by default)
       todo: currentTasks.filter((t) => t.status === "todo").length,
       inProgress: currentTasks.filter((t) => t.status === "in_progress").length,
-      // Calculate 'done' based on the specific date filter or today if filter is null
-      done: currentTasks.filter((t) => t.status === "done" && t.date === (filterDate || getTodayDateString())).length,
-      repair: currentTasks.filter((t) => t.issue_flag === true && ACTIVE_TASK_STATUSES.includes(t.status)).length, // Count active repair tasks
+      done: currentTasks.filter((t) => t.status === "done").length, // Will usually be 0 unless fetching specifically
+      repair: currentTasks.filter((t) => t.issue_flag).length,
     };
-  }, [tasks, filterDate]); // Recalculate when tasks or filterDate changes
+  }, [tasks]);
 
 
   return {
     tasks, allStaff, availableRooms, workLogs, loading, refreshing,
+    // Include roomId in filters
     filters: { date: filterDate, status: filterStatus, staffId: filterStaffId, roomGroup: filterRoomGroup, roomId: filterRoomId },
+    // Include setter for roomId
     filterSetters: { setDate: setFilterDate, setStatus: setFilterStatus, setStaffId: setFilterStaffId, setRoomGroup: setFilterRoomGroup, setRoomId: setFilterRoomId },
     actions: { refresh: handleRefresh, clearFilters: handleClearFilters },
-    stats,
-    fetchWorkLogs // Expose fetchWorkLogs if needed by other components
+    stats, fetchWorkLogs
   };
 }
