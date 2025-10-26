@@ -1,8 +1,8 @@
 // src/components/reception/TaskTableRow.tsx
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { User, Eye, Trash2, AlertTriangle, MessageSquare } from "lucide-react";
-import { cn } from "@/lib/utils"; // Import cn utility
+import { User, Eye, Trash2, AlertTriangle, MessageSquare, CalendarDays } from "lucide-react"; // Added CalendarDays
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,15 +22,15 @@ import {
 } from "@/components/ui/tooltip";
 
 
-// Keep Task interface consistent
 interface Task {
   id: string;
+  date: string; // Ensure date is always present
   status: string;
   room: { name: string; group_type: string };
   user: { id: string; name: string } | null;
   cleaning_type: string;
   guest_count: number;
-  time_limit: number | null; // Allow null
+  time_limit: number | null;
   actual_time: number | null;
   difference: number | null;
   issue_flag: boolean;
@@ -47,15 +47,16 @@ interface Staff {
 
 interface TaskTableRowProps {
   task: Task;
-  staff: Staff[]; // Keep staff for display even if not editable here
+  staff: Staff[];
   onViewDetails: (task: Task) => void;
-  onDeleteTask: (taskId: string) => Promise<void>;
-  isDeleting: boolean; // Add state for delete button
+  onDeleteTask: (taskId: string) => Promise<void>; // Changed return type to void based on usage
+  isDeleting: boolean;
 }
 
 export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDeleting }: TaskTableRowProps) => {
 
   const getStatusColor = (status: string) => {
+    // ... (keep existing function)
     const colors: Record<string, string> = {
       todo: "bg-status-todo text-white",
       in_progress: "bg-status-in-progress text-white",
@@ -67,17 +68,19 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
   };
 
   const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      todo: "To Clean",
-      in_progress: "In Progress",
-      paused: "Paused",
-      done: "Done",
-      repair_needed: "Repair",
-    };
-    return labels[status] || status;
+    // ... (keep existing function)
+     const labels: Record<string, string> = {
+       todo: "To Clean",
+       in_progress: "In Progress",
+       paused: "Paused",
+       done: "Done",
+       repair_needed: "Repair",
+     };
+     return labels[status] || status;
   };
 
   const cleaningTypeLabels: Record<string, string> = {
+    // ... (keep existing labels)
     W: "Wyjazd",
     P: "Przyjazd",
     T: "Trakt",
@@ -86,11 +89,11 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
     S: "Standard"
   };
 
-  // Render guest icons (remains the same)
   const renderGuestIcons = (count: number) => {
+    // ... (keep existing function)
     const icons = [];
     const validCount = Math.max(1, Math.floor(count) || 1);
-    const displayCount = Math.min(validCount, 5); // Limit icons slightly more aggressively in table
+    const displayCount = Math.min(validCount, 5);
 
     for (let i = 0; i < displayCount; i++) {
       icons.push(<User key={i} className="h-4 w-4 text-muted-foreground" />);
@@ -100,6 +103,28 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
     }
     return <div className="flex items-center justify-center gap-0.5">{icons}</div>;
   };
+
+  // Simple date formatter (DD.MM)
+  const formatShortDate = (dateString: string | null) => {
+      if (!dateString) return "-";
+      try {
+          // Assuming dateString is YYYY-MM-DD
+          const parts = dateString.split('-');
+          if (parts.length === 3) {
+              return `${parts[2]}.${parts[1]}`; // DD.MM
+          }
+          // Fallback for unexpected formats
+          const date = new Date(dateString + 'T00:00:00Z');
+          if (isNaN(date.getTime())) return dateString; // Return original if invalid
+          const day = String(date.getUTCDate()).padStart(2, '0');
+          const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+          return `${day}.${month}`;
+      } catch (error) {
+          console.error("Date formatting error:", error, dateString);
+          return dateString; // Return original on error
+      }
+  };
+
 
   const hasNotes = !!task.housekeeping_notes || !!task.reception_notes;
   const notesTooltip = `HK: ${task.housekeeping_notes || '-'}\nREC: ${task.reception_notes || '-'}`;
@@ -117,6 +142,10 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
         <td className="p-2 align-middle font-medium">{task.room.name}</td>
         {/* Staff */}
         <td className="p-2 align-middle text-muted-foreground">{task.user?.name || <span className="italic text-muted-foreground/70">Unassigned</span>}</td>
+        {/* ** NEW: Date Column ** */}
+        <td className="p-2 align-middle text-center text-muted-foreground tabular-nums">
+            {formatShortDate(task.date)}
+        </td>
         {/* Type */}
         <td className="p-2 align-middle text-center">{cleaningTypeLabels[task.cleaning_type] || task.cleaning_type}</td>
         {/* Guests */}
@@ -162,47 +191,47 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
         {/* Actions */}
         <td className="p-2 align-middle text-right">
           <div className="flex gap-1 justify-end">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onViewDetails(task)}>
-                  <Eye className="h-4 w-4" />
-                  <span className="sr-only">View Details</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent><p>View/Edit Details</p></TooltipContent>
-            </Tooltip>
-            {/* Delete Confirmation */}
-            <AlertDialog>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" disabled={isDeleting}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete Task</span>
-                        </Button>
-                    </AlertDialogTrigger>
-                </TooltipTrigger>
-                <TooltipContent><p>Delete Task</p></TooltipContent>
-              </Tooltip>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the task for room <span className="font-medium">{task.room.name}</span>.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => onDeleteTask(task.id)}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? "Deleting..." : "Delete"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+             {/* ... (keep existing action buttons) ... */}
+             <Tooltip>
+               <TooltipTrigger asChild>
+                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onViewDetails(task)}>
+                   <Eye className="h-4 w-4" />
+                   <span className="sr-only">View Details</span>
+                 </Button>
+               </TooltipTrigger>
+               <TooltipContent><p>View/Edit Details</p></TooltipContent>
+             </Tooltip>
+             <AlertDialog>
+               <Tooltip>
+                 <TooltipTrigger asChild>
+                     <AlertDialogTrigger asChild>
+                         <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" disabled={isDeleting}>
+                             <Trash2 className="h-4 w-4" />
+                             <span className="sr-only">Delete Task</span>
+                         </Button>
+                     </AlertDialogTrigger>
+                 </TooltipTrigger>
+                 <TooltipContent><p>Delete Task</p></TooltipContent>
+               </Tooltip>
+               <AlertDialogContent>
+                 <AlertDialogHeader>
+                   <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                   <AlertDialogDescription>
+                     This action cannot be undone. This will permanently delete the task for room <span className="font-medium">{task.room.name}</span>.
+                   </AlertDialogDescription>
+                 </AlertDialogHeader>
+                 <AlertDialogFooter>
+                   <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                   <AlertDialogAction
+                     onClick={() => onDeleteTask(task.id)}
+                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                     disabled={isDeleting}
+                   >
+                     {isDeleting ? "Deleting..." : "Delete"}
+                   </AlertDialogAction>
+                 </AlertDialogFooter>
+               </AlertDialogContent>
+             </AlertDialog>
           </div>
         </td>
       </tr>
