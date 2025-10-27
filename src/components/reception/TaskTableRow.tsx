@@ -54,9 +54,10 @@ interface TaskTableRowProps {
   onViewDetails: (task: Task) => void;
   onDeleteTask: (taskId: string) => Promise<void>; // Consistent return type
   isDeleting: boolean;
+  showActualAndDifference?: boolean; // New prop to show actual and difference columns
 }
 
-export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDeleting }: TaskTableRowProps) => {
+export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDeleting, showActualAndDifference = false }: TaskTableRowProps) => {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -104,6 +105,20 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
        icons.push(<span key="plus" className="text-xs text-muted-foreground ml-0.5">+{validCount - displayCount}</span>);
     }
     return <div className="flex items-center justify-center gap-0.5">{icons}</div>;
+  };
+
+  // Format difference with color coding
+  const formatDifference = (difference: number | null) => {
+    if (difference === null) return "-";
+    const sign = difference > 0 ? "+" : "";
+    return `${sign}${difference} min`;
+  };
+
+  const getDifferenceColor = (difference: number | null) => {
+    if (difference === null) return "";
+    if (difference > 0) return "text-red-600 dark:text-red-400";
+    if (difference < 0) return "text-green-600 dark:text-green-400";
+    return "";
   };
 
   // Simple date formatter (DD.MM)
@@ -157,6 +172,18 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
         </td>
         {/* Limit */}
         <td className="p-2 align-middle text-center">{task.time_limit ?? '-'}</td>
+        {/* Actual - Only show if showActualAndDifference is true */}
+        {showActualAndDifference && (
+          <td className="p-2 align-middle text-center">
+            {task.actual_time !== null ? task.actual_time : "-"}
+          </td>
+        )}
+        {/* Difference - Only show if showActualAndDifference is true */}
+        {showActualAndDifference && (
+          <td className={cn("p-2 align-middle text-center", getDifferenceColor(task.difference))}>
+            {formatDifference(task.difference)}
+          </td>
+        )}
         {/* Issue */}
         <td className="p-2 align-middle text-center">
           {task.issue_flag ? (

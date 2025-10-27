@@ -92,7 +92,8 @@ export function useReceptionData() {
   }, [toast]);
 
   const fetchStaff = useCallback(async () => {
-     const { data, error } = await supabase.from("users").select("id, name, first_name, last_name, role").eq("role", "housekeeping").eq("active", true).order("name");
+     // Fetch all active users (not just housekeeping) for broader functionality
+     const { data, error } = await supabase.from("users").select("id, name, first_name, last_name, role").eq("active", true).order("name");
      if (error) { console.error("Error fetching staff:", error); toast({ title: "Error", description: "Failed to fetch staff list.", variant: "destructive"}); }
      else if (isMountedRef.current) {
        const staffWithDisplayNames = (data || []).map(staff => ({

@@ -236,6 +236,13 @@ export function useReceptionActions(
         let filePath: string | undefined = undefined;
 
         try {
+            // Get current user for reported_by_user_id
+            const { data: currentUser } = await supabase
+                .from('users')
+                .select('id')
+                .eq('auth_id', userId)
+                .single();
+
             if (photo && userId) {
                 const fileExt = photo.name.split('.').pop();
                 const fileName = `${userId}_issue_${Date.now()}.${fileExt}`;
@@ -263,20 +270,18 @@ export function useReceptionActions(
                 return false;
             }
 
-            const taskToInsert = {
+            // Insert into issues table
+            const issueToInsert = {
                 room_id: roomId,
-                date: getTodayDateString(),
-                cleaning_type: 'O' as CleaningType,
-                guest_count: 1,
-                status: 'repair_needed' as const,
-                issue_flag: true,
-                issue_description: description,
-                issue_photo: photoUrl,
-                user_id: null,
-                time_limit: null,
+                title: description.substring(0, 100), // First 100 chars as title
+                description: description,
+                photo_url: photoUrl,
+                reported_by_user_id: currentUser?.id || null,
+                status: 'open' as const,
+                priority: 'medium' as const,
             };
 
-            const { error: insertError } = await supabase.from('tasks').insert(taskToInsert);
+            const { error: insertError } = await supabase.from('issues').insert(issueToInsert);
 
             if (insertError) {
                 if (photoUrl && filePath) {
@@ -287,7 +292,7 @@ export function useReceptionActions(
             }
 
             const roomName = availableRooms.find(r => r.id === roomId)?.name || 'Unknown Room';
-            toast({ title: "Issue Reported Successfully", description: `New issue task created for ${roomName}.` });
+            toast({ title: "Issue Reported Successfully", description: `New issue created for ${roomName}.` });
             onIssueReported?.();
             success = true;
 

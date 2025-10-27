@@ -295,6 +295,8 @@ export default function Archive({
               <TableHead className="font-semibold text-center w-[60px]">Type</TableHead>
               <TableHead className="font-semibold text-center w-[80px]">Guests</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Limit</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Actual</TableHead>
+              <TableHead className="font-semibold text-center w-[80px]">Difference</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Issue</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Notes</TableHead>
               <TableHead className="font-semibold text-right w-[100px]">Actions</TableHead>
@@ -309,6 +311,7 @@ export default function Archive({
                 onViewDetails={handleViewDetails}
                 onDeleteTask={handleDelete}
                 isDeleting={isDeletingTask}
+                showActualAndDifference={true}
               />
             ))}
           </TableBody>
