@@ -10,7 +10,8 @@ import { Plus } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import type { Room, Staff } from '@/hooks/useReceptionData';
 import type { NewTaskState } from '@/hooks/useReceptionActions';
-import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from "@/hooks/use-toast";
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
@@ -65,6 +66,7 @@ export function AddTaskDialog({
     isSubmitting,
     triggerButton
 }: AddTaskDialogProps) {
+    const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
     const [selectedGroup, setSelectedGroup] = useState<RoomGroup | null>(null);
     const [newTask, setNewTask] = useState<NewTaskState>(initialState);
@@ -377,6 +379,3 @@ export function AddTaskDialog({
         </Dialog>
     );
 }
-
-// Add toast import if not already present
-import { useToast } from "@/hooks/use-toast";

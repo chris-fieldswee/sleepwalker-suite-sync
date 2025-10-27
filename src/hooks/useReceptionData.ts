@@ -223,7 +223,7 @@ export function useReceptionData() {
 
     tasksChannel = supabase
       .channel(`reception-tasks-channel-${channelDateSuffix}`)
-      .on<Task>(
+      .on(
         "postgres_changes",
         {
             event: "*",
@@ -232,7 +232,7 @@ export function useReceptionData() {
             filter: dateFilterString
         },
         (payload) => {
-          console.log("Reception Task Update Received:", payload.eventType, payload.new?.id || payload.old?.id);
+          console.log("Reception Task Update Received:", payload.eventType, payload.new || payload.old);
            if (isMountedRef.current) {
                fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId).then(updatedTasks => {
                   if (isMountedRef.current) {
