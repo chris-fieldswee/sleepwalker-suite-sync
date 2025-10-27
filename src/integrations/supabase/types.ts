@@ -14,6 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
+      issues: {
+        Row: {
+          assigned_to_user_id: string | null
+          created_at: string
+          description: string
+          id: string
+          notes: string | null
+          photo_url: string | null
+          priority: Database["public"]["Enums"]["issue_priority"]
+          reported_at: string
+          reported_by_user_id: string | null
+          resolved_at: string | null
+          resolved_by_user_id: string | null
+          room_id: string
+          status: Database["public"]["Enums"]["issue_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to_user_id?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          notes?: string | null
+          photo_url?: string | null
+          priority?: Database["public"]["Enums"]["issue_priority"]
+          reported_at?: string
+          reported_by_user_id?: string | null
+          resolved_at?: string | null
+          resolved_by_user_id?: string | null
+          room_id: string
+          status?: Database["public"]["Enums"]["issue_status"]
+          task_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to_user_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          notes?: string | null
+          photo_url?: string | null
+          priority?: Database["public"]["Enums"]["issue_priority"]
+          reported_at?: string
+          reported_by_user_id?: string | null
+          resolved_at?: string | null
+          resolved_by_user_id?: string | null
+          room_id?: string
+          status?: Database["public"]["Enums"]["issue_status"]
+          task_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issues_assigned_to_user_id_fkey"
+            columns: ["assigned_to_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_reported_by_user_id_fkey"
+            columns: ["reported_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_resolved_by_user_id_fkey"
+            columns: ["resolved_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       limits: {
         Row: {
           cleaning_type: Database["public"]["Enums"]["cleaning_type"]
@@ -284,6 +377,8 @@ export type Database = {
     Enums: {
       app_role: "admin" | "reception" | "housekeeping"
       cleaning_type: "W" | "P" | "T" | "O" | "G" | "S"
+      issue_priority: "low" | "medium" | "high" | "urgent"
+      issue_status: "open" | "in_progress" | "resolved" | "closed"
       room_group: "P1" | "P2" | "A1S" | "A2S" | "OTHER"
       task_status: "todo" | "in_progress" | "paused" | "done" | "repair_needed"
       user_role: "admin" | "reception" | "housekeeping"
@@ -416,6 +511,8 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "reception", "housekeeping"],
       cleaning_type: ["W", "P", "T", "O", "G", "S"],
+      issue_priority: ["low", "medium", "high", "urgent"],
+      issue_status: ["open", "in_progress", "resolved", "closed"],
       room_group: ["P1", "P2", "A1S", "A2S", "OTHER"],
       task_status: ["todo", "in_progress", "paused", "done", "repair_needed"],
       user_role: ["admin", "reception", "housekeeping"],
