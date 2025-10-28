@@ -41,13 +41,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               .single();
             
             if (profile) {
+              console.log("User profile found:", profile);
               setUserRole(profile.role);
               setUserId(profile.id);
+            } else {
+              console.log("No user profile found for auth_id:", session.user.id);
             }
+            setLoading(false);
           }, 0);
         } else {
           setUserRole(null);
           setUserId(null);
+          setLoading(false);
         }
       }
     );
@@ -66,8 +71,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             .single();
           
           if (profile) {
+            console.log("User profile found (getSession):", profile);
             setUserRole(profile.role);
             setUserId(profile.id);
+          } else {
+            console.log("No user profile found for auth_id (getSession):", session.user.id);
           }
           setLoading(false);
         }, 0);
