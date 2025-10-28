@@ -8,10 +8,14 @@ const Index = () => {
 
   useEffect(() => {
     if (!loading && userRole) {
+      console.log("Current user role:", userRole); // Debug log
       if (userRole === "housekeeping") {
         navigate("/housekeeping");
-      } else if (userRole === "reception" || userRole === "admin") {
+      } else if (userRole === "reception") {
         navigate("/reception");
+      } else if (userRole === "admin") {
+        console.log("Redirecting admin to /admin"); // Debug log
+        navigate("/admin");
       }
     }
   }, [userRole, loading, navigate]);

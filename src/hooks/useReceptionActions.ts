@@ -245,18 +245,21 @@ export function useReceptionActions(
 
             if (photo && userId) {
                 const fileExt = photo.name.split('.').pop();
-                const fileName = `${userId}_issue_${Date.now()}.${fileExt}`;
-                filePath = `issue_photos/${fileName}`;
+                const fileName = `temp_${Date.now()}.${fileExt}`;
+                
                 const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('task_issues')
-                    .upload(filePath, photo);
+                    .from('issue-photos')
+                    .upload(fileName, photo);
 
                 if (uploadError) {
                     throw new Error(`Photo upload failed: ${uploadError.message}`);
                 }
                 if (uploadData) {
-                    const { data: urlData } = supabase.storage.from('task_issues').getPublicUrl(filePath);
-                    photoUrl = urlData?.publicUrl || null;
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('issue-photos')
+                        .getPublicUrl(uploadData.path);
+                    photoUrl = publicUrl;
+                    filePath = uploadData.path;
                      if (!photoUrl) {
                         console.warn("Could not get public URL for uploaded photo:", filePath);
                      }
@@ -286,7 +289,7 @@ export function useReceptionActions(
             if (insertError) {
                 if (photoUrl && filePath) {
                     console.warn("Database insert failed, attempting to delete uploaded photo:", filePath);
-                    await supabase.storage.from('task_issues').remove([filePath]);
+                    await supabase.storage.from('issue-photos').remove([filePath]);
                 }
                 throw insertError;
             }

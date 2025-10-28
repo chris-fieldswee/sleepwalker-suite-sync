@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Reception from "./pages/Reception";
+import Admin from "./pages/Admin";
 import Housekeeping from "./pages/Housekeeping";
 import NotFound from "./pages/NotFound";
 
@@ -40,6 +41,15 @@ const App = () => (
                   <Reception />
                   {/* Outlet will render nested route components if defined */}
                   {/* We will handle view switching within Reception.tsx for now */}
+                </ProtectedRoute>
+              }
+            />
+            {/* Admin route with full access to reception features plus admin features */}
+            <Route
+              path="/admin/*"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <Admin />
                 </ProtectedRoute>
               }
             />

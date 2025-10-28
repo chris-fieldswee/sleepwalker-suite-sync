@@ -115,17 +115,19 @@ export function IssueDetailDialog({
                 }
                 
                 const fileExt = photo.name.split('.').pop();
-                const fileName = `issue_${issue.id}_${Date.now()}.${fileExt}`;
-                const filePath = `issue_photos/${fileName}`;
+                const fileName = `${issue.id}/${Date.now()}.${fileExt}`;
                 
-                const { error: uploadError } = await supabase.storage
-                    .from('task_issues')
-                    .upload(filePath, photo, { upsert: true });
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('issue-photos')
+                    .upload(fileName, photo, { upsert: true });
                 
                 if (uploadError) throw uploadError;
                 
-                const { data: urlData } = supabase.storage.from('task_issues').getPublicUrl(filePath);
-                photoUrl = urlData?.publicUrl || null;
+                const { data: { publicUrl } } = supabase.storage
+                    .from('issue-photos')
+                    .getPublicUrl(fileName);
+                    
+                photoUrl = publicUrl;
             }
             
             const { error } = await supabase
