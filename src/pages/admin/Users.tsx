@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Search, Edit, Trash2, User, Mail, Phone, Calendar } from "lucide-react";
+import { Plus, Search, Edit, Trash2, User, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
@@ -31,10 +31,8 @@ export default function Users() {
   // Form state for create/edit
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
     first_name: "",
     last_name: "",
-    phone: "",
     role: "housekeeping" as UserRole,
     active: true,
   });
@@ -68,7 +66,6 @@ export default function Users() {
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.last_name?.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -93,10 +90,8 @@ export default function Users() {
       setIsCreateDialogOpen(false);
       setFormData({
         name: "",
-        email: "",
         first_name: "",
         last_name: "",
-        phone: "",
         role: "housekeeping",
         active: true,
       });
@@ -172,10 +167,8 @@ export default function Users() {
     setSelectedUser(user);
     setFormData({
       name: user.name,
-      email: user.email || "",
       first_name: user.first_name || "",
       last_name: user.last_name || "",
-      phone: user.phone || "",
       role: user.role,
       active: user.active,
     });
@@ -240,16 +233,6 @@ export default function Users() {
                     placeholder="Full name"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="user@example.com"
-                  />
-                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -270,15 +253,6 @@ export default function Users() {
                     placeholder="Last name"
                   />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="Phone number"
-                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Role *</Label>
@@ -319,7 +293,7 @@ export default function Users() {
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search"
-                  placeholder="Search by name, email..."
+                  placeholder="Search by name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -357,7 +331,6 @@ export default function Users() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
@@ -374,12 +347,6 @@ export default function Users() {
                         ? `${user.first_name} ${user.last_name}`
                         : user.name
                       }
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      {user.email || "N/A"}
                     </div>
                   </TableCell>
                   <TableCell>{getRoleBadge(user.role)}</TableCell>
@@ -451,15 +418,6 @@ export default function Users() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-email">Email *</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -478,14 +436,6 @@ export default function Users() {
                   onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-phone">Phone</Label>
-              <Input
-                id="edit-phone"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role *</Label>
