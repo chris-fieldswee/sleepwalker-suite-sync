@@ -76,6 +76,7 @@ export function AddTaskDialog({
     const [assignedRoomIds, setAssignedRoomIds] = useState<Set<string>>(new Set());
     const [availableStaff, setAvailableStaff] = useState<Staff[]>([]);
     const [availabilityData, setAvailabilityData] = useState<any[]>([]);
+    const [taskTimeLimit, setTaskTimeLimit] = useState<number | null>(null);
 
     // Set today's date string once on mount
     useEffect(() => {
@@ -109,7 +110,45 @@ export function AddTaskDialog({
         fetchAssignedRooms();
     }, [newTask.date, isOpen]); // Rerun when date changes or dialog opens
 
-    // Fetch available staff for the selected date
+    // Fetch time limit when room, cleaning type, and guest count are selected
+    useEffect(() => {
+        if (!newTask.roomId || !newTask.cleaningType || !newTask.guestCount || !isOpen) {
+            setTaskTimeLimit(null);
+            return;
+        }
+
+        const fetchTimeLimit = async () => {
+            try {
+                const selectedRoom = availableRooms.find(r => r.id === newTask.roomId);
+                if (!selectedRoom) return;
+
+                const { data: limitData, error: limitError } = await supabase
+                    .from('limits')
+                    .select('time_limit')
+                    .eq('group_type', selectedRoom.group_type)
+                    .eq('cleaning_type', newTask.cleaningType)
+                    .eq('guest_count', newTask.guestCount)
+                    .maybeSingle();
+
+                if (limitError) {
+                    console.error('Error fetching time limit:', limitError);
+                    setTaskTimeLimit(null);
+                    return;
+                }
+
+                const timeLimit = limitData?.time_limit ?? null;
+                setTaskTimeLimit(timeLimit);
+                console.log(`Time limit for ${selectedRoom.group_type}/${newTask.cleaningType}/${newTask.guestCount}: ${timeLimit} minutes`);
+            } catch (error) {
+                console.error('Error in fetchTimeLimit:', error);
+                setTaskTimeLimit(null);
+            }
+        };
+
+        fetchTimeLimit();
+    }, [newTask.roomId, newTask.cleaningType, newTask.guestCount, isOpen, availableRooms]);
+
+    // Fetch available staff for the selected date and task requirements
     useEffect(() => {
         if (!newTask.date || !isOpen) return;
 
@@ -123,8 +162,7 @@ export function AddTaskDialog({
                         available_hours,
                         staff:users(id, name, first_name, last_name, role)
                     `)
-                    .eq('date', newTask.date)
-                    .gt('available_hours', 0); // Only staff with available hours
+                    .eq('date', newTask.date);
 
                 if (availabilityError) {
                     console.error('Error fetching staff availability:', availabilityError);
@@ -137,16 +175,29 @@ export function AddTaskDialog({
                 // Store availability data for display
                 setAvailabilityData(availabilityData || []);
 
-                // Map availability data to staff
-                const availableStaffIds = new Set(availabilityData?.map(item => item.staff_id) || []);
-                const filteredStaff = allStaff.filter(staff => 
-                    availableStaffIds.has(staff.id) || staff.role === 'admin' // Always include admins
-                );
+                // Convert task time limit from minutes to hours for comparison
+                const requiredHours = taskTimeLimit ? taskTimeLimit / 60 : 0;
+
+                // Filter staff based on availability and task requirements
+                const filteredStaff = allStaff.filter(staff => {
+                    // Always include admins
+                    if (staff.role === 'admin') return true;
+
+                    // Find availability data for this staff member
+                    const availabilityInfo = availabilityData?.find(item => item.staff_id === staff.id);
+                    
+                    if (!availabilityInfo) return false; // No availability data
+
+                    // Check if staff has enough available hours for the task
+                    const hasEnoughHours = requiredHours === 0 || availabilityInfo.available_hours >= requiredHours;
+                    
+                    return hasEnoughHours;
+                });
 
                 console.log('Availability data:', availabilityData);
-                console.log('Available staff IDs:', Array.from(availableStaffIds));
+                console.log('Task time limit:', taskTimeLimit, 'minutes (', requiredHours, 'hours)');
                 console.log('All staff:', allStaff.map(s => ({ id: s.id, name: s.name, role: s.role })));
-                console.log(`Found ${filteredStaff.length} available staff for ${newTask.date}`);
+                console.log(`Found ${filteredStaff.length} available staff for ${newTask.date} (requiring ${requiredHours}h)`);
 
                 setAvailableStaff(filteredStaff);
             } catch (error) {
@@ -157,7 +208,7 @@ export function AddTaskDialog({
         };
 
         fetchAvailableStaff();
-    }, [newTask.date, isOpen, allStaff]);
+    }, [newTask.date, isOpen, allStaff, taskTimeLimit]);
 
     // Get unique room groups from available rooms
     const availableGroups = useMemo(() => {
@@ -198,6 +249,7 @@ export function AddTaskDialog({
             setAssignedRoomIds(new Set()); // Clear assigned rooms initially
             setAvailableStaff(allStaff); // Initialize with all staff
             setAvailabilityData([]); // Clear availability data initially
+            setTaskTimeLimit(null); // Clear task time limit
         }
         prevIsOpen.current = isOpen;
     }, [isOpen, initialState, todayDateString]);
@@ -391,10 +443,16 @@ export function AddTaskDialog({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="unassigned">Unassigned</SelectItem>
+                                {availableStaff.length === 0 && taskTimeLimit && (
+                                    <SelectItem value="no-staff" disabled>
+                                        No staff available for this task ({taskTimeLimit} min)
+                                    </SelectItem>
+                                )}
                                 {availableStaff.map(staff => {
                                     // Find availability info for this staff member
                                     const availabilityInfo = availabilityData?.find(item => item.staff_id === staff.id);
                                     const availableHours = availabilityInfo?.available_hours || 0;
+                                    const requiredHours = taskTimeLimit ? taskTimeLimit / 60 : 0;
                                     
                                     return (
                                         <SelectItem key={staff.id} value={staff.id}>
@@ -403,6 +461,11 @@ export function AddTaskDialog({
                                                 {staff.role !== 'admin' && (
                                                     <span className="text-xs text-muted-foreground ml-2">
                                                         {availableHours.toFixed(1)}h available
+                                                        {requiredHours > 0 && (
+                                                            <span className="text-green-600 ml-1">
+                                                                (needs {requiredHours.toFixed(1)}h)
+                                                            </span>
+                                                        )}
                                                     </span>
                                                 )}
                                             </div>
