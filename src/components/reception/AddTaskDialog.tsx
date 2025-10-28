@@ -74,6 +74,7 @@ export function AddTaskDialog({
     const [todayDateString, setTodayDateString] = useState<string>('');
     // State to store room IDs that already have a task on the selected date
     const [assignedRoomIds, setAssignedRoomIds] = useState<Set<string>>(new Set());
+    const [availableStaff, setAvailableStaff] = useState<Staff[]>([]);
 
     // Set today's date string once on mount
     useEffect(() => {
@@ -106,6 +107,48 @@ export function AddTaskDialog({
 
         fetchAssignedRooms();
     }, [newTask.date, isOpen]); // Rerun when date changes or dialog opens
+
+    // Fetch available staff for the selected date
+    useEffect(() => {
+        if (!newTask.date || !isOpen) return;
+
+        const fetchAvailableStaff = async () => {
+            try {
+                // Get staff availability for the selected date
+                const { data: availabilityData, error: availabilityError } = await supabase
+                    .from('staff_availability')
+                    .select(`
+                        staff_id,
+                        available_hours,
+                        staff:users(id, name, first_name, last_name, role)
+                    `)
+                    .eq('date', newTask.date)
+                    .gt('available_hours', 0); // Only staff with available hours
+
+                if (availabilityError) {
+                    console.error('Error fetching staff availability:', availabilityError);
+                    // Fallback to all staff if availability check fails
+                    setAvailableStaff(allStaff);
+                    return;
+                }
+
+                // Map availability data to staff
+                const availableStaffIds = new Set(availabilityData?.map(item => item.staff_id) || []);
+                const filteredStaff = allStaff.filter(staff => 
+                    availableStaffIds.has(staff.id) || staff.role === 'admin' // Always include admins
+                );
+
+                setAvailableStaff(filteredStaff);
+                console.log(`Found ${filteredStaff.length} available staff for ${newTask.date}`);
+            } catch (error) {
+                console.error('Error in fetchAvailableStaff:', error);
+                // Fallback to all staff
+                setAvailableStaff(allStaff);
+            }
+        };
+
+        fetchAvailableStaff();
+    }, [newTask.date, isOpen, allStaff]);
 
     // Get unique room groups from available rooms
     const availableGroups = useMemo(() => {
@@ -144,6 +187,7 @@ export function AddTaskDialog({
             setNewTask(resetState);
             setSelectedGroup(null); // Reset group selection
             setAssignedRoomIds(new Set()); // Clear assigned rooms initially
+            setAvailableStaff(allStaff); // Initialize with all staff
         }
         prevIsOpen.current = isOpen;
     }, [isOpen, initialState, todayDateString]);
@@ -337,7 +381,7 @@ export function AddTaskDialog({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="unassigned">Unassigned</SelectItem>
-                                {allStaff.map(staff => (
+                                {availableStaff.map(staff => (
                                     <SelectItem key={staff.id} value={staff.id}>
                                         {staff.name}
                                     </SelectItem>

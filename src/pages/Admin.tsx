@@ -15,6 +15,7 @@ import Issues from "./reception/Issues";
 // Import admin pages
 import Users from "./admin/Users";
 import Rooms from "./admin/Rooms";
+import Availability from "./admin/Availability";
 
 export default function Admin() {
   const { signOut } = useAuth();
@@ -114,8 +115,9 @@ export default function Admin() {
               />
 
               {/* Admin-specific routes */}
-              <Route path="users" element={<Users />} />
-              <Route path="rooms" element={<Rooms />} />
+            <Route path="users" element={<Users />} />
+            <Route path="rooms" element={<Rooms />} />
+            <Route path="availability" element={<Availability />} />
             </Routes>
           </div>
         </main>

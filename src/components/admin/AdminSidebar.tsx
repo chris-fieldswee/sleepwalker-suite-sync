@@ -5,6 +5,7 @@ import {
   AlertTriangle, 
   Users, 
   DoorOpen, 
+  Calendar,
   LogOut 
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
@@ -36,6 +37,7 @@ const receptionNavItems = [
 const adminNavItems = [
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Rooms", url: "/admin/rooms", icon: DoorOpen },
+  { title: "Staff Availability", url: "/admin/availability", icon: Calendar },
 ];
 
 export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
