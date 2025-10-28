@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseAdmin } from "@/integrations/supabase/admin-client";
 import { useNavigate } from "react-router-dom";
 
 interface AuthContextType {
@@ -42,10 +43,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
         );
         
-        const { data: profile, error: profileError } = await Promise.race([
-          profilePromise,
-          timeoutPromise
-        ]) as any;
+        let profile, profileError;
+        
+        try {
+          const result = await Promise.race([
+            profilePromise,
+            timeoutPromise
+          ]) as any;
+          profile = result.data;
+          profileError = result.error;
+        } catch (timeoutError) {
+          console.log("Profile fetch timed out, trying with admin client...");
+          // Try with admin client as fallback
+          const { data: adminProfile, error: adminError } = await supabaseAdmin
+            .from("users")
+            .select("id, role, name, first_name, last_name, active")
+            .eq("auth_id", userId)
+            .single();
+          
+          profile = adminProfile;
+          profileError = adminError;
+        }
         
         console.log("Profile query result:", { profile, profileError });
         
