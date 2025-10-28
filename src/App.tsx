@@ -25,14 +25,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Index />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/" element={<Index />} />
             {/* *** UPDATED: Reception route to allow sub-routes *** */}
             <Route
               path="/reception/*" // Use /* to match nested paths

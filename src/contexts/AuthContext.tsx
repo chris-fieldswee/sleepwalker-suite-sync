@@ -133,10 +133,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       password,
     });
     
-    if (!error) {
-      navigate("/");
-    }
-    
+    // Don't navigate here - let the auth state change handle the redirect
     return { error };
   };
 

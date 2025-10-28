@@ -19,11 +19,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (user) {
-      navigate("/");
-    }
-  }, [user, navigate]);
+  // Remove the immediate redirect - let Index.tsx handle the redirect
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
