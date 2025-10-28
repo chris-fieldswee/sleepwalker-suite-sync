@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Session</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Session Debug</h1>
+    <button onclick="clearSession()">Clear Session</button>
+    <button onclick="checkSession()">Check Session</button>
+    <div id="status"></div>
+
+    <script>
+        const SUPABASE_URL = "https://wxxrprwnovnyncgigrwi.supabase.co";
+        const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4eHJwcndub3ZueW5jZ2lncndpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDgxODEsImV4cCI6MjA3NzIyNDE4MX0.bLJNJQQs4G49tySwJKIocnL0XWSqPsxL4vWDVwjMJ5c";
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+        async function clearSession() {
+            try {
+                await supabase.auth.signOut();
+                document.getElementById('status').innerHTML = 'Session cleared!';
+            } catch (error) {
+                document.getElementById('status').innerHTML = 'Error: ' + error.message;
+            }
+        }
+
+        async function checkSession() {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    document.getElementById('status').innerHTML = 'Session exists: ' + session.user.email;
+                } else {
+                    document.getElementById('status').innerHTML = 'No session found';
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = 'Error: ' + error.message;
+            }
+        }
+
+        // Check session on load
+        checkSession();
+    </script>
+</body>
+</html>

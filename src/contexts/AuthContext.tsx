@@ -84,28 +84,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      console.log("Initial session check:", session?.user?.id, error);
-      
-      if (error) {
-        console.error("Error getting session:", error);
-        setLoading(false);
-        return;
-      }
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    }).catch((error) => {
-      console.error("Failed to get session:", error);
-      setLoading(false);
-    });
+    // Check for existing session with timeout
+    const sessionPromise = supabase.auth.getSession();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Session check timeout')), 5000)
+    );
+
+    Promise.race([sessionPromise, timeoutPromise])
+      .then(async (result: any) => {
+        const { data: { session }, error } = result;
+        console.log("Initial session check:", session?.user?.id, error);
+        
+        if (error) {
+          console.error("Error getting session:", error);
+          if (mounted) setLoading(false);
+          return;
+        }
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            await fetchUserProfile(session.user.id);
+          } else {
+            setLoading(false);
+          }
+        }
+      })
+      .catch((error) => {
+        console.error("Session check failed or timed out:", error);
+        if (mounted) {
+          console.log("Forcing logout due to session check failure");
+          supabase.auth.signOut();
+          setLoading(false);
+        }
+      });
 
     return () => {
       mounted = false;
