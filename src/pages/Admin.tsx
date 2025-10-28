@@ -42,29 +42,15 @@ export default function Admin() {
                 path="/"
                 element={
                   <Dashboard
-                    tasks={receptionData.tasks}
-                    allStaff={receptionData.allStaff}
+                    stats={receptionData.stats}
                     availableRooms={receptionData.availableRooms}
-                    workLogs={receptionData.workLogs}
-                    loading={receptionData.loading}
-                    refreshing={receptionData.refreshing}
-                    filters={receptionData.filters}
-                    onDateChange={receptionData.filterSetters.setDate}
-                    onStatusChange={receptionData.filterSetters.setStatus}
-                    onStaffChange={receptionData.filterSetters.setStaffId}
-                    onRoomGroupChange={receptionData.filterSetters.setRoomGroup}
-                    onRoomChange={receptionData.filterSetters.setRoomId}
-                    onClearFilters={receptionData.actions.clearFilters}
-                    onRefresh={receptionData.actions.refresh}
-                    onAddTask={receptionActions.handleAddTask}
-                    onSaveWorkLog={receptionActions.handleSaveWorkLog}
+                    allStaff={receptionData.allStaff}
                     initialNewTaskState={receptionActions.initialNewTaskState}
+                    handleAddTask={receptionActions.handleAddTask}
                     isSubmittingTask={receptionActions.isSubmittingTask}
-                    isSavingLog={receptionActions.isSavingLog}
-                    onUpdateTask={receptionActions.handleUpdateTask}
-                    onDeleteTask={receptionActions.handleDeleteTask}
-                    isUpdatingTask={receptionActions.isUpdatingTask}
-                    isDeletingTask={receptionActions.isDeletingTask}
+                    handleReportNewIssue={receptionActions.handleReportNewIssue}
+                    isSubmittingNewIssue={receptionActions.isSubmittingNewIssue}
+                    basePath="/admin"
                   />
                 }
               />

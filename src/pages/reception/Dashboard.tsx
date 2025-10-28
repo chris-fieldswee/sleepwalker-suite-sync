@@ -27,6 +27,8 @@ interface DashboardProps {
   // *** Add props for ReportNewIssueDialog ***
   handleReportNewIssue: (roomId: string, description: string, photo: File | null) => Promise<boolean>;
   isSubmittingNewIssue: boolean;
+  // Base path for navigation links (defaults to /reception)
+  basePath?: string;
 }
 
 export default function Dashboard({
@@ -38,13 +40,14 @@ export default function Dashboard({
   isSubmittingTask,
   // *** Destructure new props ***
   handleReportNewIssue,
-  isSubmittingNewIssue
+  isSubmittingNewIssue,
+  basePath = "/reception"
 }: DashboardProps) {
   return (
     <div className="space-y-6">
       {/* ... Header, StatsCards, Navigation Links Grid remain the same ... */}
        <div>
-         <h1 className="text-3xl font-bold">Reception Dashboard</h1>
+         <h1 className="text-3xl font-bold">{basePath === "/admin" ? "Admin Dashboard" : "Reception Dashboard"}</h1>
          <p className="text-muted-foreground mt-1">
            Housekeeping Operations Overview
          </p>
@@ -53,7 +56,7 @@ export default function Dashboard({
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
          {/* ... Links Cards ... */}
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <Link to="/reception/tasks">
+            <Link to=`${basePath}/tasks`>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ClipboardList className="h-5 w-5" />
@@ -75,7 +78,7 @@ export default function Dashboard({
             </Link>
           </Card>
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-             <Link to="/reception/archive">
+             <Link to=`${basePath}/archive`>
                <CardHeader>
                  <CardTitle className="flex items-center gap-2">
                    <Archive className="h-5 w-5" />
@@ -97,7 +100,7 @@ export default function Dashboard({
              </Link>
           </Card>
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-             <Link to="/reception/issues">
+             <Link to=`${basePath}/issues`>
                <CardHeader>
                  <CardTitle className="flex items-center gap-2">
                    <AlertTriangle className="h-5 w-5" />
@@ -143,7 +146,7 @@ export default function Dashboard({
             }
           />
           <Button variant="outline" className="h-20 w-full flex-col gap-1" asChild>
-            <Link to="/reception/tasks">Work Log</Link>
+            <Link to=`${basePath}/tasks`>Work Log</Link>
           </Button>
 
           {/* *** Replace Report Issue Link with Dialog Trigger *** */}
@@ -161,7 +164,7 @@ export default function Dashboard({
           {/* --- End Replacement --- */}
 
           <Button variant="outline" className="h-20 w-full flex-col gap-1" asChild>
-            <Link to="/reception/archive">View Reports</Link>
+            <Link to=`${basePath}/archive`>View Reports</Link>
           </Button>
         </CardContent>
       </Card>
