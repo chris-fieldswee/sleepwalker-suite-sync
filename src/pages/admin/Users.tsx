@@ -13,12 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 
-type User = Database["public"]["Tables"]["users"]["Row"] & {
-  auth_user?: {
-    email: string;
-    created_at: string;
-  } | null;
-};
+type User = Database["public"]["Tables"]["users"]["Row"];
 
 type UserRole = Database["public"]["Enums"]["user_role"];
 
@@ -49,10 +44,7 @@ export default function Users() {
       setLoading(true);
       const { data, error } = await supabase
         .from("users")
-        .select(`
-          *,
-          auth_user:auth.users!inner(email, created_at)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
