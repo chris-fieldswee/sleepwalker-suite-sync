@@ -31,6 +31,8 @@ export default function Users() {
   // Form state for create/edit
   const [formData, setFormData] = useState({
     name: "",
+    email: "",
+    password: "",
     first_name: "",
     last_name: "",
     role: "housekeeping" as UserRole,
@@ -76,11 +78,57 @@ export default function Users() {
 
   const handleCreateUser = async () => {
     try {
-      const { error } = await supabase
-        .from("users")
-        .insert([formData]);
+      // Step 1: Create auth user
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: formData.email,
+        password: formData.password,
+        email_confirm: true, // Auto-confirm email
+        user_metadata: {
+          name: formData.name,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+        },
+      });
 
-      if (error) throw error;
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Failed to create auth user");
+
+      // Step 2: Insert user into public.users table
+      const { error: userError } = await supabase
+        .from("users")
+        .insert([
+          {
+            auth_id: authData.user.id,
+            name: formData.name,
+            first_name: formData.first_name,
+            last_name: formData.last_name,
+            role: formData.role,
+            active: formData.active,
+          },
+        ]);
+
+      if (userError) {
+        // Cleanup: delete the auth user if database insert fails
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        throw userError;
+      }
+
+      // Step 3: Insert role into user_roles table for RLS
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .insert([
+          {
+            user_id: authData.user.id,
+            role: formData.role,
+          },
+        ]);
+
+      if (roleError) {
+        // Cleanup if role insert fails
+        await supabase.from("users").delete().eq("auth_id", authData.user.id);
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        throw roleError;
+      }
 
       toast({
         title: "Success",
@@ -90,6 +138,8 @@ export default function Users() {
       setIsCreateDialogOpen(false);
       setFormData({
         name: "",
+        email: "",
+        password: "",
         first_name: "",
         last_name: "",
         role: "housekeeping",
@@ -110,12 +160,52 @@ export default function Users() {
     if (!selectedUser) return;
 
     try {
-      const { error } = await supabase
+      // Update user in users table
+      const { error: userError } = await supabase
         .from("users")
-        .update(formData)
+        .update({
+          name: formData.name,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          role: formData.role,
+          active: formData.active,
+        })
         .eq("id", selectedUser.id);
 
-      if (error) throw error;
+      if (userError) throw userError;
+
+      // Update password if provided
+      if (formData.password && selectedUser.auth_id) {
+        const { error: passwordError } = await supabase.auth.admin.updateUserById(
+          selectedUser.auth_id,
+          { password: formData.password }
+        );
+        
+        if (passwordError) {
+          console.warn("Password update failed:", passwordError);
+          // Don't throw error, just warn
+        }
+      }
+
+      // Update role in user_roles table if changed
+      if (selectedUser.auth_id && formData.role !== selectedUser.role) {
+        // Delete old role
+        await supabase
+          .from("user_roles")
+          .delete()
+          .eq("user_id", selectedUser.auth_id)
+          .eq("role", selectedUser.role);
+
+        // Insert new role
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .insert([{
+            user_id: selectedUser.auth_id,
+            role: formData.role,
+          }]);
+
+        if (roleError) console.warn("Role update failed:", roleError);
+      }
 
       toast({
         title: "Success",
@@ -167,6 +257,8 @@ export default function Users() {
     setSelectedUser(user);
     setFormData({
       name: user.name,
+      email: "", // Don't populate email in edit (can't change it anyway)
+      password: "", // Don't populate password
       first_name: user.first_name || "",
       last_name: user.last_name || "",
       role: user.role,
@@ -233,6 +325,26 @@ export default function Users() {
                     placeholder="Full name"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="user@example.com"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Enter password"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -436,6 +548,16 @@ export default function Users() {
                   onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-password">New Password (leave blank to keep current)</Label>
+              <Input
+                id="edit-password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="Enter new password"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role *</Label>
