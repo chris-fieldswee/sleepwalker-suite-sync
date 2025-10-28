@@ -23,19 +23,25 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Form submitted:", { isLogin, email: email.trim(), password: password ? "***" : "empty" });
     setLoading(true);
 
     const trimmedEmail = email.trim();
 
     try {
       if (isLogin) {
+        console.log("Attempting sign in with:", trimmedEmail);
         const { error } = await signIn(trimmedEmail, password);
+        console.log("Sign in result:", { error });
         if (error) {
+          console.error("Sign in error:", error);
           toast({
             title: "Error",
             description: error.message,
             variant: "destructive",
           });
+        } else {
+          console.log("Sign in successful!");
         }
       } else {
         // Role is always set to housekeeping by default on backend for security
@@ -123,7 +129,12 @@ export default function Auth() {
             </div>
 
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={loading}
+              onClick={() => console.log("Button clicked!")}
+            >
               {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
             </Button>
           </form>

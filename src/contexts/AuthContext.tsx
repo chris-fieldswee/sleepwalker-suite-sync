@@ -165,13 +165,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    // Don't navigate here - let the auth state change handle the redirect
-    return { error };
+    console.log("AuthContext.signIn called with:", email);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      console.log("Supabase signIn result:", { data, error });
+      
+      // Don't navigate here - let the auth state change handle the redirect
+      return { error };
+    } catch (err) {
+      console.error("SignIn error:", err);
+      return { error: err };
+    }
   };
 
   const signUp = async (email: string, password: string, name: string) => {
