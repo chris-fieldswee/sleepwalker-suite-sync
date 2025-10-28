@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, Search, Edit, Trash2, User, Calendar } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseAdmin } from "@/integrations/supabase/admin-client";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -152,8 +152,8 @@ export default function Users() {
         console.log("Has admin role after fix:", hasAdminRoleAfterFix);
       }
       
-      // Step 1: Create auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      // Step 1: Create auth user using admin client
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: formData.email,
         password: formData.password,
         email_confirm: true, // Auto-confirm email
@@ -183,7 +183,7 @@ export default function Users() {
 
       if (userError) {
         // Cleanup: delete the auth user if database insert fails
-        await supabase.auth.admin.deleteUser(authData.user.id);
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
         throw userError;
       }
 
@@ -200,7 +200,7 @@ export default function Users() {
       if (roleError) {
         // Cleanup if role insert fails
         await supabase.from("users").delete().eq("auth_id", authData.user.id);
-        await supabase.auth.admin.deleteUser(authData.user.id);
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
         throw roleError;
       }
 
@@ -250,7 +250,7 @@ export default function Users() {
 
       // Update password if provided
       if (formData.password && selectedUser.auth_id) {
-        const { error: passwordError } = await supabase.auth.admin.updateUserById(
+        const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
           selectedUser.auth_id,
           { password: formData.password }
         );
