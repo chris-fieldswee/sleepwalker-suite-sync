@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://wxxrprwnovnyncgigrwi.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4eHJwcndub3ZueW5jZ2lncndpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDgxODEsImV4cCI6MjA3NzIyNDE4MX0.bLJNJQQs4G49tySwJKIocnL0XWSqPsxL4vWDVwjMJ5c";
 
 if (!SUPABASE_URL) {
   throw new Error('VITE_SUPABASE_URL is required');
