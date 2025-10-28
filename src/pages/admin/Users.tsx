@@ -61,21 +61,33 @@ export default function Users() {
     }
   };
 
-  // Helper function to fix admin user role
+  // Helper function to fix admin user role using direct SQL
   const fixAdminRole = async (userId: string) => {
     try {
-      // Add admin role to user_roles table
-      const { error } = await supabase
-        .from("user_roles")
-        .insert([{
-          user_id: userId,
-          role: 'admin',
-        }]);
-
+      // Use RPC function to bypass RLS
+      const { error } = await supabase.rpc('fix_admin_role', { user_id: userId });
+      
       if (error) {
         console.warn("Failed to add admin role:", error);
+        // Try direct insert as fallback
+        const { error: insertError } = await supabase
+          .from("user_roles")
+          .insert([{
+            user_id: userId,
+            role: 'admin',
+          }]);
+
+        if (insertError) {
+          console.warn("Direct insert also failed:", insertError);
+        } else {
+          console.log("Admin role added successfully via direct insert");
+          toast({
+            title: "Success",
+            description: "Admin role has been fixed",
+          });
+        }
       } else {
-        console.log("Admin role added successfully");
+        console.log("Admin role added successfully via RPC");
         toast({
           title: "Success",
           description: "Admin role has been fixed",
