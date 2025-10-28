@@ -1,6 +1,9 @@
 -- Create housekeeping users for staff availability mapping
 -- This script creates users that match the "Pracownik" names in the CSV import
 
+-- Enable pgcrypto extension for password hashing
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Function to create a user with proper role assignment
 CREATE OR REPLACE FUNCTION create_housekeeping_user(
   user_name text,

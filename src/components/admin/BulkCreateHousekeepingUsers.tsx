@@ -41,17 +41,26 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
         // Check if user already exists
         const { data: existingUser } = await supabase
           .from('users')
-          .select('id, name')
+          .select('id, name, auth_id')
           .eq('name', user.name)
           .single();
 
         if (existingUser) {
-          creationResults.push({
-            name: user.name,
-            success: true,
-            error: 'User already exists',
-            userId: existingUser.id
-          });
+          if (existingUser.auth_id) {
+            creationResults.push({
+              name: user.name,
+              success: true,
+              error: 'User already exists with auth account',
+              userId: existingUser.id
+            });
+          } else {
+            creationResults.push({
+              name: user.name,
+              success: true,
+              error: 'User exists but needs auth account - please create manually',
+              userId: existingUser.id
+            });
+          }
           continue;
         }
 
