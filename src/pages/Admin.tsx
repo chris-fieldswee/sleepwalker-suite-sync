@@ -54,8 +54,8 @@ export default function Admin() {
                     onStaffChange={receptionData.filterSetters.setStaffId}
                     onRoomGroupChange={receptionData.filterSetters.setRoomGroup}
                     onRoomChange={receptionData.filterSetters.setRoomId}
-                    onClearFilters={receptionData.dataActions.clearFilters}
-                    onRefresh={receptionData.dataActions.refresh}
+                    onClearFilters={receptionData.actions.clearFilters}
+                    onRefresh={receptionData.actions.refresh}
                     onAddTask={receptionActions.handleAddTask}
                     onSaveWorkLog={receptionActions.handleSaveWorkLog}
                     initialNewTaskState={receptionActions.initialNewTaskState}
@@ -84,8 +84,8 @@ export default function Admin() {
                     onStaffChange={receptionData.filterSetters.setStaffId}
                     onRoomGroupChange={receptionData.filterSetters.setRoomGroup}
                     onRoomChange={receptionData.filterSetters.setRoomId}
-                    onClearFilters={receptionData.dataActions.clearFilters}
-                    onRefresh={receptionData.dataActions.refresh}
+                    onClearFilters={receptionData.actions.clearFilters}
+                    onRefresh={receptionData.actions.refresh}
                     onAddTask={receptionActions.handleAddTask}
                     onSaveWorkLog={receptionActions.handleSaveWorkLog}
                     initialNewTaskState={receptionActions.initialNewTaskState}
@@ -117,7 +117,7 @@ export default function Admin() {
                   <Issues
                     allStaff={receptionData.allStaff}
                     availableRooms={receptionData.availableRooms}
-                    onUpdate={receptionData.dataActions.refresh}
+                    onUpdate={receptionData.actions.refresh}
                   />
                 }
               />
