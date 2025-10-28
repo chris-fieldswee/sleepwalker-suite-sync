@@ -25,30 +25,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let mounted = true;
+
+    const fetchUserProfile = async (userId: string) => {
+      try {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("id, role")
+          .eq("auth_id", userId)
+          .single();
+        
+        if (mounted) {
+          if (profile) {
+            console.log("User profile found:", profile);
+            setUserRole(profile.role);
+            setUserId(profile.id);
+          } else {
+            console.log("No user profile found for auth_id:", userId);
+            console.log("This might cause redirect issues - user exists in auth but not in users table");
+            setUserRole(null);
+            setUserId(null);
+          }
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+        if (mounted) {
+          setUserRole(null);
+          setUserId(null);
+          setLoading(false);
+        }
+      }
+    };
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Auth state change:", event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Defer fetching user profile
-          setTimeout(async () => {
-            const { data: profile } = await supabase
-              .from("users")
-              .select("id, role")
-              .eq("auth_id", session.user.id)
-              .single();
-            
-            if (profile) {
-              console.log("User profile found:", profile);
-              setUserRole(profile.role);
-              setUserId(profile.id);
-            } else {
-              console.log("No user profile found for auth_id:", session.user.id);
-            }
-            setLoading(false);
-          }, 0);
+          await fetchUserProfile(session.user.id);
         } else {
           setUserRole(null);
           setUserId(null);
@@ -58,33 +76,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      console.log("Initial session check:", session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        setTimeout(async () => {
-          const { data: profile } = await supabase
-            .from("users")
-            .select("id, role")
-            .eq("auth_id", session.user.id)
-            .single();
-          
-          if (profile) {
-            console.log("User profile found (getSession):", profile);
-            setUserRole(profile.role);
-            setUserId(profile.id);
-          } else {
-            console.log("No user profile found for auth_id (getSession):", session.user.id);
-          }
-          setLoading(false);
-        }, 0);
+        await fetchUserProfile(session.user.id);
       } else {
         setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
