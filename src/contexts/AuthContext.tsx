@@ -29,20 +29,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const fetchUserProfile = async (userId: string) => {
       try {
-        const { data: profile } = await supabase
+        console.log("Fetching profile for auth_id:", userId);
+        
+        const { data: profile, error: profileError } = await supabase
           .from("users")
-          .select("id, role")
+          .select("id, role, name, first_name, last_name, active")
           .eq("auth_id", userId)
           .single();
+        
+        console.log("Profile query result:", { profile, profileError });
         
         if (mounted) {
           if (profile) {
             console.log("User profile found:", profile);
-            setUserRole(profile.role);
-            setUserId(profile.id);
+            if (!profile.active) {
+              console.warn("User profile is inactive:", profile);
+              // Don't set role for inactive users - they should be redirected to auth
+              setUserRole(null);
+              setUserId(null);
+            } else {
+              setUserRole(profile.role);
+              setUserId(profile.id);
+            }
           } else {
             console.log("No user profile found for auth_id:", userId);
             console.log("This might cause redirect issues - user exists in auth but not in users table");
+            
+            // Try to find any users with this auth_id
+            const { data: allUsers } = await supabase
+              .from("users")
+              .select("id, auth_id, name, role")
+              .eq("auth_id", userId);
+            
+            console.log("All users with this auth_id:", allUsers);
+            
             setUserRole(null);
             setUserId(null);
           }
