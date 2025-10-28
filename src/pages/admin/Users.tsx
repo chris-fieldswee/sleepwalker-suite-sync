@@ -76,6 +76,27 @@ export default function Users() {
 
   const handleCreateUser = async () => {
     try {
+      // First, let's check the current user's role
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log("Current user:", user?.id);
+      
+      // Check user role in users table
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("auth_id", user?.id)
+        .single();
+      
+      console.log("User data:", userData);
+      
+      // Check user role in user_roles table
+      const { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("*")
+        .eq("user_id", user?.id);
+      
+      console.log("Role data:", roleData);
+      
       const { error } = await supabase
         .from("users")
         .insert([formData]);
