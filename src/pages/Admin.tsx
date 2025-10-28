@@ -14,7 +14,6 @@ import Issues from "./reception/Issues";
 
 // Import admin pages
 import Users from "./admin/Users";
-import CreateUser from "./admin/CreateUser";
 import Rooms from "./admin/Rooms";
 
 export default function Admin() {
@@ -116,7 +115,6 @@ export default function Admin() {
 
               {/* Admin-specific routes */}
               <Route path="users" element={<Users />} />
-              <Route path="users/create" element={<CreateUser />} />
               <Route path="rooms" element={<Rooms />} />
             </Routes>
           </div>

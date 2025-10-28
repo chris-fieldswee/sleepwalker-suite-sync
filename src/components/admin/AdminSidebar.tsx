@@ -5,7 +5,6 @@ import {
   AlertTriangle, 
   Users, 
   DoorOpen, 
-  UserPlus,
   LogOut 
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
@@ -36,7 +35,6 @@ const receptionNavItems = [
 
 const adminNavItems = [
   { title: "Users", url: "/admin/users", icon: Users },
-  { title: "Create User", url: "/admin/users/create", icon: UserPlus },
   { title: "Rooms", url: "/admin/rooms", icon: DoorOpen },
 ];
 
