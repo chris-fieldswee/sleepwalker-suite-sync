@@ -75,6 +75,7 @@ export function AddTaskDialog({
     // State to store room IDs that already have a task on the selected date
     const [assignedRoomIds, setAssignedRoomIds] = useState<Set<string>>(new Set());
     const [availableStaff, setAvailableStaff] = useState<Staff[]>([]);
+    const [availabilityData, setAvailabilityData] = useState<any[]>([]);
 
     // Set today's date string once on mount
     useEffect(() => {
@@ -129,8 +130,12 @@ export function AddTaskDialog({
                     console.error('Error fetching staff availability:', availabilityError);
                     // Fallback to all staff if availability check fails
                     setAvailableStaff(allStaff);
+                    setAvailabilityData([]);
                     return;
                 }
+
+                // Store availability data for display
+                setAvailabilityData(availabilityData || []);
 
                 // Map availability data to staff
                 const availableStaffIds = new Set(availabilityData?.map(item => item.staff_id) || []);
@@ -138,8 +143,12 @@ export function AddTaskDialog({
                     availableStaffIds.has(staff.id) || staff.role === 'admin' // Always include admins
                 );
 
-                setAvailableStaff(filteredStaff);
+                console.log('Availability data:', availabilityData);
+                console.log('Available staff IDs:', Array.from(availableStaffIds));
+                console.log('All staff:', allStaff.map(s => ({ id: s.id, name: s.name, role: s.role })));
                 console.log(`Found ${filteredStaff.length} available staff for ${newTask.date}`);
+
+                setAvailableStaff(filteredStaff);
             } catch (error) {
                 console.error('Error in fetchAvailableStaff:', error);
                 // Fallback to all staff
@@ -188,6 +197,7 @@ export function AddTaskDialog({
             setSelectedGroup(null); // Reset group selection
             setAssignedRoomIds(new Set()); // Clear assigned rooms initially
             setAvailableStaff(allStaff); // Initialize with all staff
+            setAvailabilityData([]); // Clear availability data initially
         }
         prevIsOpen.current = isOpen;
     }, [isOpen, initialState, todayDateString]);
@@ -381,11 +391,24 @@ export function AddTaskDialog({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="unassigned">Unassigned</SelectItem>
-                                {availableStaff.map(staff => (
-                                    <SelectItem key={staff.id} value={staff.id}>
-                                        {staff.name}
-                                    </SelectItem>
-                                ))}
+                                {availableStaff.map(staff => {
+                                    // Find availability info for this staff member
+                                    const availabilityInfo = availabilityData?.find(item => item.staff_id === staff.id);
+                                    const availableHours = availabilityInfo?.available_hours || 0;
+                                    
+                                    return (
+                                        <SelectItem key={staff.id} value={staff.id}>
+                                            <div className="flex justify-between items-center w-full">
+                                                <span>{staff.name}</span>
+                                                {staff.role !== 'admin' && (
+                                                    <span className="text-xs text-muted-foreground ml-2">
+                                                        {availableHours.toFixed(1)}h available
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </SelectItem>
+                                    );
+                                })}
                             </SelectContent>
                         </Select>
                     </div>
