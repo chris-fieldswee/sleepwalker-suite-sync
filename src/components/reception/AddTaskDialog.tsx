@@ -268,7 +268,7 @@ export function AddTaskDialog({
 
     // Handle room change
     const handleRoomChange = (roomId: string) => {
-        setNewTask(prev => ({ ...prev, roomId }));
+        setNewTask(prev => ({ ...prev, roomId, staffId: "" })); // Clear staff selection when room changes
     };
 
     const handleSubmit = async () => {
@@ -436,13 +436,18 @@ export function AddTaskDialog({
                         <Select
                             value={newTask.staffId}
                             onValueChange={(value) => setNewTask(prev => ({ ...prev, staffId: value }))}
-                            disabled={isSubmitting} // Disable during submission
+                            disabled={isSubmitting || !newTask.roomId} // Disable until room is selected
                         >
                             <SelectTrigger id="assignStaff-modal" className="col-span-3">
-                                <SelectValue placeholder="Unassigned" />
+                                <SelectValue placeholder={newTask.roomId ? "Unassigned" : "Select room first"} />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="unassigned">Unassigned</SelectItem>
+                                {!newTask.roomId && (
+                                    <SelectItem value="select-room" disabled>
+                                        Please select a room first
+                                    </SelectItem>
+                                )}
                                 {availableStaff.length === 0 && taskTimeLimit && (
                                     <SelectItem value="no-staff" disabled>
                                         No staff available for this task ({taskTimeLimit} min)

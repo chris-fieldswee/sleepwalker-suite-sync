@@ -26,6 +26,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
+    let loadingTimeout: NodeJS.Timeout;
+
+    // Set a timeout to prevent infinite loading
+    const setLoadingTimeout = () => {
+      loadingTimeout = setTimeout(() => {
+        if (mounted) {
+          console.warn("Authentication loading timeout - forcing loading to false");
+          setLoading(false);
+        }
+      }, 10000); // 10 second timeout
+    };
 
     const fetchUserProfile = async (userId: string) => {
       try {
@@ -66,6 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUserRole(null);
             setUserId(null);
           }
+          clearTimeout(loadingTimeout);
           setLoading(false);
         }
       } catch (error) {
@@ -73,6 +85,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (mounted) {
           setUserRole(null);
           setUserId(null);
+          clearTimeout(loadingTimeout);
           setLoading(false);
         }
       }
@@ -86,30 +99,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          setLoadingTimeout(); // Start timeout
           await fetchUserProfile(session.user.id);
         } else {
           setUserRole(null);
           setUserId(null);
+          clearTimeout(loadingTimeout);
           setLoading(false);
         }
       }
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log("Initial session check:", session?.user?.id);
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      console.log("Initial session check:", session?.user?.id, error);
+      
+      if (error) {
+        console.error("Error getting session:", error);
+        clearTimeout(loadingTimeout);
+        setLoading(false);
+        return;
+      }
+      
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        setLoadingTimeout(); // Start timeout
         await fetchUserProfile(session.user.id);
       } else {
+        clearTimeout(loadingTimeout);
         setLoading(false);
       }
+    }).catch((error) => {
+      console.error("Failed to get session:", error);
+      clearTimeout(loadingTimeout);
+      setLoading(false);
     });
 
     return () => {
       mounted = false;
+      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
   }, []);
