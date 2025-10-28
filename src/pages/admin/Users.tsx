@@ -108,7 +108,7 @@ export default function Users() {
       console.log("Current user:", user?.id);
       
       // Check user role in users table
-      const { data: userData, error: userError } = await supabase
+      const { data: userData, error: userQueryError } = await supabase
         .from("users")
         .select("*")
         .eq("auth_id", user?.id)
@@ -117,7 +117,7 @@ export default function Users() {
       console.log("User data:", userData);
       
       // Check user role in user_roles table
-      const { data: roleData, error: roleError } = await supabase
+      const { data: roleData, error: roleQueryError } = await supabase
         .from("user_roles")
         .select("*")
         .eq("user_id", user?.id);
