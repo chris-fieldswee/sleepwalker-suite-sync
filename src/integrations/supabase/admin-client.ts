@@ -7,6 +7,14 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
 
+if (!SUPABASE_URL) {
+  throw new Error('VITE_SUPABASE_URL is required');
+}
+
+if (!SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('SUPABASE_SERVICE_ROLE_KEY is required');
+}
+
 // Admin client with service role key for admin operations
 export const supabaseAdmin = createClient<Database>(
   SUPABASE_URL, 
