@@ -1,5 +1,5 @@
 import { Routes, Route } from "react-router-dom";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useReceptionData } from "@/hooks/useReceptionData";
@@ -32,10 +32,16 @@ export default function Admin() {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full">
+      <div className="min-h-screen flex w-full">
         <AdminSidebar onSignOut={signOut} />
-        <SidebarInset className="flex-1">
-          <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+
+        <main className="flex-1 overflow-auto">
+          <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-2">
+            <SidebarTrigger />
+            <h2 className="text-lg font-semibold">Admin Management</h2>
+          </div>
+
+          <div className="container mx-auto p-4 md:p-6">
             <Routes>
               {/* Reception routes - same as reception dashboard */}
               <Route
@@ -114,7 +120,7 @@ export default function Admin() {
               <Route path="rooms" element={<Rooms />} />
             </Routes>
           </div>
-        </SidebarInset>
+        </main>
       </div>
     </SidebarProvider>
   );
