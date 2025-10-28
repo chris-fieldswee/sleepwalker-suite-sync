@@ -1,25 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const { userRole, loading } = useAuth();
   const navigate = useNavigate();
-  const [fallbackLoading, setFallbackLoading] = useState(true);
-
-  // Fallback timeout to prevent infinite loading
-  useEffect(() => {
-    const fallbackTimeout = setTimeout(() => {
-      setFallbackLoading(false);
-    }, 15000); // 15 second fallback timeout
-
-    return () => clearTimeout(fallbackTimeout);
-  }, []);
 
   useEffect(() => {
     if (!loading && userRole) {
       console.log("Current user role:", userRole); // Debug log
-      setFallbackLoading(false);
       
       // Add a small delay to prevent rapid redirects
       const timeoutId = setTimeout(() => {
@@ -36,12 +25,11 @@ const Index = () => {
       return () => clearTimeout(timeoutId);
     } else if (!loading && !userRole) {
       // User is not authenticated, redirect to auth
-      setFallbackLoading(false);
       navigate("/auth");
     }
   }, [userRole, loading, navigate]);
 
-  if (loading || fallbackLoading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
