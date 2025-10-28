@@ -63,42 +63,6 @@ export default function Users() {
   };
 
   // Helper function to fix admin user role using direct SQL
-  const fixAdminRole = async (userId: string) => {
-    try {
-      // Use RPC function to bypass RLS
-      const { error } = await supabase.rpc('fix_admin_role', { user_id: userId });
-      
-      if (error) {
-        console.warn("Failed to add admin role:", error);
-        // Try direct insert as fallback
-        const { error: insertError } = await supabase
-          .from("user_roles")
-          .insert([{
-            user_id: userId,
-            role: 'admin',
-          }]);
-
-        if (insertError) {
-          console.warn("Direct insert also failed:", insertError);
-        } else {
-          console.log("Admin role added successfully via direct insert");
-          toast({
-            title: "Success",
-            description: "Admin role has been fixed",
-          });
-        }
-      } else {
-        console.log("Admin role added successfully via RPC");
-        toast({
-          title: "Success",
-          description: "Admin role has been fixed",
-        });
-      }
-    } catch (error) {
-      console.error("Error fixing admin role:", error);
-    }
-  };
-
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -116,41 +80,23 @@ export default function Users() {
 
   const handleCreateUser = async () => {
     try {
-      // First, let's check the current user's role and debug the issue
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log("Current user:", user?.id);
+      setIsCreateDialogOpen(false);
       
-      // Check user role in users table
-      const { data: userData, error: userQueryError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("auth_id", user?.id)
-        .single();
-      
-      console.log("User data:", userData);
-      
-      // Check user role in user_roles table
-      const { data: roleData, error: roleQueryError } = await supabase
-        .from("user_roles")
-        .select("*")
-        .eq("user_id", user?.id);
-      
-      console.log("Role data:", roleData);
-      
-      // Check if user has admin role using the has_role function
-      const { data: hasAdminRole, error: hasRoleError } = await supabase
-        .rpc('has_role', { _user_id: user?.id, _role: 'admin' });
-      
-      console.log("Has admin role:", hasAdminRole);
-      
-      // If user doesn't have admin role, try to fix it
-      if (!hasAdminRole && userData?.role === 'admin') {
-        console.log("User has admin role in users table but not in user_roles, fixing...");
-        await fixAdminRole(user?.id);
-        // Try the has_role check again
-        const { data: hasAdminRoleAfterFix } = await supabase
-          .rpc('has_role', { _user_id: user?.id, _role: 'admin' });
-        console.log("Has admin role after fix:", hasAdminRoleAfterFix);
+      // Clean up any existing partial data first
+      if (formData.email) {
+        const { data: existingUsers } = await supabase
+          .from("users")
+          .select("auth_id")
+          .eq("name", formData.email)
+          .limit(1);
+        
+        if (existingUsers && existingUsers.length > 0) {
+          const existingAuthId = existingUsers[0].auth_id;
+          // Clean up existing partial data
+          await supabase.from("user_roles").delete().eq("user_id", existingAuthId);
+          await supabase.from("users").delete().eq("auth_id", existingAuthId);
+          await supabaseAdmin.auth.admin.deleteUser(existingAuthId);
+        }
       }
       
       // Step 1: Create auth user using admin client
@@ -191,12 +137,14 @@ export default function Users() {
       // Step 3: Insert role into user_roles table for RLS
       const { error: roleError } = await supabase
         .from("user_roles")
-        .insert([
+        .upsert([
           {
             user_id: authData.user.id,
             role: formData.role,
           },
-        ]);
+        ], {
+          onConflict: 'user_id,role'
+        });
 
       if (roleError) {
         // Cleanup if role insert fails
@@ -376,17 +324,6 @@ export default function Users() {
           <p className="text-muted-foreground">Manage system users and their roles</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (user?.id) {
-                await fixAdminRole(user.id);
-              }
-            }}
-          >
-            Fix Admin Role
-          </Button>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button>
