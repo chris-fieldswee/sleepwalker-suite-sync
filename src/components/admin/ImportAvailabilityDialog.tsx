@@ -32,7 +32,7 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
 
   const parseCsvData = (csvContent: string) => {
     const lines = csvContent.trim().split('\n');
-    const headers = lines[0].split('\t'); // Tab-separated
+    const headers = lines[0].split(/[\t,]/); // Support both tab and comma separation
     
     // Expected headers: Data, Pracownik, Stanowisko, Lokalizacja, Start, Koniec, Suma Godzin
     const dataIndex = headers.findIndex(h => h.toLowerCase().includes('data'));
@@ -49,7 +49,7 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
 
     const records = [];
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split('\t');
+      const values = lines[i].split(/[\t,]/); // Support both tab and comma separation
       if (values.length < headers.length) continue;
 
       const date = values[dataIndex]?.trim();
@@ -98,14 +98,23 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
 
       if (usersError) throw usersError;
 
+      console.log('Available users:', users);
+      console.log('Parsed CSV records:', records);
+
       // Create a map of names to user IDs
       const nameToUserId = new Map<string, string>();
       users?.forEach(user => {
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name;
+        // Add multiple variations for matching
         nameToUserId.set(fullName.toLowerCase(), user.id);
+        nameToUserId.set(user.name.toLowerCase(), user.id);
         // Also try with just first name
         if (user.first_name) {
           nameToUserId.set(user.first_name.toLowerCase(), user.id);
+        }
+        // Try with last name only
+        if (user.last_name) {
+          nameToUserId.set(user.last_name.toLowerCase(), user.id);
         }
       });
 
@@ -115,6 +124,9 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
 
       for (const record of records) {
         const userId = nameToUserId.get(record.name.toLowerCase());
+        
+        console.log(`Looking for user: "${record.name}" (${record.name.toLowerCase()})`);
+        console.log('Available name mappings:', Array.from(nameToUserId.keys()));
         
         if (userId) {
           availabilityRecords.push({
