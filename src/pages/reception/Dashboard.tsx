@@ -56,7 +56,7 @@ export default function Dashboard({
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
          {/* ... Links Cards ... */}
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <Link to=`${basePath}/tasks`>
+            <Link to={`${basePath}/tasks`}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ClipboardList className="h-5 w-5" />
@@ -78,7 +78,7 @@ export default function Dashboard({
             </Link>
           </Card>
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-             <Link to=`${basePath}/archive`>
+             <Link to={`${basePath}/archive`}>
                <CardHeader>
                  <CardTitle className="flex items-center gap-2">
                    <Archive className="h-5 w-5" />
@@ -100,7 +100,7 @@ export default function Dashboard({
              </Link>
           </Card>
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-             <Link to=`${basePath}/issues`>
+             <Link to={`${basePath}/issues`}>
                <CardHeader>
                  <CardTitle className="flex items-center gap-2">
                    <AlertTriangle className="h-5 w-5" />
@@ -146,7 +146,7 @@ export default function Dashboard({
             }
           />
           <Button variant="outline" className="h-20 w-full flex-col gap-1" asChild>
-            <Link to=`${basePath}/tasks`>Work Log</Link>
+            <Link to={`${basePath}/tasks`}>Work Log</Link>
           </Button>
 
           {/* *** Replace Report Issue Link with Dialog Trigger *** */}
@@ -164,7 +164,7 @@ export default function Dashboard({
           {/* --- End Replacement --- */}
 
           <Button variant="outline" className="h-20 w-full flex-col gap-1" asChild>
-            <Link to=`${basePath}/archive`>View Reports</Link>
+            <Link to={`${basePath}/archive`}>View Reports</Link>
           </Button>
         </CardContent>
       </Card>
