@@ -39,6 +39,83 @@ const getAvailableCleaningTypes = (roomGroup: RoomGroup | null): CleaningType[] 
   return ['W', 'P', 'T', 'O', 'G'];
 };
 
+// Guest count options based on room group type (same as AddTaskDialog)
+type GuestOption = {
+  value: number;
+  label: string;
+  display: React.ReactNode;
+};
+
+const getGuestCountOptions = (roomGroup: RoomGroup | null): GuestOption[] => {
+  if (!roomGroup) return [];
+
+  const renderIcons = (config: string): React.ReactNode => {
+    // Parse configurations like "1", "2", "1+1", "2+2", "2+2+2"
+    const parts = config.split('+').map(p => parseInt(p.trim()));
+    
+    return (
+      <div className="flex items-center gap-1">
+        {parts.map((count, partIndex) => {
+          const icons = [];
+          for (let i = 0; i < count; i++) {
+            icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
+          }
+          return (
+            <div key={partIndex} className="flex items-center gap-0.5">
+              {icons}
+              {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  switch (roomGroup) {
+    case 'P1':
+      return [{ value: 1, label: '1', display: renderIcons('1') }];
+    
+    case 'P2':
+      return [
+        { value: 1, label: '1', display: renderIcons('1') },
+        { value: 2, label: '2', display: renderIcons('2') },
+        { value: 2, label: '1+1', display: renderIcons('1+1') },
+      ];
+    
+    case 'A1S':
+      return [
+        { value: 1, label: '1', display: renderIcons('1') },
+        { value: 2, label: '2', display: renderIcons('2') },
+        { value: 2, label: '1+1', display: renderIcons('1+1') },
+        { value: 3, label: '2+1', display: renderIcons('2+1') },
+        { value: 4, label: '2+2', display: renderIcons('2+2') },
+      ];
+    
+    case 'A2S':
+      return [
+        { value: 1, label: '1', display: renderIcons('1') },
+        { value: 2, label: '2', display: renderIcons('2') },
+        { value: 2, label: '1+1', display: renderIcons('1+1') },
+        { value: 3, label: '2+1', display: renderIcons('2+1') },
+        { value: 4, label: '2+2', display: renderIcons('2+2') },
+        { value: 3, label: '1+1+1', display: renderIcons('1+1+1') },
+        { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
+        { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
+      ];
+    
+    case 'OTHER':
+      // Default options for other locations
+      return Array.from({ length: 10 }, (_, i) => ({
+        value: i + 1,
+        label: String(i + 1),
+        display: renderIcons(String(i + 1)),
+      }));
+    
+    default:
+      return [];
+  }
+};
+
 // Interface needs start_time and stop_time for display
 interface Task {
   id: string;
@@ -292,8 +369,43 @@ export function TaskDetailDialog({
                         </div>
                         <div className="space-y-1">
                             <Label htmlFor="detail-guestCount" className="flex items-center gap-1 text-muted-foreground"><User className="h-4 w-4"/>Guests*</Label>
-                            {isEditMode ? (<Input id="detail-guestCount" type="number" min="1" max="10" value={editableState.guestCount} onChange={(e) => handleFieldChange('guestCount', parseInt(e.target.value, 10) || 1)} required disabled={isUpdating}/>)
-                            : (<p className="text-sm border p-2 rounded bg-muted/30">{task.guest_count}</p>)}
+                            {isEditMode ? (
+                                <Select
+                                    value={(() => {
+                                        const roomGroup = availableRooms.find(r => r.id === editableState.roomId)?.group_type || null;
+                                        const options = getGuestCountOptions(roomGroup);
+                                        const matchingOption = options.find(opt => opt.value === editableState.guestCount);
+                                        return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(editableState.guestCount);
+                                    })()}
+                                    onValueChange={(value) => {
+                                        // Extract numeric value from composite "value-label" format
+                                        const numericValue = parseInt(value.split('-')[0], 10);
+                                        handleFieldChange('guestCount', numericValue);
+                                    }}
+                                    disabled={isUpdating}
+                                >
+                                    <SelectTrigger id="detail-guestCount">
+                                        <SelectValue placeholder="Select guest count" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {(() => {
+                                            const roomGroup = availableRooms.find(r => r.id === editableState.roomId)?.group_type || null;
+                                            const options = getGuestCountOptions(roomGroup);
+                                            // Use composite value: value-label to handle duplicates
+                                            return options.map((option, index) => {
+                                                const uniqueValue = `${option.value}-${option.label}`;
+                                                return (
+                                                    <SelectItem key={`${option.value}-${option.label}-${index}`} value={uniqueValue}>
+                                                        {option.display}
+                                                    </SelectItem>
+                                                );
+                                            });
+                                        })()}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <p className="text-sm border p-2 rounded bg-muted/30">{task.guest_count}</p>
+                            )}
                         </div>
                         <div className="space-y-1">
                             <Label htmlFor="detail-assignStaff" className="flex items-center gap-1 text-muted-foreground"><User className="h-4 w-4"/>Assigned Staff</Label>

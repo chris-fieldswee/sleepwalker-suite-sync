@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus } from "lucide-react";
+import { Plus, User } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import type { Room, Staff } from '@/hooks/useReceptionData';
 import type { NewTaskState } from '@/hooks/useReceptionActions';
@@ -45,6 +45,84 @@ const getAvailableCleaningTypes = (roomGroup: RoomGroup | null): CleaningType[] 
 
   // For all room/apartment groups
   return ['W', 'P', 'T', 'O', 'G'];
+};
+
+// Guest count options based on room group type
+type GuestOption = {
+  value: number;
+  label: string;
+  display: React.ReactNode;
+};
+
+const getGuestCountOptions = (roomGroup: RoomGroup | null): GuestOption[] => {
+  if (!roomGroup) return [];
+
+  const renderIcons = (config: string): React.ReactNode => {
+    // Parse configurations like "1", "2", "1+1", "2+2", "2+2+2"
+    const parts = config.split('+').map(p => parseInt(p.trim()));
+    const total = parts.reduce((sum, val) => sum + val, 0);
+    
+    return (
+      <div className="flex items-center gap-1">
+        {parts.map((count, partIndex) => {
+          const icons = [];
+          for (let i = 0; i < count; i++) {
+            icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
+          }
+          return (
+            <div key={partIndex} className="flex items-center gap-0.5">
+              {icons}
+              {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  switch (roomGroup) {
+    case 'P1':
+      return [{ value: 1, label: '1', display: renderIcons('1') }];
+    
+    case 'P2':
+      return [
+        { value: 1, label: '1', display: renderIcons('1') },
+        { value: 2, label: '2', display: renderIcons('2') },
+        { value: 2, label: '1+1', display: renderIcons('1+1') },
+      ];
+    
+    case 'A1S':
+      return [
+        { value: 1, label: '1', display: renderIcons('1') },
+        { value: 2, label: '2', display: renderIcons('2') },
+        { value: 2, label: '1+1', display: renderIcons('1+1') },
+        { value: 3, label: '2+1', display: renderIcons('2+1') },
+        { value: 4, label: '2+2', display: renderIcons('2+2') },
+      ];
+    
+    case 'A2S':
+      return [
+        { value: 1, label: '1', display: renderIcons('1') },
+        { value: 2, label: '2', display: renderIcons('2') },
+        { value: 2, label: '1+1', display: renderIcons('1+1') },
+        { value: 3, label: '2+1', display: renderIcons('2+1') },
+        { value: 4, label: '2+2', display: renderIcons('2+2') },
+        { value: 3, label: '1+1+1', display: renderIcons('1+1+1') },
+        { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
+        { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
+      ];
+    
+    case 'OTHER':
+      // Default options for other locations
+      return Array.from({ length: 10 }, (_, i) => ({
+        value: i + 1,
+        label: String(i + 1),
+        display: renderIcons(String(i + 1)),
+      }));
+    
+    default:
+      return [];
+  }
 };
 
 interface AddTaskDialogProps {
@@ -278,7 +356,17 @@ export function AddTaskDialog({
 
     // Handle room change
     const handleRoomChange = (roomId: string) => {
-        setNewTask(prev => ({ ...prev, roomId, staffId: "" })); // Clear staff selection when room changes
+        const selectedRoom = availableRooms.find(r => r.id === roomId);
+        const roomGroup = selectedRoom?.group_type || null;
+        const guestOptions = getGuestCountOptions(roomGroup);
+        const defaultGuestCount = guestOptions.length > 0 ? guestOptions[0].value : 1;
+        
+        setNewTask(prev => ({ 
+            ...prev, 
+            roomId, 
+            staffId: "", // Clear staff selection when room changes
+            guestCount: defaultGuestCount // Reset to first available guest count option
+        }));
     };
 
     const handleSubmit = async () => {
@@ -424,20 +512,48 @@ export function AddTaskDialog({
                         </Select>
                     </div>
 
-                    {/* Guest Count Input */}
+                    {/* Guest Count Select */}
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="guestCount-modal" className="text-right">Guests*</Label>
-                        <Input
-                            id="guestCount-modal"
-                            type="number"
-                            min="1"
-                            max="10"
-                            value={newTask.guestCount}
-                            onChange={(e) => setNewTask(prev => ({ ...prev, guestCount: parseInt(e.target.value, 10) || 1 }))}
-                            className="col-span-3"
-                            required
-                            disabled={isSubmitting} // Disable during submission
-                        />
+                        <Select
+                            value={(() => {
+                                if (!newTask.roomId) return "";
+                                const selectedRoom = availableRooms.find(r => r.id === newTask.roomId);
+                                const roomGroup = selectedRoom?.group_type || null;
+                                const options = getGuestCountOptions(roomGroup);
+                                const matchingOption = options.find(opt => opt.value === newTask.guestCount);
+                                return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(newTask.guestCount);
+                            })()}
+                            onValueChange={(value) => {
+                                // Extract numeric value from composite "value-label" format
+                                const numericValue = parseInt(value.split('-')[0], 10);
+                                setNewTask(prev => ({ ...prev, guestCount: numericValue }));
+                            }}
+                            disabled={isSubmitting || !newTask.roomId}
+                        >
+                            <SelectTrigger id="guestCount-modal" className="col-span-3">
+                                <SelectValue placeholder={newTask.roomId ? "Select guest count" : "Select room first"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {newTask.roomId ? (() => {
+                                    const selectedRoom = availableRooms.find(r => r.id === newTask.roomId);
+                                    const roomGroup = selectedRoom?.group_type || null;
+                                    const options = getGuestCountOptions(roomGroup);
+                                    
+                                    // Use a composite value: value-label to handle duplicates (e.g., "2-2" vs "2-1+1")
+                                    return options.map((option, index) => {
+                                        const uniqueValue = `${option.value}-${option.label}`;
+                                        return (
+                                            <SelectItem key={`${option.value}-${option.label}-${index}`} value={uniqueValue}>
+                                                {option.display}
+                                            </SelectItem>
+                                        );
+                                    });
+                                })() : (
+                                    <SelectItem value="placeholder" disabled>Select room first</SelectItem>
+                                )}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     {/* Staff Select */}

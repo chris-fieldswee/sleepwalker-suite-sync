@@ -8,19 +8,104 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Search, Edit, Trash2, DoorOpen, Users, Palette, Calendar } from "lucide-react";
+import { Plus, Edit, Trash2, DoorOpen, Users, Calendar, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseAdmin, isAdminClientAvailable } from "@/integrations/supabase/admin-client";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 
 type Room = Database["public"]["Tables"]["rooms"]["Row"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
 
+// Guest count options based on room group type (same as AddTaskDialog)
+type GuestOption = {
+  value: number;
+  label: string;
+  display: React.ReactNode;
+};
+
+const getGuestCountOptions = (roomGroup: RoomGroup | null): GuestOption[] => {
+  if (!roomGroup) return [];
+
+  const renderIcons = (config: string): React.ReactNode => {
+    // Parse configurations like "1", "2", "1+1", "2+2", "2+2+2"
+    const parts = config.split('+').map(p => parseInt(p.trim()));
+    
+    return (
+      <div className="flex items-center gap-1">
+        {parts.map((count, partIndex) => {
+          const icons = [];
+          for (let i = 0; i < count; i++) {
+            icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
+          }
+          return (
+            <div key={partIndex} className="flex items-center gap-0.5">
+              {icons}
+              {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  switch (roomGroup) {
+    case 'P1':
+      return [{ value: 1, label: '1', display: renderIcons('1') }];
+    
+    case 'P2':
+      return [
+        { value: 1, label: '1', display: renderIcons('1') },
+        { value: 2, label: '2', display: renderIcons('2') },
+        { value: 2, label: '1+1', display: renderIcons('1+1') },
+      ];
+    
+    case 'A1S':
+      return [
+        { value: 1, label: '1', display: renderIcons('1') },
+        { value: 2, label: '2', display: renderIcons('2') },
+        { value: 2, label: '1+1', display: renderIcons('1+1') },
+        { value: 3, label: '2+1', display: renderIcons('2+1') },
+        { value: 4, label: '2+2', display: renderIcons('2+2') },
+      ];
+    
+    case 'A2S':
+      return [
+        { value: 1, label: '1', display: renderIcons('1') },
+        { value: 2, label: '2', display: renderIcons('2') },
+        { value: 2, label: '1+1', display: renderIcons('1+1') },
+        { value: 3, label: '2+1', display: renderIcons('2+1') },
+        { value: 4, label: '2+2', display: renderIcons('2+2') },
+        { value: 3, label: '1+1+1', display: renderIcons('1+1+1') },
+        { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
+        { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
+      ];
+    
+    case 'OTHER':
+      // Default options for other locations
+      return Array.from({ length: 10 }, (_, i) => ({
+        value: i + 1,
+        label: String(i + 1),
+        display: renderIcons(String(i + 1)),
+      }));
+    
+    default:
+      return [];
+  }
+};
+
+// Get maximum capacity for a room group
+const getMaxCapacity = (roomGroup: RoomGroup | null): number => {
+  if (!roomGroup) return 1;
+  const options = getGuestCountOptions(roomGroup);
+  if (options.length === 0) return 1;
+  return Math.max(...options.map(opt => opt.value));
+};
+
 export default function Rooms() {
   const { toast } = useToast();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
   const [groupFilter, setGroupFilter] = useState<RoomGroup | "all">("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -30,10 +115,8 @@ export default function Rooms() {
   // Form state for create/edit
   const [formData, setFormData] = useState({
     name: "",
-    group_type: "HOTEL" as RoomGroup,
-    capacity: 2,
-    color: "#3b82f6",
-    active: true,
+    group_type: "P1" as RoomGroup,
+    capacity: 1, // Default to 1 for P1
   });
 
   const fetchRooms = async () => {
@@ -62,15 +145,71 @@ export default function Rooms() {
     fetchRooms();
   }, []);
 
+  // Reset form data when create dialog closes
+  useEffect(() => {
+    if (!isCreateDialogOpen) {
+      setFormData({
+        name: "",
+        group_type: "P1",
+        capacity: 1, // Default to 1 for P1
+      });
+    }
+  }, [isCreateDialogOpen]);
+
+  // Update capacity when group type changes
+  useEffect(() => {
+    if (isCreateDialogOpen || isEditDialogOpen) {
+      const maxCapacity = getMaxCapacity(formData.group_type);
+      const options = getGuestCountOptions(formData.group_type);
+      // Set to first available option or max capacity
+      const defaultCapacity = options.length > 0 ? options[0].value : maxCapacity;
+      setFormData(prev => ({ ...prev, capacity: defaultCapacity }));
+    }
+  }, [formData.group_type, isCreateDialogOpen, isEditDialogOpen]);
+
   const filteredRooms = rooms.filter(room => {
-    const matchesSearch = room.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGroup = groupFilter === "all" || room.group_type === groupFilter;
-    return matchesSearch && matchesGroup;
+    return matchesGroup;
   });
 
   const handleCreateRoom = async () => {
+    // Validation
+    if (!formData.name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Room name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate capacity based on room group
+    const maxCapacity = getMaxCapacity(formData.group_type);
+    const capacityOptions = getGuestCountOptions(formData.group_type);
+    const validCapacities = capacityOptions.map(opt => opt.value);
+    
+    if (!validCapacities.includes(formData.capacity)) {
+      toast({
+        title: "Validation Error",
+        description: `Capacity must be one of the valid options for ${formData.group_type} rooms (max: ${maxCapacity})`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const { error } = await supabase
+      // Use admin client to bypass RLS for admin operations
+      const client = supabaseAdmin || supabase;
+      
+      if (!supabaseAdmin && isAdminClientAvailable()) {
+        toast({
+          title: "Warning",
+          description: "Admin client not available. Using regular client.",
+          variant: "default",
+        });
+      }
+
+      const { error } = await client
         .from("rooms")
         .insert([formData]);
 
@@ -84,10 +223,8 @@ export default function Rooms() {
       setIsCreateDialogOpen(false);
       setFormData({
         name: "",
-        group_type: "HOTEL",
+        group_type: "P1",
         capacity: 2,
-        color: "#3b82f6",
-        active: true,
       });
       fetchRooms();
     } catch (error: any) {
@@ -103,8 +240,35 @@ export default function Rooms() {
   const handleEditRoom = async () => {
     if (!selectedRoom) return;
 
+    // Validation
+    if (!formData.name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Room name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate capacity based on room group
+    const maxCapacity = getMaxCapacity(formData.group_type);
+    const capacityOptions = getGuestCountOptions(formData.group_type);
+    const validCapacities = capacityOptions.map(opt => opt.value);
+    
+    if (!validCapacities.includes(formData.capacity)) {
+      toast({
+        title: "Validation Error",
+        description: `Capacity must be one of the valid options for ${formData.group_type} rooms (max: ${maxCapacity})`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const { error } = await supabase
+      // Use admin client to bypass RLS for admin operations
+      const client = supabaseAdmin || supabase;
+      
+      const { error } = await client
         .from("rooms")
         .update(formData)
         .eq("id", selectedRoom.id);
@@ -132,16 +296,19 @@ export default function Rooms() {
   const handleDeleteRoom = async (roomId: string) => {
     try {
       setIsDeleting(true);
-      const { error } = await supabase
+      // Use admin client to bypass RLS for admin operations
+      const client = supabaseAdmin || supabase;
+      
+      const { error } = await client
         .from("rooms")
-        .update({ active: false })
+        .delete()
         .eq("id", roomId);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Room deactivated successfully",
+        description: "Room deleted successfully",
       });
 
       fetchRooms();
@@ -163,28 +330,22 @@ export default function Rooms() {
       name: room.name,
       group_type: room.group_type,
       capacity: room.capacity,
-      color: room.color || "#3b82f6",
-      active: room.active,
     });
     setIsEditDialogOpen(true);
   };
 
   const getGroupBadge = (group: RoomGroup) => {
-    const config = {
-      HOTEL: { label: "Hotel", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200" },
+    const config: Record<RoomGroup, { label: string; className: string }> = {
+      P1: { label: "P1", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200" },
+      P2: { label: "P2", className: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200" },
+      A1S: { label: "A1S", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200" },
+      A2S: { label: "A2S", className: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-200" },
       OTHER: { label: "Other", className: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200" },
     };
-    const { label, className } = config[group] || { label: group, className: "" };
+    const { label, className } = config[group] || { label: group, className: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200" };
     return <Badge className={className}>{label}</Badge>;
   };
 
-  const getStatusBadge = (active: boolean) => {
-    return active ? (
-      <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200">Active</Badge>
-    ) : (
-      <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">Inactive</Badge>
-    );
-  };
 
   if (loading) {
     return (
@@ -232,39 +393,42 @@ export default function Rooms() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="HOTEL">Hotel Room</SelectItem>
+                    <SelectItem value="P1">P1</SelectItem>
+                    <SelectItem value="P2">P2</SelectItem>
+                    <SelectItem value="A1S">A1S</SelectItem>
+                    <SelectItem value="A2S">A2S</SelectItem>
                     <SelectItem value="OTHER">Other Location</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="capacity">Capacity</Label>
-                <Input
-                  id="capacity"
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={formData.capacity}
-                  onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="color">Color</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="color"
-                    type="color"
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="w-16 h-10 p-1"
-                  />
-                  <Input
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    placeholder="#3b82f6"
-                    className="flex-1"
-                  />
-                </div>
+                <Select
+                  value={(() => {
+                    const options = getGuestCountOptions(formData.group_type);
+                    const matchingOption = options.find(opt => opt.value === formData.capacity);
+                    return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(formData.capacity);
+                  })()}
+                  onValueChange={(value) => {
+                    // Extract numeric value from composite "value-label" format
+                    const numericValue = parseInt(value.split('-')[0], 10);
+                    setFormData(prev => ({ ...prev, capacity: numericValue }));
+                  }}
+                >
+                  <SelectTrigger id="capacity">
+                    <SelectValue placeholder="Select capacity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getGuestCountOptions(formData.group_type).map((option, index) => {
+                      const uniqueValue = `${option.value}-${option.label}`;
+                      return (
+                        <SelectItem key={`${option.value}-${option.label}-${index}`} value={uniqueValue}>
+                          {option.display}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>
@@ -285,20 +449,7 @@ export default function Rooms() {
           <CardTitle>Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="search">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Search by room name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
+          <div className="grid gap-4 md:grid-cols-1 max-w-xs">
             <div className="space-y-2">
               <Label htmlFor="group-filter">Group Type</Label>
               <Select value={groupFilter} onValueChange={(value: RoomGroup | "all") => setGroupFilter(value)}>
@@ -307,7 +458,10 @@ export default function Rooms() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="HOTEL">Hotel Rooms</SelectItem>
+                  <SelectItem value="P1">P1</SelectItem>
+                  <SelectItem value="P2">P2</SelectItem>
+                  <SelectItem value="A1S">A1S</SelectItem>
+                  <SelectItem value="A2S">A2S</SelectItem>
                   <SelectItem value="OTHER">Other Locations</SelectItem>
                 </SelectContent>
               </Select>
@@ -331,8 +485,6 @@ export default function Rooms() {
                 <TableHead>Room</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Capacity</TableHead>
-                <TableHead>Color</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -349,22 +501,20 @@ export default function Rooms() {
                   <TableCell>{getGroupBadge(room.group_type)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      {room.capacity}
+                      {(() => {
+                        const options = getGuestCountOptions(room.group_type);
+                        const matchingOption = options.find(opt => opt.value === room.capacity);
+                        return matchingOption ? matchingOption.display : (
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: Math.min(room.capacity, 6) }, (_, i) => (
+                              <User key={i} className="h-4 w-4 text-muted-foreground" />
+                            ))}
+                            {room.capacity > 6 && <span className="text-xs text-muted-foreground">+{room.capacity - 6}</span>}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-4 h-4 rounded border"
-                        style={{ backgroundColor: room.color || "#3b82f6" }}
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        {room.color || "#3b82f6"}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{getStatusBadge(room.active)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -388,9 +538,9 @@ export default function Rooms() {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Deactivate Room</AlertDialogTitle>
+                            <AlertDialogTitle>Delete Room</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to deactivate this room? It will no longer be available for new tasks.
+                              Are you sure you want to delete this room? This action cannot be undone and will permanently remove the room from the system.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -398,8 +548,9 @@ export default function Rooms() {
                             <AlertDialogAction
                               onClick={() => handleDeleteRoom(room.id)}
                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              disabled={isDeleting}
                             >
-                              Deactivate
+                              {isDeleting ? "Deleting..." : "Delete"}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
@@ -438,39 +589,42 @@ export default function Rooms() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="HOTEL">Hotel Room</SelectItem>
+                  <SelectItem value="P1">P1</SelectItem>
+                  <SelectItem value="P2">P2</SelectItem>
+                  <SelectItem value="A1S">A1S</SelectItem>
+                  <SelectItem value="A2S">A2S</SelectItem>
                   <SelectItem value="OTHER">Other Location</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-capacity">Capacity</Label>
-              <Input
-                id="edit-capacity"
-                type="number"
-                min="1"
-                max="10"
-                value={formData.capacity}
-                onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-color">Color</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="edit-color"
-                  type="color"
-                  value={formData.color}
-                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                  className="w-16 h-10 p-1"
-                />
-                <Input
-                  value={formData.color}
-                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                  placeholder="#3b82f6"
-                  className="flex-1"
-                />
-              </div>
+              <Select
+                value={(() => {
+                  const options = getGuestCountOptions(formData.group_type);
+                  const matchingOption = options.find(opt => opt.value === formData.capacity);
+                  return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(formData.capacity);
+                })()}
+                onValueChange={(value) => {
+                  // Extract numeric value from composite "value-label" format
+                  const numericValue = parseInt(value.split('-')[0], 10);
+                  setFormData(prev => ({ ...prev, capacity: numericValue }));
+                }}
+              >
+                <SelectTrigger id="edit-capacity">
+                  <SelectValue placeholder="Select capacity" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getGuestCountOptions(formData.group_type).map((option, index) => {
+                    const uniqueValue = `${option.value}-${option.label}`;
+                    return (
+                      <SelectItem key={`${option.value}-${option.label}-${index}`} value={uniqueValue}>
+                        {option.display}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
