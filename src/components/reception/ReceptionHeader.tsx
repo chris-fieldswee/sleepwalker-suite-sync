@@ -40,7 +40,14 @@ export function ReceptionHeader({
                     {workLogTrigger}
                     {addTaskTrigger}
 
-                    <Button variant="outline" size="sm" onClick={onSignOut}>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={async (e) => {
+                            e.preventDefault();
+                            await onSignOut();
+                        }}
+                    >
                         <LogOut className="mr-2 h-4 w-4" /> Sign Out
                     </Button>
                 </div>

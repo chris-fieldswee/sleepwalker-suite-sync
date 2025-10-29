@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Search, Edit, Trash2, User, Calendar } from "lucide-react";
+import { Plus, Search, Edit, Trash2, User, Calendar, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseAdmin, isAdminClientAvailable } from "@/integrations/supabase/admin-client";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +28,7 @@ export default function Users() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [roleSortDirection, setRoleSortDirection] = useState<"asc" | "desc" | null>(null);
 
   // Form state for create/edit
   const [formData, setFormData] = useState({
@@ -67,6 +68,21 @@ export default function Users() {
     fetchUsers();
   }, []);
 
+  // Reset form data when create dialog opens
+  useEffect(() => {
+    if (isCreateDialogOpen) {
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        first_name: "",
+        last_name: "",
+        role: "housekeeping" as UserRole,
+        active: true,
+      });
+    }
+  }, [isCreateDialogOpen]);
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -76,7 +92,25 @@ export default function Users() {
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
     
     return matchesSearch && matchesRole;
+  }).sort((a, b) => {
+    if (roleSortDirection === null) return 0;
+    const roleOrder = { admin: 0, reception: 1, housekeeping: 2 };
+    const aOrder = roleOrder[a.role] ?? 999;
+    const bOrder = roleOrder[b.role] ?? 999;
+    return roleSortDirection === "asc" 
+      ? aOrder - bOrder 
+      : bOrder - aOrder;
   });
+
+  const handleRoleSort = () => {
+    if (roleSortDirection === null) {
+      setRoleSortDirection("asc");
+    } else if (roleSortDirection === "asc") {
+      setRoleSortDirection("desc");
+    } else {
+      setRoleSortDirection(null);
+    }
+  };
 
   const handleCreateUser = async () => {
     try {
@@ -89,22 +123,24 @@ export default function Users() {
         return;
       }
 
-      setIsCreateDialogOpen(false);
+      // Don't close dialog yet - wait until user is created successfully
       
-      // Clean up any existing partial data first
+      // Clean up any existing partial data first (if creating duplicate user)
       if (formData.email) {
-        const { data: existingUsers } = await supabase
+        const { data: existingUsers } = await supabaseAdmin
           .from("users")
           .select("auth_id")
-          .eq("name", formData.email)
+          .eq("name", formData.name)
           .limit(1);
         
         if (existingUsers && existingUsers.length > 0) {
           const existingAuthId = existingUsers[0].auth_id;
-          // Clean up existing partial data
-          await supabase.from("user_roles").delete().eq("user_id", existingAuthId);
-          await supabase.from("users").delete().eq("auth_id", existingAuthId);
-          await supabaseAdmin.auth.admin.deleteUser(existingAuthId);
+          // Clean up existing partial data using admin client
+          await supabaseAdmin.from("user_roles").delete().eq("user_id", existingAuthId);
+          await supabaseAdmin.from("users").delete().eq("auth_id", existingAuthId);
+          if (existingAuthId) {
+            await supabaseAdmin.auth.admin.deleteUser(existingAuthId);
+          }
         }
       }
       
@@ -123,8 +159,8 @@ export default function Users() {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Failed to create auth user");
 
-      // Step 2: Insert user into public.users table
-      const { error: userError } = await supabase
+      // Step 2: Insert user into public.users table using admin client to bypass RLS
+      const { error: userError } = await supabaseAdmin
         .from("users")
         .insert([
           {
@@ -143,13 +179,13 @@ export default function Users() {
         throw userError;
       }
 
-      // Step 3: Insert role into user_roles table for RLS
-      const { error: roleError } = await supabase
+      // Step 3: Insert role into user_roles table for RLS using admin client
+      const { error: roleError } = await supabaseAdmin
         .from("user_roles")
         .upsert([
           {
             user_id: authData.user.id,
-            role: formData.role,
+            role: formData.role as Database["public"]["Enums"]["app_role"],
           },
         ], {
           onConflict: 'user_id,role'
@@ -157,7 +193,7 @@ export default function Users() {
 
       if (roleError) {
         // Cleanup if role insert fails
-        await supabase.from("users").delete().eq("auth_id", authData.user.id);
+        await supabaseAdmin.from("users").delete().eq("auth_id", authData.user.id);
         await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
         throw roleError;
       }
@@ -168,16 +204,18 @@ export default function Users() {
       });
 
       setIsCreateDialogOpen(false);
+      // Reset form data
       setFormData({
         name: "",
         email: "",
         password: "",
         first_name: "",
         last_name: "",
-        role: "housekeeping",
+        role: "housekeeping" as UserRole,
         active: true,
       });
-      fetchUsers();
+      // Refresh users list
+      await fetchUsers();
     } catch (error: any) {
       console.error("Error creating user:", error);
       toast({
@@ -192,8 +230,12 @@ export default function Users() {
     if (!selectedUser) return;
 
     try {
-      // Update user in users table
-      const { error: userError } = await supabase
+      if (!supabaseAdmin) {
+        throw new Error("Admin client not available. User update requires VITE_SUPABASE_SERVICE_ROLE_KEY");
+      }
+
+      // Update user in users table using admin client to bypass RLS
+      const { error: userError } = await supabaseAdmin
         .from("users")
         .update({
           name: formData.name,
@@ -229,22 +271,35 @@ export default function Users() {
 
       // Update role in user_roles table if changed
       if (selectedUser.auth_id && formData.role !== selectedUser.role) {
-        // Delete old role
-        await supabase
+        if (!supabaseAdmin) {
+          throw new Error("Admin client not available. Role update requires VITE_SUPABASE_SERVICE_ROLE_KEY");
+        }
+
+        // Delete ALL existing roles for this user first (to avoid duplicate key errors)
+        const { error: deleteError } = await supabaseAdmin
           .from("user_roles")
           .delete()
-          .eq("user_id", selectedUser.auth_id)
-          .eq("role", selectedUser.role);
+          .eq("user_id", selectedUser.auth_id);
 
-        // Insert new role
-        const { error: roleError } = await supabase
+        if (deleteError) {
+          console.warn("Failed to delete old roles:", deleteError);
+          throw new Error(`Failed to update user role: ${deleteError.message}`);
+        }
+
+        // Insert new role (using upsert to be safe, though we just deleted all roles)
+        const { error: roleError } = await supabaseAdmin
           .from("user_roles")
-          .insert([{
+          .upsert([{
             user_id: selectedUser.auth_id,
-            role: formData.role,
-          }]);
+            role: formData.role as Database["public"]["Enums"]["app_role"],
+          }], {
+            onConflict: 'user_id,role'
+          });
 
-        if (roleError) console.warn("Role update failed:", roleError);
+        if (roleError) {
+          console.warn("Role update failed:", roleError);
+          throw new Error(`Failed to update user role: ${roleError.message}`);
+        }
       }
 
       toast({
@@ -254,7 +309,9 @@ export default function Users() {
 
       setIsEditDialogOpen(false);
       setSelectedUser(null);
-      fetchUsers();
+      
+      // Fetch fresh data from server to ensure consistency
+      await fetchUsers();
     } catch (error: any) {
       console.error("Error updating user:", error);
       toast({
@@ -265,22 +322,55 @@ export default function Users() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
+  const handleDeleteUser = async (userId: string, authId: string | null) => {
     try {
+      if (!supabaseAdmin) {
+        toast({
+          title: "Error",
+          description: "Admin client not available. User deletion requires VITE_SUPABASE_SERVICE_ROLE_KEY",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setIsDeleting(true);
-      const { error } = await supabase
+
+      // Step 1: Delete from user_roles table
+      if (authId) {
+        const { error: roleError } = await supabaseAdmin
+          .from("user_roles")
+          .delete()
+          .eq("user_id", authId);
+
+        if (roleError) {
+          console.warn("Failed to delete user roles:", roleError);
+          // Continue with deletion anyway
+        }
+      }
+
+      // Step 2: Delete from users table
+      const { error: userError } = await supabaseAdmin
         .from("users")
-        .update({ active: false })
+        .delete()
         .eq("id", userId);
 
-      if (error) throw error;
+      if (userError) throw userError;
+
+      // Step 3: Delete from auth.users
+      if (authId) {
+        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(authId);
+        if (authError) {
+          console.warn("Failed to delete auth user:", authError);
+          // Continue anyway - user is already deleted from our tables
+        }
+      }
 
       toast({
         title: "Success",
-        description: "User deactivated successfully",
+        description: "User deleted successfully",
       });
 
-      fetchUsers();
+      await fetchUsers();
     } catch (error: any) {
       console.error("Error deleting user:", error);
       toast({
@@ -485,7 +575,19 @@ export default function Users() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Role</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 data-[state=open]:bg-accent"
+                    onClick={handleRoleSort}
+                  >
+                    Role
+                    {roleSortDirection === "asc" && <ArrowUp className="ml-2 h-4 w-4" />}
+                    {roleSortDirection === "desc" && <ArrowDown className="ml-2 h-4 w-4" />}
+                    {roleSortDirection === null && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                  </Button>
+                </TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -528,18 +630,19 @@ export default function Users() {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Deactivate User</AlertDialogTitle>
+                            <AlertDialogTitle>Delete User</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to deactivate this user? They will no longer be able to access the system.
+                              This will permanently delete the user and all associated data. This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={() => handleDeleteUser(user.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={() => handleDeleteUser(user.id, user.auth_id)}
+                              disabled={isDeleting}
+                              className="bg-red-600 hover:bg-red-700 text-white"
                             >
-                              Deactivate
+                              {isDeleting ? "Deleting..." : "Delete"}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

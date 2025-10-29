@@ -166,8 +166,11 @@ export function AddTaskDialog({
 
                 if (availabilityError) {
                     console.error('Error fetching staff availability:', availabilityError);
-                    // Fallback to all staff if availability check fails
-                    setAvailableStaff(allStaff);
+                    // Fallback to housekeeping staff only if availability check fails
+                    const housekeepingStaff = allStaff.filter(staff => 
+                        staff.role === 'housekeeping'
+                    );
+                    setAvailableStaff(housekeepingStaff);
                     setAvailabilityData([]);
                     return;
                 }
@@ -178,11 +181,14 @@ export function AddTaskDialog({
                 // Convert task time limit from minutes to hours for comparison
                 const requiredHours = taskTimeLimit ? taskTimeLimit / 60 : 0;
 
-                // Filter staff based on availability and task requirements
-                const filteredStaff = allStaff.filter(staff => {
-                    // Always include admins
-                    if (staff.role === 'admin') return true;
+                // Filter staff: only housekeeping (no admins)
+                // First filter by role to only include housekeeping
+                const housekeepingStaff = allStaff.filter(staff => 
+                    staff.role === 'housekeeping'
+                );
 
+                // Then filter based on availability and task requirements
+                const filteredStaff = housekeepingStaff.filter(staff => {
                     // Find availability data for this staff member
                     const availabilityInfo = availabilityData?.find(item => item.staff_id === staff.id);
                     
@@ -202,8 +208,11 @@ export function AddTaskDialog({
                 setAvailableStaff(filteredStaff);
             } catch (error) {
                 console.error('Error in fetchAvailableStaff:', error);
-                // Fallback to all staff
-                setAvailableStaff(allStaff);
+                // Fallback to housekeeping staff only
+                const housekeepingStaff = allStaff.filter(staff => 
+                    staff.role === 'housekeeping'
+                );
+                setAvailableStaff(housekeepingStaff);
             }
         };
 
@@ -247,7 +256,8 @@ export function AddTaskDialog({
             setNewTask(resetState);
             setSelectedGroup(null); // Reset group selection
             setAssignedRoomIds(new Set()); // Clear assigned rooms initially
-            setAvailableStaff(allStaff); // Initialize with all staff
+            // Initialize with only housekeeping staff
+            setAvailableStaff(allStaff.filter(staff => staff.role === 'housekeeping'));
             setAvailabilityData([]); // Clear availability data initially
             setTaskTimeLimit(null); // Clear task time limit
         }

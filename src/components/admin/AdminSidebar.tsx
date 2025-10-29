@@ -107,7 +107,10 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
               <Button 
                 variant="ghost" 
                 className="w-full justify-start hover:bg-sidebar-accent/50"
-                onClick={onSignOut}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await onSignOut();
+                }}
               >
                 <LogOut className="h-4 w-4" />
                 {open && <span>Sign Out</span>}
