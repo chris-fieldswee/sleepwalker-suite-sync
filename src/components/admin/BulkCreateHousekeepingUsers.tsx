@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabaseAdmin } from "@/integrations/supabase/admin-client";
+import { supabaseAdmin, isAdminClientAvailable } from "@/integrations/supabase/admin-client";
 import { supabase } from "@/integrations/supabase/client";
 
 interface UserCreationResult {
@@ -31,6 +31,15 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
   ];
 
   const createUsers = async () => {
+    if (!supabaseAdmin) {
+      toast({
+        title: "Error",
+        description: "Admin client not available. Please ensure VITE_SUPABASE_SERVICE_ROLE_KEY is set in .env.local",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsCreating(true);
     setResults([]);
     

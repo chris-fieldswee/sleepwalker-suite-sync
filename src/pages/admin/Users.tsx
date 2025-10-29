@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { BulkCreateHousekeepingUsers } from "@/components/admin/BulkCreateHousekeepingUsers";
 import { Plus, Search, Edit, Trash2, User, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { supabaseAdmin } from "@/integrations/supabase/admin-client";
+import { supabaseAdmin, isAdminClientAvailable } from "@/integrations/supabase/admin-client";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -81,6 +81,15 @@ export default function Users() {
 
   const handleCreateUser = async () => {
     try {
+      if (!supabaseAdmin) {
+        toast({
+          title: "Error",
+          description: "Admin client not available. Please ensure VITE_SUPABASE_SERVICE_ROLE_KEY is set in .env.local",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setIsCreateDialogOpen(false);
       
       // Clean up any existing partial data first
@@ -200,6 +209,14 @@ export default function Users() {
 
       // Update password if provided
       if (formData.password && selectedUser.auth_id) {
+        if (!supabaseAdmin) {
+          toast({
+            title: "Error",
+            description: "Admin client not available. Password update requires VITE_SUPABASE_SERVICE_ROLE_KEY",
+            variant: "destructive",
+          });
+          return;
+        }
         const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
           selectedUser.auth_id,
           { password: formData.password }

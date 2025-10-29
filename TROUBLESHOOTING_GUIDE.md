@@ -9,8 +9,9 @@
    ```env
    VITE_SUPABASE_URL=https://wxxrprwnovnyncgigrwi.supabase.co
    VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-   SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+   VITE_SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
    ```
+   ⚠️ **Important**: The service role key must be prefixed with `VITE_` to be accessible in client-side Vite code.
    ⚠️ **Note**: No quotes needed around values in `.env.local` files
 
 3. **IMPORTANT**: Restart your dev server after changing `.env.local`:
@@ -220,6 +221,10 @@ Check these files for syntax errors:
 ## Quick Reference
 
 - **Environment File**: `.env.local` (not `.env`)
+- **Environment Variables**: Must use `VITE_` prefix for client-side access
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_PUBLISHABLE_KEY`
+  - `VITE_SUPABASE_SERVICE_ROLE_KEY` (for admin features)
 - **Migration File**: `supabase/migrations/20250105_fix_users_rls_simple.sql`
 - **Dev Server Port**: `http://localhost:8080`
 - **Admin Email**: `admin@sleepwalker.com`
