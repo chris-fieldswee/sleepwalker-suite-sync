@@ -8,23 +8,14 @@ const Index = () => {
 
   useEffect(() => {
     if (!loading && userRole) {
-      console.log("Current user role:", userRole); // Debug log
-      
-      // Add a small delay to prevent rapid redirects
-      const timeoutId = setTimeout(() => {
-        if (userRole === "housekeeping") {
-          navigate("/housekeeping");
-        } else if (userRole === "reception") {
-          navigate("/reception");
-        } else if (userRole === "admin") {
-          console.log("Redirecting admin to /admin"); // Debug log
-          navigate("/admin");
-        }
-      }, 100);
-
-      return () => clearTimeout(timeoutId);
+      if (userRole === "housekeeping") {
+        navigate("/housekeeping");
+      } else if (userRole === "reception") {
+        navigate("/reception");
+      } else if (userRole === "admin") {
+        navigate("/admin");
+      }
     } else if (!loading && !userRole) {
-      // User is not authenticated, redirect to auth
       navigate("/auth");
     }
   }, [userRole, loading, navigate]);

@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { supabaseAdmin } from "@/integrations/supabase/admin-client";
 import { useNavigate } from "react-router-dom";
 
 interface AuthContextType {
@@ -9,10 +8,10 @@ interface AuthContextType {
   session: Session | null;
   userRole: "admin" | "reception" | "housekeeping" | null;
   userId: string | null;
+  loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,103 +29,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const fetchUserProfile = async (userId: string) => {
       try {
-        console.log("Fetching profile for auth_id:", userId);
-        
-        // Add timeout to prevent hanging
-        const profilePromise = supabase
+        const { data: profile, error } = await supabase
           .from("users")
           .select("id, role, name, first_name, last_name, active")
           .eq("auth_id", userId)
           .single();
-        
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
-        );
-        
-        let profile, profileError;
-        
-        try {
-          const result = await Promise.race([
-            profilePromise,
-            timeoutPromise
-          ]) as any;
-          profile = result.data;
-          profileError = result.error;
-        } catch (timeoutError) {
-          console.log("Profile fetch timed out, trying with admin client...");
-          // Try with admin client as fallback
-          const { data: adminProfile, error: adminError } = await supabaseAdmin
-            .from("users")
-            .select("id, role, name, first_name, last_name, active")
-            .eq("auth_id", userId)
-            .single();
-          
-          profile = adminProfile;
-          profileError = adminError;
-        }
-        
-        console.log("Profile query result:", { profile, profileError });
-        
+
         if (mounted) {
-          if (profile) {
-            console.log("User profile found:", profile);
-            if (!profile.active) {
-              console.warn("User profile is inactive:", profile);
-              setUserRole(null);
-              setUserId(null);
-            } else {
-              setUserRole(profile.role);
-              setUserId(profile.id);
-            }
+          if (profile && profile.active) {
+            setUserRole(profile.role);
+            setUserId(profile.id);
           } else {
-            console.log("No user profile found for auth_id:", userId);
-            console.log("This might be due to RLS policies - trying alternative approach");
-            
-            // Try to get user info from auth metadata as fallback
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            if (authUser && authUser.user_metadata) {
-              console.log("Using auth metadata as fallback:", authUser.user_metadata);
-              // Set a default role based on email or metadata
-              const email = authUser.email;
-              if (email === 'admin@sleepwalker.com' || email === 'chrisfieldswee@gmail.com') {
-                setUserRole('admin');
-                setUserId(authUser.id);
-              } else {
-                setUserRole('housekeeping'); // Default role
-                setUserId(authUser.id);
-              }
-            } else {
-              setUserRole(null);
-              setUserId(null);
-            }
+            setUserRole(null);
+            setUserId(null);
           }
           setLoading(false);
         }
       } catch (error) {
         console.error("Error fetching user profile:", error);
         if (mounted) {
-          // Fallback: try to get basic info from auth user
-          try {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            if (authUser) {
-              console.log("Using auth user as fallback:", authUser.email);
-              const email = authUser.email;
-              if (email === 'admin@sleepwalker.com' || email === 'chrisfieldswee@gmail.com') {
-                setUserRole('admin');
-                setUserId(authUser.id);
-              } else {
-                setUserRole('housekeeping');
-                setUserId(authUser.id);
-              }
-            } else {
-              setUserRole(null);
-              setUserId(null);
-            }
-          } catch (fallbackError) {
-            console.error("Fallback also failed:", fallbackError);
-            setUserRole(null);
-            setUserId(null);
-          }
+          setUserRole(null);
+          setUserId(null);
           setLoading(false);
         }
       }
@@ -135,44 +58,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("Auth state change:", event, session?.user?.id);
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        } else {
-          setUserRole(null);
-          setUserId(null);
-          setLoading(false);
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+
+          if (session?.user) {
+            await fetchUserProfile(session.user.id);
+          } else {
+            setUserRole(null);
+            setUserId(null);
+            setLoading(false);
+          }
         }
       }
     );
 
     // Check for existing session
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      console.log("Initial session check:", session?.user?.id, error);
-      
       if (error) {
         console.error("Error getting session:", error);
         if (mounted) setLoading(false);
         return;
       }
-      
+
       if (mounted) {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
           await fetchUserProfile(session.user.id);
         } else {
           setLoading(false);
         }
-      }
-    }).catch((error) => {
-      console.error("Failed to get session:", error);
-      if (mounted) {
-        setLoading(false);
       }
     });
 
@@ -183,24 +100,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    console.log("AuthContext.signIn called with:", email);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      console.log("Supabase signIn result:", { data, error });
-      
-      // Don't navigate here - let the auth state change handle the redirect
-      return { error };
-    } catch (err) {
-      console.error("SignIn error:", err);
-      return { error: err };
-    }
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { error };
   };
 
   const signUp = async (email: string, password: string, name: string) => {
-    // Note: role is NOT sent to backend for security - always defaults to 'housekeeping'
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -211,7 +118,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         },
       },
     });
-
     return { error };
   };
 
@@ -227,10 +133,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         session,
         userRole,
         userId,
+        loading,
         signIn,
         signUp,
         signOut,
-        loading,
       }}
     >
       {children}
