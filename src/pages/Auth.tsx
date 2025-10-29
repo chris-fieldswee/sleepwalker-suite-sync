@@ -13,17 +13,28 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, user, userRole, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Remove the immediate redirect - let Index.tsx handle the redirect
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (!loading && user && userRole) {
+      if (userRole === "admin") {
+        navigate("/admin", { replace: true });
+      } else if (userRole === "reception") {
+        navigate("/reception", { replace: true });
+      } else if (userRole === "housekeeping") {
+        navigate("/housekeeping", { replace: true });
+      }
+    }
+  }, [user, userRole, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSubmitting(true);
 
     const trimmedEmail = email.trim();
 
@@ -36,6 +47,14 @@ export default function Auth() {
             description: error.message,
             variant: "destructive",
           });
+          setSubmitting(false);
+        } else {
+          // Success - auth state change will handle redirect
+          toast({
+            title: "Success",
+            description: "Signing in...",
+          });
+          // Don't set submitting to false here - let auth state change handle redirect
         }
       } else {
         // Role is always set to housekeeping by default on backend for security
@@ -46,6 +65,7 @@ export default function Auth() {
             description: error.message,
             variant: "destructive",
           });
+          setSubmitting(false);
         } else {
           toast({
             title: "Success",
@@ -55,16 +75,16 @@ export default function Auth() {
           setEmail("");
           setPassword("");
           setName("");
+          setSubmitting(false);
         }
       }
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "An unexpected error occurred.", // Provide a fallback message
+        description: error.message || "An unexpected error occurred.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -123,8 +143,8 @@ export default function Auth() {
             </div>
 
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
+            <Button type="submit" className="w-full" disabled={submitting || loading}>
+              {submitting ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
             </Button>
           </form>
 
