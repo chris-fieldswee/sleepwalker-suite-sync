@@ -112,15 +112,20 @@ export default function Rooms() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const prevGroupTypeRef = useRef<RoomGroup>("P1");
+  const prevGroupTypeRef = useRef<RoomGroup | null>(null);
   const [typeSortDirection, setTypeSortDirection] = useState<"asc" | "desc" | null>(null);
 
   // Form state for create/edit
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    group_type: RoomGroup | null;
+    capacity: number;
+    capacity_label: string | null;
+  }>({
     name: "",
-    group_type: "P1" as RoomGroup,
-    capacity: 1, // Default to 1 for P1
-    capacity_label: "1", // Default label for P1
+    group_type: null, // Start with null - user must select group type first
+    capacity: 0,
+    capacity_label: null,
   });
 
   const fetchRooms = async () => {
@@ -154,11 +159,11 @@ export default function Rooms() {
     if (!isCreateDialogOpen) {
       setFormData({
         name: "",
-        group_type: "P1",
-        capacity: 1, // Default to 1 for P1
-        capacity_label: "1",
+        group_type: null, // Reset to null - user must select group type first
+        capacity: 0,
+        capacity_label: null,
       });
-      prevGroupTypeRef.current = "P1";
+      prevGroupTypeRef.current = null;
     } else {
       // Reset ref when dialog opens
       prevGroupTypeRef.current = formData.group_type;
@@ -171,8 +176,8 @@ export default function Rooms() {
       // Only update capacity if group type actually changed
       if (prevGroupTypeRef.current !== formData.group_type) {
         prevGroupTypeRef.current = formData.group_type;
-        // For OTHER, clear capacity; otherwise set to first available option
-        if (formData.group_type === "OTHER") {
+        // For OTHER or null, clear capacity; otherwise set to first available option
+        if (!formData.group_type || formData.group_type === "OTHER") {
           setFormData(prev => ({ ...prev, capacity: 0, capacity_label: null }));
         } else {
           const options = getGuestCountOptions(formData.group_type);
@@ -220,6 +225,15 @@ export default function Rooms() {
       return;
     }
 
+    if (!formData.group_type) {
+      toast({
+        title: "Validation Error",
+        description: "Group type is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validate capacity is required for non-OTHER group types
     if (formData.group_type !== "OTHER") {
       const maxCapacity = getMaxCapacity(formData.group_type);
@@ -259,9 +273,9 @@ export default function Rooms() {
       setIsCreateDialogOpen(false);
       setFormData({
         name: "",
-        group_type: "P1",
-        capacity: 2,
-        capacity_label: "2",
+        group_type: null,
+        capacity: 0,
+        capacity_label: null,
       });
       fetchRooms();
     } catch (error: any) {
@@ -381,13 +395,13 @@ export default function Rooms() {
 
   const getGroupBadge = (group: RoomGroup) => {
     const config: Record<RoomGroup, { label: string; className: string }> = {
-      P1: { label: "P1", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200" },
-      P2: { label: "P2", className: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200" },
-      A1S: { label: "A1S", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200" },
-      A2S: { label: "A2S", className: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-200" },
-      OTHER: { label: "Other", className: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200" },
+      P1: { label: "P1", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 hover:bg-blue-100 hover:text-blue-800 dark:hover:bg-blue-900/30 dark:hover:text-blue-200" },
+      P2: { label: "P2", className: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200 hover:bg-purple-100 hover:text-purple-800 dark:hover:bg-purple-900/30 dark:hover:text-purple-200" },
+      A1S: { label: "A1S", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200 hover:bg-green-100 hover:text-green-800 dark:hover:bg-green-900/30 dark:hover:text-green-200" },
+      A2S: { label: "A2S", className: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-200 hover:bg-cyan-100 hover:text-cyan-800 dark:hover:bg-cyan-900/30 dark:hover:text-cyan-200" },
+      OTHER: { label: "Other", className: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-900/30 dark:hover:text-gray-200" },
     };
-    const { label, className } = config[group] || { label: group, className: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200" };
+    const { label, className } = config[group] || { label: group, className: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-900/30 dark:hover:text-gray-200" };
     return <Badge className={className}>{label}</Badge>;
   };
 
@@ -433,9 +447,12 @@ export default function Rooms() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="group_type">Group Type *</Label>
-                <Select value={formData.group_type} onValueChange={(value: RoomGroup) => setFormData({ ...formData, group_type: value })}>
+                <Select 
+                  value={formData.group_type || ""} 
+                  onValueChange={(value: RoomGroup) => setFormData({ ...formData, group_type: value })}
+                >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select group type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="P1">P1</SelectItem>
@@ -449,7 +466,7 @@ export default function Rooms() {
               {formData.group_type !== "OTHER" && (
                 <div className="space-y-2">
                   <Label htmlFor="capacity">
-                    Capacity {formData.group_type !== "OTHER" && <span className="text-destructive">*</span>}
+                    Capacity {formData.group_type && formData.group_type !== "OTHER" && <span className="text-destructive">*</span>}
                   </Label>
                   <Select
                     disabled={!formData.group_type}
@@ -483,7 +500,7 @@ export default function Rooms() {
                       <SelectValue placeholder={formData.group_type ? "Select capacity" : "Select group type first"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {getGuestCountOptions(formData.group_type).map((option, index) => {
+                      {formData.group_type && getGuestCountOptions(formData.group_type).map((option, index) => {
                         const uniqueValue = `${option.value}-${option.label}`;
                         return (
                           <SelectItem key={`${option.value}-${option.label}-${index}`} value={uniqueValue}>
