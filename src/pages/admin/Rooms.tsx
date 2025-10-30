@@ -206,17 +206,10 @@ export default function Rooms() {
     }
 
     try {
-      // Must use admin client to bypass RLS for admin operations
-      if (!supabaseAdmin) {
-        toast({
-          title: "Error",
-          description: "Admin client not available. Room creation requires VITE_SUPABASE_SERVICE_ROLE_KEY",
-          variant: "destructive",
-        });
-        return;
-      }
+      // Prefer admin client, but fallback to regular client (requires RLS policy for admins)
+      const client = supabaseAdmin || supabase;
 
-      const { error } = await supabaseAdmin
+      const { error } = await client
         .from("rooms")
         .insert([formData]);
 
@@ -272,17 +265,10 @@ export default function Rooms() {
     }
 
     try {
-      // Must use admin client to bypass RLS for admin operations
-      if (!supabaseAdmin) {
-        toast({
-          title: "Error",
-          description: "Admin client not available. Room update requires VITE_SUPABASE_SERVICE_ROLE_KEY",
-          variant: "destructive",
-        });
-        return;
-      }
+      // Prefer admin client, but fallback to regular client (requires RLS policy for admins)
+      const client = supabaseAdmin || supabase;
 
-      const { error } = await supabaseAdmin
+      const { error } = await client
         .from("rooms")
         .update(formData)
         .eq("id", selectedRoom.id);
@@ -308,20 +294,12 @@ export default function Rooms() {
   };
 
   const handleDeleteRoom = async (roomId: string) => {
-    if (!supabaseAdmin) {
-      toast({
-        title: "Error",
-        description: "Admin client not available. Room deletion requires VITE_SUPABASE_SERVICE_ROLE_KEY",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       setIsDeleting(true);
-      // Must use admin client to bypass RLS for admin operations
-      
-      const { error } = await supabaseAdmin
+      // Prefer admin client, but fallback to regular client (requires RLS policy for admins)
+      const client = supabaseAdmin || supabase;
+
+      const { error } = await client
         .from("rooms")
         .delete()
         .eq("id", roomId);
