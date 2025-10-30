@@ -661,9 +661,13 @@ export default function Rooms() {
                   return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(formData.capacity);
                 })()}
                 onValueChange={(value) => {
-                  // Extract numeric value from composite "value-label" format
-                  const numericValue = parseInt(value.split('-')[0], 10);
-                  setFormData(prev => ({ ...prev, capacity: numericValue }));
+                  // Extract both value and label from composite "value-label" format
+                  const [numericValue, label] = value.split('-');
+                  setFormData(prev => ({
+                    ...prev,
+                    capacity: parseInt(numericValue, 10),
+                    capacity_label: label
+                  }));
                 }}
               >
                 <SelectTrigger id="edit-capacity">
