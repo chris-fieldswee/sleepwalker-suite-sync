@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -111,6 +111,7 @@ export default function Rooms() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const prevGroupTypeRef = useRef<RoomGroup>("P1");
 
   // Form state for create/edit
   const [formData, setFormData] = useState({
@@ -145,7 +146,7 @@ export default function Rooms() {
     fetchRooms();
   }, []);
 
-  // Reset form data when create dialog closes
+  // Reset form data when create dialog opens/closes
   useEffect(() => {
     if (!isCreateDialogOpen) {
       setFormData({
@@ -153,17 +154,24 @@ export default function Rooms() {
         group_type: "P1",
         capacity: 1, // Default to 1 for P1
       });
+      prevGroupTypeRef.current = "P1";
+    } else {
+      // Reset ref when dialog opens
+      prevGroupTypeRef.current = formData.group_type;
     }
   }, [isCreateDialogOpen]);
 
-  // Update capacity when group type changes
+  // Update capacity when group type changes (only when dialogs are open)
   useEffect(() => {
     if (isCreateDialogOpen || isEditDialogOpen) {
-      const maxCapacity = getMaxCapacity(formData.group_type);
-      const options = getGuestCountOptions(formData.group_type);
-      // Set to first available option or max capacity
-      const defaultCapacity = options.length > 0 ? options[0].value : maxCapacity;
-      setFormData(prev => ({ ...prev, capacity: defaultCapacity }));
+      // Only update capacity if group type actually changed
+      if (prevGroupTypeRef.current !== formData.group_type) {
+        prevGroupTypeRef.current = formData.group_type;
+        const options = getGuestCountOptions(formData.group_type);
+        // Set to first available option
+        const defaultCapacity = options.length > 0 ? options[0].value : 1;
+        setFormData(prev => ({ ...prev, capacity: defaultCapacity }));
+      }
     }
   }, [formData.group_type, isCreateDialogOpen, isEditDialogOpen]);
 
