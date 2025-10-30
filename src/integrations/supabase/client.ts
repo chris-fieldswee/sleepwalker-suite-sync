@@ -16,10 +16,21 @@ if (!SUPABASE_PUBLISHABLE_KEY) {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
+// Ensure a single client instance across HMR to avoid multiple GoTrueClient warnings
+const getSingletonClient = () => {
+  const g = globalThis as unknown as { __supabaseClient?: ReturnType<typeof createClient<Database>> };
+  if (!g.__supabaseClient) {
+    g.__supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: {
+        storage: localStorage,
+        persistSession: true,
+        autoRefreshToken: true,
+        // Use a stable storage key to avoid collisions if multiple clients exist elsewhere
+        storageKey: 'sb-auth',
+      },
+    });
   }
-});
+  return g.__supabaseClient;
+};
+
+export const supabase = getSingletonClient();
