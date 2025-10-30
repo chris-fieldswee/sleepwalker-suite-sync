@@ -17,6 +17,29 @@ import type { Database } from "@/integrations/supabase/types";
 type Room = Database["public"]["Tables"]["rooms"]["Row"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
 
+// Helper function to render guest count icons
+const renderIcons = (config: string): React.ReactNode => {
+  // Parse configurations like "1", "2", "1+1", "2+2", "2+2+2"
+  const parts = config.split('+').map(p => parseInt(p.trim()));
+  
+  return (
+    <div className="flex items-center gap-1">
+      {parts.map((count, partIndex) => {
+        const icons = [];
+        for (let i = 0; i < count; i++) {
+          icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
+        }
+        return (
+          <div key={partIndex} className="flex items-center gap-0.5">
+            {icons}
+            {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 // Guest count options based on room group type (same as AddTaskDialog)
 type GuestOption = {
   value: number;
@@ -26,28 +49,6 @@ type GuestOption = {
 
 const getGuestCountOptions = (roomGroup: RoomGroup | null): GuestOption[] => {
   if (!roomGroup) return [];
-
-  const renderIcons = (config: string): React.ReactNode => {
-    // Parse configurations like "1", "2", "1+1", "2+2", "2+2+2"
-    const parts = config.split('+').map(p => parseInt(p.trim()));
-    
-    return (
-      <div className="flex items-center gap-1">
-        {parts.map((count, partIndex) => {
-          const icons = [];
-          for (let i = 0; i < count; i++) {
-            icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
-          }
-          return (
-            <div key={partIndex} className="flex items-center gap-0.5">
-              {icons}
-              {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
 
   switch (roomGroup) {
     case 'P1':
