@@ -206,18 +206,17 @@ export default function Rooms() {
     }
 
     try {
-      // Use admin client to bypass RLS for admin operations
-      const client = supabaseAdmin || supabase;
-      
-      if (!supabaseAdmin && isAdminClientAvailable()) {
+      // Must use admin client to bypass RLS for admin operations
+      if (!supabaseAdmin) {
         toast({
-          title: "Warning",
-          description: "Admin client not available. Using regular client.",
-          variant: "default",
+          title: "Error",
+          description: "Admin client not available. Room creation requires VITE_SUPABASE_SERVICE_ROLE_KEY",
+          variant: "destructive",
         });
+        return;
       }
 
-      const { error } = await client
+      const { error } = await supabaseAdmin
         .from("rooms")
         .insert([formData]);
 
@@ -273,10 +272,17 @@ export default function Rooms() {
     }
 
     try {
-      // Use admin client to bypass RLS for admin operations
-      const client = supabaseAdmin || supabase;
-      
-      const { error } = await client
+      // Must use admin client to bypass RLS for admin operations
+      if (!supabaseAdmin) {
+        toast({
+          title: "Error",
+          description: "Admin client not available. Room update requires VITE_SUPABASE_SERVICE_ROLE_KEY",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabaseAdmin
         .from("rooms")
         .update(formData)
         .eq("id", selectedRoom.id);
@@ -302,12 +308,20 @@ export default function Rooms() {
   };
 
   const handleDeleteRoom = async (roomId: string) => {
+    if (!supabaseAdmin) {
+      toast({
+        title: "Error",
+        description: "Admin client not available. Room deletion requires VITE_SUPABASE_SERVICE_ROLE_KEY",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsDeleting(true);
-      // Use admin client to bypass RLS for admin operations
-      const client = supabaseAdmin || supabase;
+      // Must use admin client to bypass RLS for admin operations
       
-      const { error } = await client
+      const { error } = await supabaseAdmin
         .from("rooms")
         .delete()
         .eq("id", roomId);
