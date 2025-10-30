@@ -119,6 +119,7 @@ export default function Rooms() {
     name: "",
     group_type: "P1" as RoomGroup,
     capacity: 1, // Default to 1 for P1
+    capacity_label: "1", // Default label for P1
   });
 
   const fetchRooms = async () => {
@@ -154,6 +155,7 @@ export default function Rooms() {
         name: "",
         group_type: "P1",
         capacity: 1, // Default to 1 for P1
+        capacity_label: "1",
       });
       prevGroupTypeRef.current = "P1";
     } else {
@@ -170,8 +172,8 @@ export default function Rooms() {
         prevGroupTypeRef.current = formData.group_type;
         const options = getGuestCountOptions(formData.group_type);
         // Set to first available option
-        const defaultCapacity = options.length > 0 ? options[0].value : 1;
-        setFormData(prev => ({ ...prev, capacity: defaultCapacity }));
+        const firstOption = options.length > 0 ? options[0] : { value: 1, label: "1" };
+        setFormData(prev => ({ ...prev, capacity: firstOption.value, capacity_label: firstOption.label }));
       }
     }
   }, [formData.group_type, isCreateDialogOpen, isEditDialogOpen]);
@@ -246,6 +248,7 @@ export default function Rooms() {
         name: "",
         group_type: "P1",
         capacity: 2,
+        capacity_label: "2",
       });
       fetchRooms();
     } catch (error: any) {
@@ -351,6 +354,7 @@ export default function Rooms() {
       name: room.name,
       group_type: room.group_type,
       capacity: room.capacity,
+      capacity_label: room.capacity_label || String(room.capacity),
     });
     setIsEditDialogOpen(true);
   };
@@ -433,9 +437,13 @@ export default function Rooms() {
                     return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(formData.capacity);
                   })()}
                   onValueChange={(value) => {
-                    // Extract numeric value from composite "value-label" format
-                    const numericValue = parseInt(value.split('-')[0], 10);
-                    setFormData(prev => ({ ...prev, capacity: numericValue }));
+                    // Extract both value and label from composite "value-label" format
+                    const [numericValue, label] = value.split('-');
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      capacity: parseInt(numericValue, 10),
+                      capacity_label: label
+                    }));
                   }}
                 >
                   <SelectTrigger id="capacity">
@@ -537,8 +545,15 @@ export default function Rooms() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {(() => {
+                        // Use capacity_label if available, otherwise infer from capacity
+                        if (room.capacity_label) {
+                          // Find the option that matches the stored label
+                          const options = getGuestCountOptions(room.group_type);
+                          const matchingOption = options.find(opt => opt.label === room.capacity_label);
+                          return matchingOption ? matchingOption.display : renderIcons(room.capacity_label);
+                        }
+                        // Fallback: infer from capacity value
                         const options = getGuestCountOptions(room.group_type);
-                        // Find the last matching option to prefer "1+1" over "2" when both exist
                         const matchingOptions = options.filter(opt => opt.value === room.capacity);
                         const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
                         return matchingOption ? matchingOption.display : (

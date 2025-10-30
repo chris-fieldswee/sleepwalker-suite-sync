@@ -12,6 +12,7 @@ export interface Room {
     name: string;
     group_type: RoomGroup;
     capacity: number;
+    capacity_label?: string | null;
     color?: string | null;
 }
 export interface Task {

@@ -138,6 +138,7 @@ export type Database = {
         Row: {
           active: boolean | null
           capacity: number
+          capacity_label: string | null
           cleaning_types: Json | null
           color: string | null
           created_at: string | null
@@ -148,6 +149,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           capacity?: number
+          capacity_label?: string | null
           cleaning_types?: Json | null
           color?: string | null
           created_at?: string | null
@@ -158,6 +160,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           capacity?: number
+          capacity_label?: string | null
           cleaning_types?: Json | null
           color?: string | null
           created_at?: string | null
