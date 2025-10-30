@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Edit, Trash2, DoorOpen, Users, Calendar, User } from "lucide-react";
+import { Plus, Edit, Trash2, DoorOpen, Users, Calendar, User, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseAdmin, isAdminClientAvailable } from "@/integrations/supabase/admin-client";
 import { useToast } from "@/hooks/use-toast";
@@ -112,6 +112,7 @@ export default function Rooms() {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const prevGroupTypeRef = useRef<RoomGroup>("P1");
+  const [typeSortDirection, setTypeSortDirection] = useState<"asc" | "desc" | null>(null);
 
   // Form state for create/edit
   const [formData, setFormData] = useState({
@@ -179,6 +180,26 @@ export default function Rooms() {
     const matchesGroup = groupFilter === "all" || room.group_type === groupFilter;
     return matchesGroup;
   });
+
+  const roomTypeOrder: Record<RoomGroup, number> = {
+    P1: 0,
+    P2: 1,
+    A1S: 2,
+    A2S: 3,
+    OTHER: 4,
+  };
+
+  const displayedRooms = (typeSortDirection
+    ? [...filteredRooms].sort((a, b) => {
+        const aOrder = roomTypeOrder[a.group_type] ?? 999;
+        const bOrder = roomTypeOrder[b.group_type] ?? 999;
+        return typeSortDirection === "asc" ? aOrder - bOrder : bOrder - aOrder;
+      })
+    : filteredRooms);
+
+  const toggleTypeSort = () => {
+    setTypeSortDirection(prev => (prev === "asc" ? "desc" : prev === "desc" ? null : "asc"));
+  };
 
   const handleCreateRoom = async () => {
     // Validation
@@ -483,14 +504,26 @@ export default function Rooms() {
             <TableHeader>
               <TableRow>
                 <TableHead>Room</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>
+                  <button
+                    type="button"
+                    onClick={toggleTypeSort}
+                    className="inline-flex items-center gap-1 hover:underline"
+                    title="Sort by room type"
+                  >
+                    Type
+                    {typeSortDirection === null && <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                    {typeSortDirection === 'asc' && <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" />}
+                    {typeSortDirection === 'desc' && <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                  </button>
+                </TableHead>
                 <TableHead>Capacity</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRooms.map((room) => (
+              {displayedRooms.map((room) => (
                 <TableRow key={room.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
