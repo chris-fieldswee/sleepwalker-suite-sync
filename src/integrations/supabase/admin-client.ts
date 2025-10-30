@@ -15,7 +15,11 @@ if (!SUPABASE_URL) {
 }
 
 if (!SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn('VITE_SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_ROLE_KEY not found. Admin features requiring service role access will not work.');
+  console.error('VITE_SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_ROLE_KEY not found. Admin features requiring service role access will not work.');
+  console.error('Environment check:', {
+    VITE_SUPABASE_SERVICE_ROLE_KEY: import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ? 'EXISTS' : 'MISSING',
+    SUPABASE_SERVICE_ROLE_KEY: import.meta.env.SUPABASE_SERVICE_ROLE_KEY ? 'EXISTS' : 'MISSING',
+  });
 }
 
 // Admin client with service role key for admin operations
