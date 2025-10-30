@@ -171,10 +171,15 @@ export default function Rooms() {
       // Only update capacity if group type actually changed
       if (prevGroupTypeRef.current !== formData.group_type) {
         prevGroupTypeRef.current = formData.group_type;
-        const options = getGuestCountOptions(formData.group_type);
-        // Set to first available option
-        const firstOption = options.length > 0 ? options[0] : { value: 1, label: "1" };
-        setFormData(prev => ({ ...prev, capacity: firstOption.value, capacity_label: firstOption.label }));
+        // For OTHER, clear capacity; otherwise set to first available option
+        if (formData.group_type === "OTHER") {
+          setFormData(prev => ({ ...prev, capacity: 0, capacity_label: null }));
+        } else {
+          const options = getGuestCountOptions(formData.group_type);
+          // Set to first available option
+          const firstOption = options.length > 0 ? options[0] : { value: 1, label: "1" };
+          setFormData(prev => ({ ...prev, capacity: firstOption.value, capacity_label: firstOption.label }));
+        }
       }
     }
   }, [formData.group_type, isCreateDialogOpen, isEditDialogOpen]);
@@ -215,27 +220,34 @@ export default function Rooms() {
       return;
     }
 
-    // Validate capacity based on room group
-    const maxCapacity = getMaxCapacity(formData.group_type);
-    const capacityOptions = getGuestCountOptions(formData.group_type);
-    const validCapacities = capacityOptions.map(opt => opt.value);
-    
-    if (!validCapacities.includes(formData.capacity)) {
-      toast({
-        title: "Validation Error",
-        description: `Capacity must be one of the valid options for ${formData.group_type} rooms (max: ${maxCapacity})`,
-        variant: "destructive",
-      });
-      return;
+    // Validate capacity is required for non-OTHER group types
+    if (formData.group_type !== "OTHER") {
+      const maxCapacity = getMaxCapacity(formData.group_type);
+      const capacityOptions = getGuestCountOptions(formData.group_type);
+      const validCapacities = capacityOptions.map(opt => opt.value);
+      
+      if (!formData.capacity || !validCapacities.includes(formData.capacity)) {
+        toast({
+          title: "Validation Error",
+          description: `Capacity is required and must be one of the valid options for ${formData.group_type} rooms (max: ${maxCapacity})`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     try {
       // Prefer admin client, but fallback to regular client (requires RLS policy for admins)
       const client = supabaseAdmin || supabase;
 
+      // For OTHER locations, don't include capacity/capacity_label
+      const insertData = formData.group_type === "OTHER" 
+        ? { name: formData.name, group_type: formData.group_type }
+        : formData;
+
       const { error } = await client
         .from("rooms")
-        .insert([formData]);
+        .insert([insertData]);
 
       if (error) throw error;
 
@@ -275,27 +287,34 @@ export default function Rooms() {
       return;
     }
 
-    // Validate capacity based on room group
-    const maxCapacity = getMaxCapacity(formData.group_type);
-    const capacityOptions = getGuestCountOptions(formData.group_type);
-    const validCapacities = capacityOptions.map(opt => opt.value);
-    
-    if (!validCapacities.includes(formData.capacity)) {
-      toast({
-        title: "Validation Error",
-        description: `Capacity must be one of the valid options for ${formData.group_type} rooms (max: ${maxCapacity})`,
-        variant: "destructive",
-      });
-      return;
+    // Validate capacity is required for non-OTHER group types
+    if (formData.group_type !== "OTHER") {
+      const maxCapacity = getMaxCapacity(formData.group_type);
+      const capacityOptions = getGuestCountOptions(formData.group_type);
+      const validCapacities = capacityOptions.map(opt => opt.value);
+      
+      if (!formData.capacity || !validCapacities.includes(formData.capacity)) {
+        toast({
+          title: "Validation Error",
+          description: `Capacity is required and must be one of the valid options for ${formData.group_type} rooms (max: ${maxCapacity})`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     try {
       // Prefer admin client, but fallback to regular client (requires RLS policy for admins)
       const client = supabaseAdmin || supabase;
 
+      // For OTHER locations, don't include capacity/capacity_label
+      const updateData = formData.group_type === "OTHER" 
+        ? { name: formData.name, group_type: formData.group_type, capacity: null, capacity_label: null }
+        : formData;
+
       const { error } = await client
         .from("rooms")
-        .update(formData)
+        .update(updateData)
         .eq("id", selectedRoom.id);
 
       if (error) throw error;
@@ -427,41 +446,55 @@ export default function Rooms() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="capacity">Capacity</Label>
-                <Select
-                  value={(() => {
-                    const options = getGuestCountOptions(formData.group_type);
-                    // Find the last matching option to prefer "1+1" over "2" when both exist
-                    const matchingOptions = options.filter(opt => opt.value === formData.capacity);
-                    const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
-                    return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(formData.capacity);
-                  })()}
-                  onValueChange={(value) => {
-                    // Extract both value and label from composite "value-label" format
-                    const [numericValue, label] = value.split('-');
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      capacity: parseInt(numericValue, 10),
-                      capacity_label: label
-                    }));
-                  }}
-                >
-                  <SelectTrigger id="capacity">
-                    <SelectValue placeholder="Select capacity" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getGuestCountOptions(formData.group_type).map((option, index) => {
-                      const uniqueValue = `${option.value}-${option.label}`;
-                      return (
-                        <SelectItem key={`${option.value}-${option.label}-${index}`} value={uniqueValue}>
-                          {option.display}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
+              {formData.group_type !== "OTHER" && (
+                <div className="space-y-2">
+                  <Label htmlFor="capacity">
+                    Capacity {formData.group_type !== "OTHER" && <span className="text-destructive">*</span>}
+                  </Label>
+                  <Select
+                    disabled={!formData.group_type}
+                    value={(() => {
+                      if (!formData.group_type) return "";
+                      const options = getGuestCountOptions(formData.group_type);
+                      // Find the first matching option to prefer "2" over "1+1" when both exist (unless capacity_label is set)
+                      const matchingOptions = options.filter(opt => opt.value === formData.capacity);
+                      if (formData.capacity_label) {
+                        // If capacity_label is set, find the exact match
+                        const exactMatch = options.find(opt => opt.label === formData.capacity_label && opt.value === formData.capacity);
+                        if (exactMatch) {
+                          return `${exactMatch.value}-${exactMatch.label}`;
+                        }
+                      }
+                      // Otherwise prefer first matching option (which is "2" not "1+1")
+                      const matchingOption = matchingOptions.length > 0 ? matchingOptions[0] : null;
+                      return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : "";
+                    })()}
+                    onValueChange={(value) => {
+                      // Extract both value and label from composite "value-label" format
+                      const [numericValue, label] = value.split('-');
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        capacity: parseInt(numericValue, 10),
+                        capacity_label: label
+                      }));
+                    }}
+                  >
+                    <SelectTrigger id="capacity">
+                      <SelectValue placeholder={formData.group_type ? "Select capacity" : "Select group type first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getGuestCountOptions(formData.group_type).map((option, index) => {
+                        const uniqueValue = `${option.value}-${option.label}`;
+                        return (
+                          <SelectItem key={`${option.value}-${option.label}-${index}`} value={uniqueValue}>
+                            {option.display}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
@@ -546,6 +579,10 @@ export default function Rooms() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {(() => {
+                        // OTHER locations don't have capacity
+                        if (room.group_type === "OTHER") {
+                          return <span className="text-muted-foreground">-</span>;
+                        }
                         // Use capacity_label if available, otherwise infer from capacity
                         if (room.capacity_label) {
                           // Find the option that matches the stored label
@@ -553,10 +590,10 @@ export default function Rooms() {
                           const matchingOption = options.find(opt => opt.label === room.capacity_label);
                           return matchingOption ? matchingOption.display : renderIcons(room.capacity_label);
                         }
-                        // Fallback: infer from capacity value
+                        // Fallback: infer from capacity value - prefer first matching option (e.g., "2" not "1+1")
                         const options = getGuestCountOptions(room.group_type);
                         const matchingOptions = options.filter(opt => opt.value === room.capacity);
-                        const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
+                        const matchingOption = matchingOptions.length > 0 ? matchingOptions[0] : null;
                         return matchingOption ? matchingOption.display : (
                           <div className="flex items-center gap-1">
                             {Array.from({ length: Math.min(room.capacity, 6) }, (_, i) => (
@@ -650,14 +687,23 @@ export default function Rooms() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-capacity">Capacity</Label>
-              <Select
+            {formData.group_type !== "OTHER" && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-capacity">
+                  Capacity {formData.group_type !== "OTHER" && <span className="text-destructive">*</span>}
+                </Label>
+                <Select
                 value={(() => {
                   const options = getGuestCountOptions(formData.group_type);
-                  // Find the last matching option to prefer "1+1" over "2" when both exist
+                  // Prefer capacity_label if set, otherwise use first matching option (e.g., "2" not "1+1")
+                  if (formData.capacity_label) {
+                    const exactMatch = options.find(opt => opt.label === formData.capacity_label && opt.value === formData.capacity);
+                    if (exactMatch) {
+                      return `${exactMatch.value}-${exactMatch.label}`;
+                    }
+                  }
                   const matchingOptions = options.filter(opt => opt.value === formData.capacity);
-                  const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
+                  const matchingOption = matchingOptions.length > 0 ? matchingOptions[0] : null;
                   return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(formData.capacity);
                 })()}
                 onValueChange={(value) => {
@@ -685,6 +731,7 @@ export default function Rooms() {
                 </SelectContent>
               </Select>
             </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
