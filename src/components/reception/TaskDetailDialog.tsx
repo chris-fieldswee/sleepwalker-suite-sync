@@ -374,7 +374,9 @@ export function TaskDetailDialog({
                                     value={(() => {
                                         const roomGroup = availableRooms.find(r => r.id === editableState.roomId)?.group_type || null;
                                         const options = getGuestCountOptions(roomGroup);
-                                        const matchingOption = options.find(opt => opt.value === editableState.guestCount);
+                                        // Find the last matching option to prefer "1+1" over "2" when both exist
+                                        const matchingOptions = options.filter(opt => opt.value === editableState.guestCount);
+                                        const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
                                         return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(editableState.guestCount);
                                     })()}
                                     onValueChange={(value) => {

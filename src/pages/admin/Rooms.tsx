@@ -427,7 +427,9 @@ export default function Rooms() {
                 <Select
                   value={(() => {
                     const options = getGuestCountOptions(formData.group_type);
-                    const matchingOption = options.find(opt => opt.value === formData.capacity);
+                    // Find the last matching option to prefer "1+1" over "2" when both exist
+                    const matchingOptions = options.filter(opt => opt.value === formData.capacity);
+                    const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
                     return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(formData.capacity);
                   })()}
                   onValueChange={(value) => {
@@ -536,7 +538,9 @@ export default function Rooms() {
                     <div className="flex items-center gap-2">
                       {(() => {
                         const options = getGuestCountOptions(room.group_type);
-                        const matchingOption = options.find(opt => opt.value === room.capacity);
+                        // Find the last matching option to prefer "1+1" over "2" when both exist
+                        const matchingOptions = options.filter(opt => opt.value === room.capacity);
+                        const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
                         return matchingOption ? matchingOption.display : (
                           <div className="flex items-center gap-1">
                             {Array.from({ length: Math.min(room.capacity, 6) }, (_, i) => (
@@ -635,7 +639,9 @@ export default function Rooms() {
               <Select
                 value={(() => {
                   const options = getGuestCountOptions(formData.group_type);
-                  const matchingOption = options.find(opt => opt.value === formData.capacity);
+                  // Find the last matching option to prefer "1+1" over "2" when both exist
+                  const matchingOptions = options.filter(opt => opt.value === formData.capacity);
+                  const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
                   return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(formData.capacity);
                 })()}
                 onValueChange={(value) => {

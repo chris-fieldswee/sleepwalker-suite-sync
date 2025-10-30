@@ -521,7 +521,9 @@ export function AddTaskDialog({
                                 const selectedRoom = availableRooms.find(r => r.id === newTask.roomId);
                                 const roomGroup = selectedRoom?.group_type || null;
                                 const options = getGuestCountOptions(roomGroup);
-                                const matchingOption = options.find(opt => opt.value === newTask.guestCount);
+                                // Find the last matching option to prefer "1+1" over "2" when both exist
+                                const matchingOptions = options.filter(opt => opt.value === newTask.guestCount);
+                                const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
                                 return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(newTask.guestCount);
                             })()}
                             onValueChange={(value) => {
