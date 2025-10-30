@@ -66,8 +66,23 @@ END $$;
 ALTER TABLE public.rooms ENABLE ROW LEVEL SECURITY;
 
 -- Step 8: Drop and recreate rooms manage policy
-DROP POLICY IF EXISTS "Reception and admin can manage rooms" ON public.rooms;
-DROP POLICY IF EXISTS "Authenticated users can view rooms" ON public.rooms;
+DO $$ 
+BEGIN
+  -- Drop existing policies if they exist
+  IF EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'rooms' AND policyname = 'Reception and admin can manage rooms'
+  ) THEN
+    DROP POLICY "Reception and admin can manage rooms" ON public.rooms;
+  END IF;
+  
+  IF EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'rooms' AND policyname = 'Authenticated users can view rooms'
+  ) THEN
+    DROP POLICY "Authenticated users can view rooms" ON public.rooms;
+  END IF;
+END $$;
 
 CREATE POLICY "Authenticated users can view rooms"
 ON public.rooms FOR SELECT
