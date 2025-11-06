@@ -107,9 +107,26 @@ BEGIN
 END;
 $$;
 
+-- Create a function to delete rooms (bypasses RLS)
+CREATE OR REPLACE FUNCTION public.delete_room(
+  room_id_param UUID
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  DELETE FROM public.rooms
+  WHERE id = room_id_param;
+  
+  RETURN room_id_param;
+END;
+$$;
+
 -- Grant execute permissions to authenticated users
 GRANT EXECUTE ON FUNCTION public.update_room_with_configurations(UUID, TEXT, room_group, JSONB, INTEGER, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.insert_room_with_configurations(TEXT, room_group, JSONB, INTEGER, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_room(UUID) TO authenticated;
 
 -- Verify functions were created (optional - will show an error if they don't exist)
 DO $$
@@ -130,6 +147,14 @@ BEGIN
     RAISE EXCEPTION 'Function insert_room_with_configurations was not created';
   END IF;
   
-  RAISE NOTICE 'Both functions created successfully!';
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc 
+    WHERE proname = 'delete_room' 
+    AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+  ) THEN
+    RAISE EXCEPTION 'Function delete_room was not created';
+  END IF;
+  
+  RAISE NOTICE 'All functions created successfully!';
 END $$;
 

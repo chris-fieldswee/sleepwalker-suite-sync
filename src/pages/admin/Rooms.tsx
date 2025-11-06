@@ -680,15 +680,63 @@ export default function Rooms() {
   const handleDeleteRoom = async (roomId: string) => {
     try {
       setIsDeleting(true);
-      // Prefer admin client, but fallback to regular client (requires RLS policy for admins)
+      // Prefer admin client to bypass RLS, but fallback to regular client
       const client = supabaseAdmin || supabase;
+      const rpcClient = supabaseAdmin || supabase;
 
-      const { error } = await client
-        .from("rooms")
-        .delete()
-        .eq("id", roomId);
+      console.log("Deleting room:", roomId);
+      console.log("Using client:", supabaseAdmin ? "admin (bypasses RLS)" : "regular (subject to RLS)");
 
-      if (error) throw error;
+      // Try RPC function first (bypasses RLS)
+      try {
+        console.log("Attempting to delete via RPC function...");
+        const rpcResult = await rpcClient.rpc('delete_room', {
+          room_id_param: roomId
+        });
+
+        if (rpcResult.error) {
+          console.error("RPC delete error:", rpcResult.error);
+          throw rpcResult.error;
+        }
+
+        console.log("Successfully deleted room via RPC function");
+      } catch (rpcError: any) {
+        // If RPC function doesn't exist or fails, fall back to direct delete
+        console.warn("RPC delete failed, trying direct delete...", rpcError);
+        
+        const { data, error } = await client
+          .from("rooms")
+          .delete()
+          .eq("id", roomId)
+          .select(); // Select to verify deletion
+
+        console.log("Direct delete result:", { data, error });
+
+        if (error) {
+          console.error("Delete error details:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+          throw error;
+        }
+
+        // Verify the room was actually deleted
+        if (data && data.length === 0) {
+          console.warn("Delete returned no data - room may not have been deleted");
+          // Try to verify by fetching the room
+          const { data: verifyData, error: verifyError } = await client
+            .from("rooms")
+            .select("id")
+            .eq("id", roomId)
+            .maybeSingle();
+          
+          if (verifyData) {
+            throw new Error("Room still exists in database after delete operation. RLS policy may be blocking deletion.");
+          }
+        }
+      }
 
       // Refresh rooms list before showing success message
       await fetchRooms();
@@ -699,9 +747,10 @@ export default function Rooms() {
       });
     } catch (error: any) {
       console.error("Error deleting room:", error);
+      const errorMessage = error?.message || error?.details || "Unknown error";
       toast({
         title: "Error",
-        description: `Failed to delete room: ${error.message}`,
+        description: `Failed to delete room: ${errorMessage}. ${error?.hint || ''}`,
         variant: "destructive",
       });
     } finally {
