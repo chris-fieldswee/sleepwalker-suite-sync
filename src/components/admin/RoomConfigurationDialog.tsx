@@ -252,6 +252,28 @@ export function RoomConfigurationDialog({
             capacity: room.capacity,
             capacity_label: room.capacity_label || String(room.capacity)
           }];
+        } else if (room.group_type === 'OTHER') {
+          // For OTHER rooms, check if cleaning_types are stored in the legacy field
+          if (room.cleaning_types) {
+            try {
+              let cleaningTypesArray: string[] = [];
+              if (typeof room.cleaning_types === 'string') {
+                cleaningTypesArray = JSON.parse(room.cleaning_types);
+              } else if (Array.isArray(room.cleaning_types)) {
+                cleaningTypesArray = room.cleaning_types;
+              }
+              
+              // Convert to RoomCleaningType format with default time limits
+              parsedCleaningTypes = cleaningTypesArray
+                .filter((type: string) => type === 'S' || type === 'G') // Only S and G for OTHER
+                .map((type: string) => ({
+                  type: type as CleaningType,
+                  time_limit: 30 // Default time limit, can be adjusted
+                }));
+            } catch (e) {
+              console.error("Error parsing cleaning_types for OTHER room:", e);
+            }
+          }
         }
         
         setSelectedCapacities(parsedCapacities);
@@ -339,16 +361,30 @@ export function RoomConfigurationDialog({
 
     // Transform the separate capacities and cleaning types into capacity_configurations format
     // Each capacity gets all cleaning types (since they're defined at room level)
+    // For OTHER rooms, we still need to save cleaning types even without capacity configurations
     const capacityConfigurations: CapacityConfiguration[] = selectedCapacities.map(capacity => ({
       capacity: capacity.capacity,
       capacity_label: capacity.capacity_label,
       cleaning_types: cleaningTypes
     }));
 
+    // For OTHER rooms, create a dummy capacity configuration with cleaning types if cleaning types are defined
+    // This ensures cleaning types are saved even for OTHER rooms
+    let finalCapacityConfigurations = capacityConfigurations;
+    if (groupType === 'OTHER' && cleaningTypes.length > 0) {
+      // Create a placeholder capacity configuration for OTHER rooms to store cleaning types
+      // The capacity value doesn't matter for OTHER rooms, but we need the structure
+      finalCapacityConfigurations = [{
+        capacity: 0,
+        capacity_label: 'N/A',
+        cleaning_types: cleaningTypes
+      }];
+    }
+
     await onSave({
       name: name.trim(),
       group_type: groupType,
-      capacity_configurations: groupType === 'OTHER' ? [] : capacityConfigurations
+      capacity_configurations: finalCapacityConfigurations
     });
   };
 
@@ -463,7 +499,7 @@ export function RoomConfigurationDialog({
           )}
 
           {/* Cleaning Types & Time Limits */}
-          {groupType && groupType !== 'OTHER' && (
+          {groupType && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-base font-semibold">Cleaning Types & Time Limits</Label>
