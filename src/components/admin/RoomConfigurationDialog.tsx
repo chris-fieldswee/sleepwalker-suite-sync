@@ -83,42 +83,57 @@ const renderIcons = (config: string): React.ReactNode => {
   );
 };
 
+// Get ALL available capacity options (not filtered by group type)
+// Admin can select any capacity option for any room
+const getAllCapacityOptions = (): Array<{ value: number; label: string; display: React.ReactNode }> => {
+  // Collect all unique capacity options from all group types
+  // Use label as the unique key since same value can have different labels (e.g., value 2 can be "2" or "1+1")
+  const allOptions = new Map<string, { value: number; label: string; display: React.ReactNode }>();
+  
+  // Add all options from all group types
+  const options = [
+    // P1 options
+    { value: 1, label: '1', display: renderIcons('1') },
+    
+    // P2 options
+    { value: 1, label: '1', display: renderIcons('1') },
+    { value: 2, label: '2', display: renderIcons('2') },
+    { value: 2, label: '1+1', display: renderIcons('1+1') },
+    
+    // A1S options
+    { value: 1, label: '1', display: renderIcons('1') },
+    { value: 2, label: '2', display: renderIcons('2') },
+    { value: 2, label: '1+1', display: renderIcons('1+1') },
+    { value: 3, label: '2+1', display: renderIcons('2+1') },
+    { value: 4, label: '2+2', display: renderIcons('2+2') },
+    
+    // A2S options
+    { value: 1, label: '1', display: renderIcons('1') },
+    { value: 2, label: '2', display: renderIcons('2') },
+    { value: 2, label: '1+1', display: renderIcons('1+1') },
+    { value: 3, label: '2+1', display: renderIcons('2+1') },
+    { value: 4, label: '2+2', display: renderIcons('2+2') },
+    { value: 3, label: '1+1+1', display: renderIcons('1+1+1') },
+    { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
+    { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
+  ];
+  
+  // Add to map using label as unique key (since same value can have different labels)
+  options.forEach(option => {
+    allOptions.set(option.label, option);
+  });
+  
+  // Return all unique options sorted by value, then by label
+  return Array.from(allOptions.values()).sort((a, b) => {
+    if (a.value !== b.value) return a.value - b.value;
+    return a.label.localeCompare(b.label);
+  });
+};
+
+// Legacy function kept for backward compatibility (not used anymore)
 const getGuestCountOptions = (roomGroup: RoomGroup): Array<{ value: number; label: string; display: React.ReactNode }> => {
-  switch (roomGroup) {
-    case 'P1':
-      return [{ value: 1, label: '1', display: renderIcons('1') }];
-    case 'P2':
-      return [
-        { value: 1, label: '1', display: renderIcons('1') },
-        { value: 2, label: '2', display: renderIcons('2') },
-        { value: 2, label: '1+1', display: renderIcons('1+1') },
-      ];
-    case 'A1S':
-      return [
-        { value: 1, label: '1', display: renderIcons('1') },
-        { value: 2, label: '2', display: renderIcons('2') },
-        { value: 2, label: '1+1', display: renderIcons('1+1') },
-        { value: 3, label: '2+1', display: renderIcons('2+1') },
-        { value: 4, label: '2+2', display: renderIcons('2+2') },
-      ];
-    case 'A2S':
-      return [
-        { value: 1, label: '1', display: renderIcons('1') },
-        { value: 2, label: '2', display: renderIcons('2') },
-        { value: 2, label: '1+1', display: renderIcons('1+1') },
-        { value: 3, label: '2+1', display: renderIcons('2+1') },
-        { value: 4, label: '2+2', display: renderIcons('2+2') },
-        { value: 3, label: '1+1+1', display: renderIcons('1+1+1') },
-        { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
-        { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
-      ];
-    case 'OTHER':
-      return Array.from({ length: 10 }, (_, i) => ({
-        value: i + 1,
-        label: String(i + 1),
-        display: renderIcons(String(i + 1)),
-      }));
-  }
+  // Now returns all options regardless of group type
+  return getAllCapacityOptions();
 };
 
 export function RoomConfigurationDialog({
@@ -337,7 +352,15 @@ export function RoomConfigurationDialog({
     });
   };
 
-  const capacityOptions = groupType ? getGuestCountOptions(groupType) : [];
+  // Show all capacity options regardless of group type (admin can select any)
+  const capacityOptions = getAllCapacityOptions();
+  
+  // Debug: Log available options (remove in production if needed)
+  useEffect(() => {
+    if (isOpen && groupType && groupType !== 'OTHER') {
+      console.log('Available capacity options:', capacityOptions.map(o => `${o.value} (${o.label})`));
+    }
+  }, [isOpen, groupType, capacityOptions]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -393,8 +416,9 @@ export function RoomConfigurationDialog({
           {groupType && groupType !== 'OTHER' && (
             <div className="space-y-4">
               <Label className="text-base font-semibold">Select Capacities</Label>
+              <p className="text-sm text-muted-foreground">Select one or more capacity options for this room. All available options are shown below.</p>
               {capacityOptions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No capacity options available for this group type.</p>
+                <p className="text-sm text-muted-foreground">No capacity options available.</p>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {capacityOptions.map((option, idx) => {

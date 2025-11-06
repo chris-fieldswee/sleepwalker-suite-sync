@@ -191,11 +191,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        console.error("Sign in error:", {
+          message: error.message,
+          status: error.status,
+          code: error.code,
+          name: error.name,
+          fullError: error
+        });
+      } else {
+        console.log("Sign in successful, session:", data.session ? "exists" : "missing");
+      }
+      
+      return { error };
+    } catch (err: any) {
+      console.error("Unexpected sign in error:", err);
+      return { error: { message: err.message || "Unexpected error during sign in", status: 500 } };
+    }
   };
 
   const signUp = async (email: string, password: string, name: string) => {

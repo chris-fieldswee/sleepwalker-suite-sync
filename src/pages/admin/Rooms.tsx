@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Edit, Trash2, DoorOpen, Calendar } from "lucide-react";
+import { Plus, Edit, Trash2, DoorOpen, Calendar, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseAdmin } from "@/integrations/supabase/admin-client";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +27,7 @@ export default function Rooms() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [typeSortDirection, setTypeSortDirection] = useState<"asc" | "desc" | null>(null);
+  const [createdSortDirection, setCreatedSortDirection] = useState<"asc" | "desc" | null>(null);
 
   const fetchRooms = async () => {
     try {
@@ -67,16 +68,50 @@ export default function Rooms() {
     OTHER: 4,
   };
 
-  const displayedRooms = (typeSortDirection
-    ? [...filteredRooms].sort((a, b) => {
+  const displayedRooms = (() => {
+    let sorted = [...filteredRooms];
+    
+    // Apply type sorting if active
+    if (typeSortDirection) {
+      sorted = sorted.sort((a, b) => {
         const aOrder = roomTypeOrder[a.group_type] ?? 999;
         const bOrder = roomTypeOrder[b.group_type] ?? 999;
         return typeSortDirection === "asc" ? aOrder - bOrder : bOrder - aOrder;
-      })
-    : filteredRooms);
+      });
+    }
+    
+    // Apply created date sorting if active (takes priority over type sort)
+    if (createdSortDirection) {
+      sorted = sorted.sort((a, b) => {
+        const aDate = new Date(a.created_at || 0).getTime();
+        const bDate = new Date(b.created_at || 0).getTime();
+        return createdSortDirection === "asc" ? aDate - bDate : bDate - aDate;
+      });
+    }
+    
+    return sorted;
+  })();
 
   const toggleTypeSort = () => {
-    setTypeSortDirection(prev => (prev === "asc" ? "desc" : prev === "desc" ? null : "asc"));
+    setTypeSortDirection(prev => {
+      const next = prev === "asc" ? "desc" : prev === "desc" ? null : "asc";
+      // Clear created sort when type sort is activated
+      if (next !== null) {
+        setCreatedSortDirection(null);
+      }
+      return next;
+    });
+  };
+
+  const toggleCreatedSort = () => {
+    setCreatedSortDirection(prev => {
+      const next = prev === "asc" ? "desc" : prev === "desc" ? null : "asc";
+      // Clear type sort when created sort is activated
+      if (next !== null) {
+        setTypeSortDirection(null);
+      }
+      return next;
+    });
   };
 
   const handleSaveRoom = async (roomData: {
@@ -102,6 +137,19 @@ export default function Rooms() {
         capacity_configurations: roomData.capacity_configurations || [],
       };
 
+      // Extract unique cleaning types from capacity_configurations
+      const cleaningTypesSet = new Set<string>();
+      roomData.capacity_configurations.forEach(config => {
+        if (config.cleaning_types && Array.isArray(config.cleaning_types)) {
+          config.cleaning_types.forEach((ct: { type: string; time_limit: number }) => {
+            if (ct.type) {
+              cleaningTypesSet.add(ct.type);
+            }
+          });
+        }
+      });
+      roomDataToSave.cleaning_types = Array.from(cleaningTypesSet).sort();
+
       // For non-OTHER rooms, set legacy fields for backward compatibility
       if (roomData.group_type !== 'OTHER' && roomData.capacity_configurations.length > 0) {
         roomDataToSave.capacity = roomData.capacity_configurations[0].capacity;
@@ -112,6 +160,8 @@ export default function Rooms() {
       }
 
       console.log("Saving room data:", roomDataToSave);
+      console.log("Capacity configurations count:", roomData.capacity_configurations.length);
+      console.log("Capacity configurations:", JSON.stringify(roomData.capacity_configurations, null, 2));
 
       // Check if this is a schema cache issue and use RPC functions directly
       const isSchemaCacheError = (err: any) => {
@@ -131,7 +181,102 @@ export default function Rooms() {
 
       let data, error;
 
-      // Try direct save first
+      // If we have capacity_configurations, try RPC functions first (they're more reliable)
+      // Only try direct save if RPC functions don't exist or fail
+      const hasCapacityConfigs = roomData.capacity_configurations && roomData.capacity_configurations.length > 0;
+      const shouldTryRpcFirst = hasCapacityConfigs;
+
+      // Use the original capacity_configurations from roomData, not from roomDataToSave
+      const capacityConfigsToSave = roomData.capacity_configurations || [];
+
+      console.log("=== ROOM SAVE DEBUG ===");
+      console.log("Has capacity configs:", hasCapacityConfigs);
+      console.log("Capacity configs count:", capacityConfigsToSave.length);
+      console.log("Capacity configs data:", JSON.stringify(capacityConfigsToSave, null, 2));
+      console.log("Should try RPC first:", shouldTryRpcFirst);
+
+      // Try RPC functions first if we have capacity configurations
+      if (shouldTryRpcFirst) {
+        try {
+          const isUpdate = !!selectedRoom;
+          const adminClient = supabaseAdmin;
+          const rpcClient = adminClient || client;
+          
+          console.log("Attempting to save via RPC functions first...");
+          console.log("RPC params:", {
+            room_id_param: selectedRoom?.id,
+            room_name: roomDataToSave.name,
+            room_group_type: roomDataToSave.group_type,
+            room_capacity_configurations: capacityConfigsToSave,
+            room_capacity: roomDataToSave.capacity,
+            room_capacity_label: roomDataToSave.capacity_label
+          });
+          
+          if (isUpdate) {
+            const rpcResult = await rpcClient.rpc('update_room_with_configurations', {
+              room_id_param: selectedRoom.id,
+              room_name: roomDataToSave.name,
+              room_group_type: roomDataToSave.group_type,
+              room_capacity_configurations: capacityConfigsToSave,
+              room_capacity: roomDataToSave.capacity || null,
+              room_capacity_label: roomDataToSave.capacity_label || null
+            });
+            
+            if (rpcResult.error) {
+              console.error("RPC update error:", rpcResult.error);
+              throw { useRpc: false, originalError: rpcResult.error }; // Fall through to direct save
+            }
+            
+            console.log("Successfully updated room via RPC function");
+            const fetchResult = await client.from("rooms").select("*").eq("id", selectedRoom.id).single();
+            if (fetchResult.data) {
+              data = [fetchResult.data];
+              console.log("Fetched updated room data:", data);
+            }
+          } else {
+            const rpcResult = await rpcClient.rpc('insert_room_with_configurations', {
+              room_name: roomDataToSave.name,
+              room_group_type: roomDataToSave.group_type,
+              room_capacity_configurations: capacityConfigsToSave,
+              room_capacity: roomDataToSave.capacity || null,
+              room_capacity_label: roomDataToSave.capacity_label || null
+            });
+            
+            if (rpcResult.error) {
+              console.error("RPC insert error:", rpcResult.error);
+              throw { useRpc: false, originalError: rpcResult.error }; // Fall through to direct save
+            }
+            
+            const newRoomId = rpcResult.data;
+            console.log("Successfully created room via RPC function, ID:", newRoomId);
+            const fetchResult = await client.from("rooms").select("*").eq("id", newRoomId).single();
+            if (fetchResult.data) {
+              data = [fetchResult.data];
+              console.log("Fetched created room data:", data);
+            }
+          }
+          
+          // Success via RPC
+          if (data) {
+            const wasUpdate = !!selectedRoom;
+            setIsCreateDialogOpen(false);
+            setIsEditDialogOpen(false);
+            setSelectedRoom(null);
+            await fetchRooms();
+            toast({
+              title: "Success",
+              description: wasUpdate ? "Room updated successfully" : "Room created successfully",
+            });
+            setIsSaving(false);
+            return;
+          }
+        } catch (rpcError: any) {
+          console.warn("RPC functions failed or don't exist, trying direct save...", rpcError);
+          // Fall through to direct save attempt
+        }
+      }
+
+      // Try direct save
       try {
         const result = selectedRoom
           ? await client
@@ -161,14 +306,18 @@ export default function Rooms() {
             }
           }
           
+          // Clear any previous error states
+          setIsCreateDialogOpen(false);
+          setIsEditDialogOpen(false);
+          setSelectedRoom(null);
+          
+          // Refresh rooms list
+          await fetchRooms();
+          
           toast({
             title: "Success",
             description: selectedRoom ? "Room updated successfully" : "Room created successfully",
           });
-          setIsCreateDialogOpen(false);
-          setIsEditDialogOpen(false);
-          setSelectedRoom(null);
-          fetchRooms();
           setIsSaving(false);
           return;
         }
@@ -184,17 +333,23 @@ export default function Rooms() {
       } catch (e: any) {
         // If we should use RPC, do it
         if (e.useRpc) {
-          const { capacity_configurations, ...basicData } = roomDataToSave;
           const isUpdate = !!selectedRoom;
+          
+          // Try using admin client first if available (bypasses RLS, might work even with cache issues)
+          const adminClient = supabaseAdmin;
+          const rpcClient = adminClient || client;
+          
+          console.log("Fallback: Trying RPC after direct save failed...");
+          console.log("Using capacity configs:", capacityConfigsToSave);
           
           try {
             if (isUpdate) {
               // Update existing room
-              const rpcResult = await client.rpc('update_room_with_configurations', {
+              const rpcResult = await rpcClient.rpc('update_room_with_configurations', {
                 room_id_param: selectedRoom.id,
                 room_name: roomDataToSave.name,
                 room_group_type: roomDataToSave.group_type,
-                room_capacity_configurations: capacity_configurations || [],
+                room_capacity_configurations: capacityConfigsToSave,
                 room_capacity: roomDataToSave.capacity || null,
                 room_capacity_label: roomDataToSave.capacity_label || null
               });
@@ -219,10 +374,10 @@ export default function Rooms() {
               }
             } else {
               // Insert new room
-              const rpcResult = await client.rpc('insert_room_with_configurations', {
+              const rpcResult = await rpcClient.rpc('insert_room_with_configurations', {
                 room_name: roomDataToSave.name,
                 room_group_type: roomDataToSave.group_type,
-                room_capacity_configurations: capacity_configurations || [],
+                room_capacity_configurations: capacityConfigsToSave,
                 room_capacity: roomDataToSave.capacity || null,
                 room_capacity_label: roomDataToSave.capacity_label || null
               });
@@ -257,29 +412,38 @@ export default function Rooms() {
                 
                 if (error) throw error;
                 
+                // Clear any previous error states
+                setIsCreateDialogOpen(false);
+                setIsEditDialogOpen(false);
+                setSelectedRoom(null);
+                // Refresh rooms list
+                await fetchRooms();
                 toast({
                   title: "Room saved (partial)",
                   description: "Room created successfully, but capacity configurations couldn't be saved yet. Please wait 2-3 minutes for schema cache refresh, then edit the room to add capacity configurations.",
                   variant: "default",
                 });
-                setIsCreateDialogOpen(false);
-                setIsEditDialogOpen(false);
-                setSelectedRoom(null);
-                fetchRooms();
                 setIsSaving(false);
                 return;
               }
             }
             
             // Success via RPC
-            toast({
-              title: "Success",
-              description: selectedRoom ? "Room updated successfully" : "Room created successfully",
-            });
+            // Store selectedRoom state before clearing it
+            const wasUpdate = !!selectedRoom;
+            
+            // Clear any previous error states
             setIsCreateDialogOpen(false);
             setIsEditDialogOpen(false);
             setSelectedRoom(null);
-            fetchRooms();
+            
+            // Refresh rooms list
+            await fetchRooms();
+            
+            toast({
+              title: "Success",
+              description: wasUpdate ? "Room updated successfully" : "Room created successfully",
+            });
             setIsSaving(false);
             return;
           } catch (rpcError: any) {
@@ -287,6 +451,75 @@ export default function Rooms() {
             
             // Check if it's a 404 (function doesn't exist) or other error
             const isNotFound = rpcError?.status === 404 || rpcError?.code === 'PGRST202' || rpcError?.message?.includes('not found') || rpcError?.code === 'PGRST116';
+            
+            // If admin client is available, try one more time with a delay (sometimes helps)
+            if (adminClient && isNotFound) {
+              console.warn("RPC failed with admin client, waiting 2 seconds and retrying...");
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              
+              try {
+                if (isUpdate) {
+                  const retryResult = await adminClient.rpc('update_room_with_configurations', {
+                    room_id_param: selectedRoom.id,
+                    room_name: roomDataToSave.name,
+                    room_group_type: roomDataToSave.group_type,
+                    room_capacity_configurations: capacityConfigsToSave,
+                    room_capacity: roomDataToSave.capacity || null,
+                    room_capacity_label: roomDataToSave.capacity_label || null
+                  });
+                  
+                  if (!retryResult.error && retryResult.data) {
+                    console.log("Successfully saved via admin client RPC on retry!");
+                    const fetchResult = await client.from("rooms").select("*").eq("id", selectedRoom.id).single();
+                    if (fetchResult.data) {
+                      data = [fetchResult.data];
+                      // Clear any previous error states
+                      setIsCreateDialogOpen(false);
+                      setIsEditDialogOpen(false);
+                      setSelectedRoom(null);
+                      // Refresh rooms list
+                      await fetchRooms();
+                      toast({
+                        title: "Success",
+                        description: "Room updated successfully",
+                      });
+                      setIsSaving(false);
+                      return;
+                    }
+                  }
+                } else {
+                  const retryResult = await adminClient.rpc('insert_room_with_configurations', {
+                    room_name: roomDataToSave.name,
+                    room_group_type: roomDataToSave.group_type,
+                    room_capacity_configurations: capacityConfigsToSave,
+                    room_capacity: roomDataToSave.capacity || null,
+                    room_capacity_label: roomDataToSave.capacity_label || null
+                  });
+                  
+                  if (!retryResult.error && retryResult.data) {
+                    console.log("Successfully saved via admin client RPC on retry!");
+                    const fetchResult = await client.from("rooms").select("*").eq("id", retryResult.data).single();
+                    if (fetchResult.data) {
+                      data = [fetchResult.data];
+                      // Clear any previous error states
+                      setIsCreateDialogOpen(false);
+                      setIsEditDialogOpen(false);
+                      setSelectedRoom(null);
+                      // Refresh rooms list
+                      await fetchRooms();
+                      toast({
+                        title: "Success",
+                        description: "Room created successfully",
+                      });
+                      setIsSaving(false);
+                      return;
+                    }
+                  }
+                }
+              } catch (retryError: any) {
+                console.warn("Admin client retry also failed:", retryError);
+              }
+            }
             
             // Try one more time to save with capacity_configurations directly (sometimes works even after error)
             console.warn("RPC failed, trying direct save with capacity_configurations one more time...");
@@ -315,14 +548,16 @@ export default function Rooms() {
                   }
                 }
                 
+                // Clear any previous error states
+                setIsCreateDialogOpen(false);
+                setIsEditDialogOpen(false);
+                setSelectedRoom(null);
+                // Refresh rooms list
+                await fetchRooms();
                 toast({
                   title: "Success",
                   description: selectedRoom ? "Room updated successfully" : "Room created successfully",
                 });
-                setIsCreateDialogOpen(false);
-                setIsEditDialogOpen(false);
-                setSelectedRoom(null);
-                fetchRooms();
                 setIsSaving(false);
                 return;
               }
@@ -353,12 +588,12 @@ export default function Rooms() {
             
             // Store capacity_configurations in localStorage as a temporary workaround
             // so user can recover it when they edit
-            if (capacity_configurations && capacity_configurations.length > 0) {
+            if (capacityConfigsToSave && capacityConfigsToSave.length > 0) {
               const roomId = data?.[0]?.id || selectedRoom?.id;
               if (roomId) {
                 try {
                   localStorage.setItem(`room_config_${roomId}`, JSON.stringify({
-                    capacity_configurations,
+                    capacity_configurations: capacityConfigsToSave,
                     timestamp: Date.now()
                   }));
                   console.log("Stored capacity_configurations in localStorage for recovery");
@@ -369,18 +604,20 @@ export default function Rooms() {
             }
             
             const errorMsg = isNotFound 
-              ? "Room saved, but capacity configurations are temporarily stored locally. The database functions need PostgREST cache refresh. Please restart your Supabase project (Settings → General → Restart), wait 2-3 minutes, then edit this room again. Your configurations will be saved automatically."
-              : "Room saved, but capacity configurations are temporarily stored locally. PostgREST schema cache needs to refresh. Please restart your Supabase project (Settings → General → Restart), wait 2-3 minutes, then edit this room again. Your configurations will be saved automatically.";
+              ? "Room saved successfully! Capacity configurations are temporarily stored locally because PostgREST can't see the database functions yet. To fix: 1) Run 'supabase/force_postgrest_refresh.sql' in SQL Editor, 2) Restart your Supabase project (Settings → General → Restart), 3) Wait 3-5 minutes, then edit this room again. Your configurations will be saved automatically."
+              : "Room saved successfully! Capacity configurations are temporarily stored locally. PostgREST schema cache needs to refresh. Please restart your Supabase project (Settings → General → Restart), wait 3-5 minutes, then edit this room again. Your configurations will be saved automatically.";
             
+            // Clear any previous error states
+            setIsCreateDialogOpen(false);
+            setIsEditDialogOpen(false);
+            setSelectedRoom(null);
+            // Refresh rooms list
+            await fetchRooms();
             toast({
               title: "Room saved (partial)",
               description: errorMsg,
               variant: "default",
             });
-            setIsCreateDialogOpen(false);
-            setIsEditDialogOpen(false);
-            setSelectedRoom(null);
-            fetchRooms();
             setIsSaving(false);
             return;
           }
@@ -402,15 +639,21 @@ export default function Rooms() {
 
       console.log("Room saved successfully:", data);
 
-      toast({
-        title: "Success",
-        description: selectedRoom ? "Room updated successfully" : "Room created successfully",
-      });
-
+      // Store selectedRoom state before clearing it
+      const wasUpdate = !!selectedRoom;
+      
+      // Clear any previous error states
       setIsCreateDialogOpen(false);
       setIsEditDialogOpen(false);
       setSelectedRoom(null);
-      fetchRooms();
+      
+      // Refresh rooms list
+      await fetchRooms();
+
+      toast({
+        title: "Success",
+        description: wasUpdate ? "Room updated successfully" : "Room created successfully",
+      });
     } catch (error: any) {
       console.error("Error saving room - full error:", error);
       console.error("Error message:", error?.message);
@@ -438,12 +681,13 @@ export default function Rooms() {
 
       if (error) throw error;
 
+      // Refresh rooms list before showing success message
+      await fetchRooms();
+
       toast({
         title: "Success",
         description: "Room deleted successfully",
       });
-
-      fetchRooms();
     } catch (error: any) {
       console.error("Error deleting room:", error);
       toast({
@@ -556,16 +800,31 @@ export default function Rooms() {
               <TableRow>
                 <TableHead>Room</TableHead>
                 <TableHead>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 data-[state=open]:bg-accent"
                     onClick={toggleTypeSort}
-                    className="inline-flex items-center gap-1 hover:underline"
-                    title="Sort by room type"
                   >
                     Type
-                  </button>
+                    {typeSortDirection === "asc" && <ArrowUp className="ml-2 h-4 w-4" />}
+                    {typeSortDirection === "desc" && <ArrowDown className="ml-2 h-4 w-4" />}
+                    {typeSortDirection === null && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                  </Button>
                 </TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 data-[state=open]:bg-accent"
+                    onClick={toggleCreatedSort}
+                  >
+                    Created
+                    {createdSortDirection === "asc" && <ArrowUp className="ml-2 h-4 w-4" />}
+                    {createdSortDirection === "desc" && <ArrowDown className="ml-2 h-4 w-4" />}
+                    {createdSortDirection === null && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                  </Button>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>

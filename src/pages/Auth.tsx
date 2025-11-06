@@ -42,9 +42,15 @@ export default function Auth() {
       if (isLogin) {
         const { error } = await signIn(trimmedEmail, password);
         if (error) {
+          console.error("Login error details:", {
+            message: error.message,
+            status: error.status,
+            code: error.code,
+            error: error
+          });
           toast({
             title: "Error",
-            description: error.message,
+            description: error.message || `Login failed: ${error.status || 'Unknown error'}`,
             variant: "destructive",
           });
           setSubmitting(false);

@@ -15,14 +15,36 @@ RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+  extracted_cleaning_types JSONB;
 BEGIN
+  -- Extract unique cleaning types from capacity_configurations
+  -- Collect all cleaning type values from all capacity configurations
+  SELECT COALESCE(
+    jsonb_agg(DISTINCT cleaning_type_value ORDER BY cleaning_type_value),
+    '[]'::jsonb
+  ) INTO extracted_cleaning_types
+  FROM (
+    SELECT jsonb_array_elements(config->'cleaning_types')->>'type' AS cleaning_type_value
+    FROM jsonb_array_elements(room_capacity_configurations) AS config
+    WHERE config->'cleaning_types' IS NOT NULL
+      AND jsonb_typeof(config->'cleaning_types') = 'array'
+  ) AS extracted
+  WHERE cleaning_type_value IS NOT NULL;
+  
+  -- If no cleaning types found in capacity_configurations, set to empty array
+  IF extracted_cleaning_types IS NULL OR jsonb_array_length(extracted_cleaning_types) = 0 THEN
+    extracted_cleaning_types := '[]'::jsonb;
+  END IF;
+  
   UPDATE public.rooms
   SET
     name = room_name,
     group_type = room_group_type,
     capacity_configurations = room_capacity_configurations,
     capacity = room_capacity,
-    capacity_label = room_capacity_label
+    capacity_label = room_capacity_label,
+    cleaning_types = extracted_cleaning_types
   WHERE id = room_id_param;
   
   RETURN room_id_param;
@@ -43,19 +65,41 @@ SECURITY DEFINER
 AS $$
 DECLARE
   new_room_id UUID;
+  extracted_cleaning_types JSONB;
 BEGIN
+  -- Extract unique cleaning types from capacity_configurations
+  -- Collect all cleaning type values from all capacity configurations
+  SELECT COALESCE(
+    jsonb_agg(DISTINCT cleaning_type_value ORDER BY cleaning_type_value),
+    '[]'::jsonb
+  ) INTO extracted_cleaning_types
+  FROM (
+    SELECT jsonb_array_elements(config->'cleaning_types')->>'type' AS cleaning_type_value
+    FROM jsonb_array_elements(room_capacity_configurations) AS config
+    WHERE config->'cleaning_types' IS NOT NULL
+      AND jsonb_typeof(config->'cleaning_types') = 'array'
+  ) AS extracted
+  WHERE cleaning_type_value IS NOT NULL;
+  
+  -- If no cleaning types found in capacity_configurations, set to empty array
+  IF extracted_cleaning_types IS NULL OR jsonb_array_length(extracted_cleaning_types) = 0 THEN
+    extracted_cleaning_types := '[]'::jsonb;
+  END IF;
+  
   INSERT INTO public.rooms (
     name,
     group_type,
     capacity_configurations,
     capacity,
-    capacity_label
+    capacity_label,
+    cleaning_types
   ) VALUES (
     room_name,
     room_group_type,
     room_capacity_configurations,
     room_capacity,
-    room_capacity_label
+    room_capacity_label,
+    extracted_cleaning_types
   )
   RETURNING id INTO new_room_id;
   
