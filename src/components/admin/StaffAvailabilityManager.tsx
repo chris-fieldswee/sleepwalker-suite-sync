@@ -5,8 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -127,17 +125,6 @@ export const StaffAvailabilityManager: React.FC = () => {
     });
   }, [availability, selectedStaffId, roleFilter]);
 
-  const getAvailabilityBadge = (availableHours: number) => {
-    if (availableHours <= 0) {
-      return <Badge variant="destructive">Unavailable</Badge>;
-    } else if (availableHours < 2) {
-      return <Badge variant="secondary">Limited</Badge>;
-    } else if (availableHours < 4) {
-      return <Badge variant="outline">Available</Badge>;
-    } else {
-      return <Badge variant="default">Fully Available</Badge>;
-    }
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pl-PL');
@@ -250,7 +237,7 @@ export const StaffAvailabilityManager: React.FC = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <ScrollArea className="h-[600px]">
+              <div className="h-[calc(48px+40px*10)] overflow-y-auto">
                 <Table>
                   <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
@@ -263,11 +250,10 @@ export const StaffAvailabilityManager: React.FC = () => {
                       <TableHead>Total Hours</TableHead>
                       <TableHead>Assigned Hours</TableHead>
                       <TableHead>Available Hours</TableHead>
-                      <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAvailability.slice(0, 10).map((item) => (
+                    {filteredAvailability.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">
                           {item.staff.first_name && item.staff.last_name 
@@ -283,22 +269,15 @@ export const StaffAvailabilityManager: React.FC = () => {
                         <TableCell>{item.total_hours}h</TableCell>
                         <TableCell>{item.assigned_hours}h</TableCell>
                         <TableCell className="font-medium">{item.available_hours}h</TableCell>
-                        <TableCell>{getAvailabilityBadge(item.available_hours)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </ScrollArea>
+              </div>
               
               {filteredAvailability.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   No availability records found
-                </div>
-              )}
-              
-              {filteredAvailability.length > 10 && (
-                <div className="text-center py-4 text-sm text-muted-foreground">
-                  Showing 10 of {filteredAvailability.length} records. Use filters to narrow down results.
                 </div>
               )}
             </div>

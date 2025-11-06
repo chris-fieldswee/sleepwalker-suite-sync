@@ -1,107 +1,20 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Edit, Trash2, DoorOpen, Users, Calendar, User, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Edit, Trash2, DoorOpen, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { supabaseAdmin, isAdminClientAvailable } from "@/integrations/supabase/admin-client";
+import { supabaseAdmin } from "@/integrations/supabase/admin-client";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
+import { RoomConfigurationDialog } from "@/components/admin/RoomConfigurationDialog";
 
 type Room = Database["public"]["Tables"]["rooms"]["Row"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
-
-// Helper function to render guest count icons
-const renderIcons = (config: string): React.ReactNode => {
-  // Parse configurations like "1", "2", "1+1", "2+2", "2+2+2"
-  const parts = config.split('+').map(p => parseInt(p.trim()));
-  
-  return (
-    <div className="flex items-center gap-1">
-      {parts.map((count, partIndex) => {
-        const icons = [];
-        for (let i = 0; i < count; i++) {
-          icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
-        }
-        return (
-          <div key={partIndex} className="flex items-center gap-0.5">
-            {icons}
-            {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-// Guest count options based on room group type (same as AddTaskDialog)
-type GuestOption = {
-  value: number;
-  label: string;
-  display: React.ReactNode;
-};
-
-const getGuestCountOptions = (roomGroup: RoomGroup | null): GuestOption[] => {
-  if (!roomGroup) return [];
-
-  switch (roomGroup) {
-    case 'P1':
-      return [{ value: 1, label: '1', display: renderIcons('1') }];
-    
-    case 'P2':
-      return [
-        { value: 1, label: '1', display: renderIcons('1') },
-        { value: 2, label: '2', display: renderIcons('2') },
-        { value: 2, label: '1+1', display: renderIcons('1+1') },
-      ];
-    
-    case 'A1S':
-      return [
-        { value: 1, label: '1', display: renderIcons('1') },
-        { value: 2, label: '2', display: renderIcons('2') },
-        { value: 2, label: '1+1', display: renderIcons('1+1') },
-        { value: 3, label: '2+1', display: renderIcons('2+1') },
-        { value: 4, label: '2+2', display: renderIcons('2+2') },
-      ];
-    
-    case 'A2S':
-      return [
-        { value: 1, label: '1', display: renderIcons('1') },
-        { value: 2, label: '2', display: renderIcons('2') },
-        { value: 2, label: '1+1', display: renderIcons('1+1') },
-        { value: 3, label: '2+1', display: renderIcons('2+1') },
-        { value: 4, label: '2+2', display: renderIcons('2+2') },
-        { value: 3, label: '1+1+1', display: renderIcons('1+1+1') },
-        { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
-        { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
-      ];
-    
-    case 'OTHER':
-      // Default options for other locations
-      return Array.from({ length: 10 }, (_, i) => ({
-        value: i + 1,
-        label: String(i + 1),
-        display: renderIcons(String(i + 1)),
-      }));
-    
-    default:
-      return [];
-  }
-};
-
-// Get maximum capacity for a room group
-const getMaxCapacity = (roomGroup: RoomGroup | null): number => {
-  if (!roomGroup) return 1;
-  const options = getGuestCountOptions(roomGroup);
-  if (options.length === 0) return 1;
-  return Math.max(...options.map(opt => opt.value));
-};
 
 export default function Rooms() {
   const { toast } = useToast();
@@ -112,21 +25,8 @@ export default function Rooms() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const prevGroupTypeRef = useRef<RoomGroup | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [typeSortDirection, setTypeSortDirection] = useState<"asc" | "desc" | null>(null);
-
-  // Form state for create/edit
-  const [formData, setFormData] = useState<{
-    name: string;
-    group_type: RoomGroup | null;
-    capacity: number;
-    capacity_label: string | null;
-  }>({
-    name: "",
-    group_type: null, // Start with null - user must select group type first
-    capacity: 0,
-    capacity_label: null,
-  });
 
   const fetchRooms = async () => {
     try {
@@ -154,41 +54,6 @@ export default function Rooms() {
     fetchRooms();
   }, []);
 
-  // Reset form data when create dialog opens/closes
-  useEffect(() => {
-    if (!isCreateDialogOpen) {
-      setFormData({
-        name: "",
-        group_type: null, // Reset to null - user must select group type first
-        capacity: 0,
-        capacity_label: null,
-      });
-      prevGroupTypeRef.current = null;
-    } else {
-      // Reset ref when dialog opens
-      prevGroupTypeRef.current = formData.group_type;
-    }
-  }, [isCreateDialogOpen]);
-
-  // Update capacity when group type changes (only when dialogs are open)
-  useEffect(() => {
-    if (isCreateDialogOpen || isEditDialogOpen) {
-      // Only update capacity if group type actually changed
-      if (prevGroupTypeRef.current !== formData.group_type) {
-        prevGroupTypeRef.current = formData.group_type;
-        // For OTHER or null, clear capacity; otherwise set to first available option
-        if (!formData.group_type || formData.group_type === "OTHER") {
-          setFormData(prev => ({ ...prev, capacity: 0, capacity_label: null }));
-        } else {
-          const options = getGuestCountOptions(formData.group_type);
-          // Set to first available option
-          const firstOption = options.length > 0 ? options[0] : { value: 1, label: "1" };
-          setFormData(prev => ({ ...prev, capacity: firstOption.value, capacity_label: firstOption.label }));
-        }
-      }
-    }
-  }, [formData.group_type, isCreateDialogOpen, isEditDialogOpen]);
-
   const filteredRooms = rooms.filter(room => {
     const matchesGroup = groupFilter === "all" || room.group_type === groupFilter;
     return matchesGroup;
@@ -214,140 +79,349 @@ export default function Rooms() {
     setTypeSortDirection(prev => (prev === "asc" ? "desc" : prev === "desc" ? null : "asc"));
   };
 
-  const handleCreateRoom = async () => {
-    // Validation
-    if (!formData.name.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Room name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.group_type) {
-      toast({
-        title: "Validation Error",
-        description: "Group type is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate capacity is required for non-OTHER group types
-    if (formData.group_type !== "OTHER") {
-      const maxCapacity = getMaxCapacity(formData.group_type);
-      const capacityOptions = getGuestCountOptions(formData.group_type);
-      const validCapacities = capacityOptions.map(opt => opt.value);
-      
-      if (!formData.capacity || !validCapacities.includes(formData.capacity)) {
-        toast({
-          title: "Validation Error",
-          description: `Capacity is required and must be one of the valid options for ${formData.group_type} rooms (max: ${maxCapacity})`,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
+  const handleSaveRoom = async (roomData: {
+    name: string;
+    group_type: RoomGroup;
+    capacity_configurations: Array<{
+      capacity: number;
+      capacity_label: string;
+      cleaning_types: Array<{
+        type: string;
+        time_limit: number;
+      }>;
+    }>;
+  }) => {
+    setIsSaving(true);
     try {
-      // Prefer admin client, but fallback to regular client (requires RLS policy for admins)
       const client = supabaseAdmin || supabase;
+      
+      // Prepare the data object
+      const roomDataToSave: any = {
+        name: roomData.name,
+        group_type: roomData.group_type,
+        capacity_configurations: roomData.capacity_configurations || [],
+      };
 
-      // For OTHER locations, don't include capacity/capacity_label
-      const insertData = formData.group_type === "OTHER" 
-        ? { name: formData.name, group_type: formData.group_type }
-        : formData;
+      // For non-OTHER rooms, set legacy fields for backward compatibility
+      if (roomData.group_type !== 'OTHER' && roomData.capacity_configurations.length > 0) {
+        roomDataToSave.capacity = roomData.capacity_configurations[0].capacity;
+        roomDataToSave.capacity_label = roomData.capacity_configurations[0].capacity_label;
+      } else if (roomData.group_type === 'OTHER') {
+        roomDataToSave.capacity = null;
+        roomDataToSave.capacity_label = null;
+      }
 
-      const { error } = await client
-        .from("rooms")
-        .insert([insertData]);
+      console.log("Saving room data:", roomDataToSave);
 
-      if (error) throw error;
+      // Check if this is a schema cache issue and use RPC functions directly
+      const isSchemaCacheError = (err: any) => {
+        const errorMessage = err?.message || '';
+        const errorDetails = err?.details || '';
+        const errorHint = err?.hint || '';
+        const fullErrorText = `${errorMessage} ${errorDetails} ${errorHint}`.toLowerCase();
+        
+        return err?.code === 'PGRST204' || 
+               fullErrorText.includes('schema cache') || 
+               fullErrorText.includes('capacity_configurations') ||
+               (err?.status === 400 && (
+                 fullErrorText.includes('capacity_configurations') ||
+                 fullErrorText.includes('column') && fullErrorText.includes('rooms')
+               ));
+      };
+
+      let data, error;
+
+      // Try direct save first
+      try {
+        const result = selectedRoom
+          ? await client
+              .from("rooms")
+              .update(roomDataToSave)
+              .eq("id", selectedRoom.id)
+              .select()
+          : await client
+              .from("rooms")
+              .insert([roomDataToSave])
+              .select();
+        
+        data = result.data;
+        error = result.error;
+
+        // If successful, we're done
+        if (!error && data) {
+          console.log("Room saved successfully via direct method");
+          
+          // Clean up localStorage if it exists
+          const roomId = data[0]?.id || selectedRoom?.id;
+          if (roomId) {
+            try {
+              localStorage.removeItem(`room_config_${roomId}`);
+            } catch (e) {
+              console.warn("Could not clean up localStorage:", e);
+            }
+          }
+          
+          toast({
+            title: "Success",
+            description: selectedRoom ? "Room updated successfully" : "Room created successfully",
+          });
+          setIsCreateDialogOpen(false);
+          setIsEditDialogOpen(false);
+          setSelectedRoom(null);
+          fetchRooms();
+          setIsSaving(false);
+          return;
+        }
+
+        // Check if it's a schema cache error
+        if (error && isSchemaCacheError(error)) {
+          console.warn("Schema cache error detected, using RPC functions...");
+          throw { useRpc: true, originalError: error };
+        }
+
+        // If it's a different error, throw it
+        if (error) throw error;
+      } catch (e: any) {
+        // If we should use RPC, do it
+        if (e.useRpc) {
+          const { capacity_configurations, ...basicData } = roomDataToSave;
+          const isUpdate = !!selectedRoom;
+          
+          try {
+            if (isUpdate) {
+              // Update existing room
+              const rpcResult = await client.rpc('update_room_with_configurations', {
+                room_id_param: selectedRoom.id,
+                room_name: roomDataToSave.name,
+                room_group_type: roomDataToSave.group_type,
+                room_capacity_configurations: capacity_configurations || [],
+                room_capacity: roomDataToSave.capacity || null,
+                room_capacity_label: roomDataToSave.capacity_label || null
+              });
+              
+              if (rpcResult.error) {
+                throw rpcResult.error;
+              }
+              
+              console.log("Successfully updated room via RPC function");
+              
+              // Clean up localStorage
+              try {
+                localStorage.removeItem(`room_config_${selectedRoom.id}`);
+              } catch (e) {
+                console.warn("Could not clean up localStorage:", e);
+              }
+              
+              // Fetch the updated room
+              const fetchResult = await client.from("rooms").select("*").eq("id", selectedRoom.id).single();
+              if (fetchResult.data) {
+                data = [fetchResult.data];
+              }
+            } else {
+              // Insert new room
+              const rpcResult = await client.rpc('insert_room_with_configurations', {
+                room_name: roomDataToSave.name,
+                room_group_type: roomDataToSave.group_type,
+                room_capacity_configurations: capacity_configurations || [],
+                room_capacity: roomDataToSave.capacity || null,
+                room_capacity_label: roomDataToSave.capacity_label || null
+              });
+              
+              if (rpcResult.error) {
+                throw rpcResult.error;
+              }
+              
+              const newRoomId = rpcResult.data;
+              console.log("Successfully created room via RPC function, ID:", newRoomId);
+              
+              // Clean up localStorage if it exists
+              try {
+                localStorage.removeItem(`room_config_${newRoomId}`);
+              } catch (e) {
+                console.warn("Could not clean up localStorage:", e);
+              }
+              
+              // Fetch the new room
+              const fetchResult = await client.from("rooms").select("*").eq("id", newRoomId).single();
+              if (fetchResult.data) {
+                data = [fetchResult.data];
+              } else {
+                // Fallback: create without capacity_configurations
+                console.warn("Could not fetch created room, falling back to basic save");
+                const basicResult = await client
+                  .from("rooms")
+                  .insert([basicData])
+                  .select();
+                data = basicResult.data;
+                error = basicResult.error;
+                
+                if (error) throw error;
+                
+                toast({
+                  title: "Room saved (partial)",
+                  description: "Room created successfully, but capacity configurations couldn't be saved yet. Please wait 2-3 minutes for schema cache refresh, then edit the room to add capacity configurations.",
+                  variant: "default",
+                });
+                setIsCreateDialogOpen(false);
+                setIsEditDialogOpen(false);
+                setSelectedRoom(null);
+                fetchRooms();
+                setIsSaving(false);
+                return;
+              }
+            }
+            
+            // Success via RPC
+            toast({
+              title: "Success",
+              description: selectedRoom ? "Room updated successfully" : "Room created successfully",
+            });
+            setIsCreateDialogOpen(false);
+            setIsEditDialogOpen(false);
+            setSelectedRoom(null);
+            fetchRooms();
+            setIsSaving(false);
+            return;
+          } catch (rpcError: any) {
+            console.error("RPC function failed:", rpcError);
+            
+            // Check if it's a 404 (function doesn't exist) or other error
+            const isNotFound = rpcError?.status === 404 || rpcError?.code === 'PGRST202' || rpcError?.message?.includes('not found') || rpcError?.code === 'PGRST116';
+            
+            // Try one more time to save with capacity_configurations directly (sometimes works even after error)
+            console.warn("RPC failed, trying direct save with capacity_configurations one more time...");
+            try {
+              const retryResult = selectedRoom
+                ? await client
+                    .from("rooms")
+                    .update(roomDataToSave)
+                    .eq("id", selectedRoom.id)
+                    .select()
+                : await client
+                    .from("rooms")
+                    .insert([roomDataToSave])
+                    .select();
+              
+              if (!retryResult.error && retryResult.data) {
+                console.log("Successfully saved with capacity_configurations on retry!");
+                
+                // Clean up localStorage
+                const roomId = retryResult.data[0]?.id || selectedRoom?.id;
+                if (roomId) {
+                  try {
+                    localStorage.removeItem(`room_config_${roomId}`);
+                  } catch (e) {
+                    console.warn("Could not clean up localStorage:", e);
+                  }
+                }
+                
+                toast({
+                  title: "Success",
+                  description: selectedRoom ? "Room updated successfully" : "Room created successfully",
+                });
+                setIsCreateDialogOpen(false);
+                setIsEditDialogOpen(false);
+                setSelectedRoom(null);
+                fetchRooms();
+                setIsSaving(false);
+                return;
+              }
+            } catch (retryError: any) {
+              console.warn("Retry also failed, falling back to basic save");
+            }
+            
+            // Final fallback: save without capacity_configurations
+            console.warn("All methods failed, saving basic room data without capacity_configurations...");
+            const { capacity_configurations: _, ...basicData } = roomDataToSave;
+            
+            const basicResult = selectedRoom
+              ? await client
+                  .from("rooms")
+                  .update(basicData)
+                  .eq("id", selectedRoom.id)
+                  .select()
+              : await client
+                  .from("rooms")
+                  .insert([basicData])
+                  .select();
+            
+            if (basicResult.error) {
+              throw basicResult.error;
+            }
+            
+            data = basicResult.data;
+            
+            // Store capacity_configurations in localStorage as a temporary workaround
+            // so user can recover it when they edit
+            if (capacity_configurations && capacity_configurations.length > 0) {
+              const roomId = data?.[0]?.id || selectedRoom?.id;
+              if (roomId) {
+                try {
+                  localStorage.setItem(`room_config_${roomId}`, JSON.stringify({
+                    capacity_configurations,
+                    timestamp: Date.now()
+                  }));
+                  console.log("Stored capacity_configurations in localStorage for recovery");
+                } catch (e) {
+                  console.warn("Could not store in localStorage:", e);
+                }
+              }
+            }
+            
+            const errorMsg = isNotFound 
+              ? "Room saved, but capacity configurations are temporarily stored locally. The database functions need PostgREST cache refresh. Please restart your Supabase project (Settings → General → Restart), wait 2-3 minutes, then edit this room again. Your configurations will be saved automatically."
+              : "Room saved, but capacity configurations are temporarily stored locally. PostgREST schema cache needs to refresh. Please restart your Supabase project (Settings → General → Restart), wait 2-3 minutes, then edit this room again. Your configurations will be saved automatically.";
+            
+            toast({
+              title: "Room saved (partial)",
+              description: errorMsg,
+              variant: "default",
+            });
+            setIsCreateDialogOpen(false);
+            setIsEditDialogOpen(false);
+            setSelectedRoom(null);
+            fetchRooms();
+            setIsSaving(false);
+            return;
+          }
+        } else {
+          // Re-throw other errors
+          error = e;
+        }
+      }
+
+      if (error) {
+        console.error("Supabase error details:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
+
+      console.log("Room saved successfully:", data);
 
       toast({
         title: "Success",
-        description: "Room created successfully",
+        description: selectedRoom ? "Room updated successfully" : "Room created successfully",
       });
 
       setIsCreateDialogOpen(false);
-      setFormData({
-        name: "",
-        group_type: null,
-        capacity: 0,
-        capacity_label: null,
-      });
-      fetchRooms();
-    } catch (error: any) {
-      console.error("Error creating room:", error);
-      toast({
-        title: "Error",
-        description: `Failed to create room: ${error.message}`,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleEditRoom = async () => {
-    if (!selectedRoom) return;
-
-    // Validation
-    if (!formData.name.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Room name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate capacity is required for non-OTHER group types
-    if (formData.group_type !== "OTHER") {
-      const maxCapacity = getMaxCapacity(formData.group_type);
-      const capacityOptions = getGuestCountOptions(formData.group_type);
-      const validCapacities = capacityOptions.map(opt => opt.value);
-      
-      if (!formData.capacity || !validCapacities.includes(formData.capacity)) {
-        toast({
-          title: "Validation Error",
-          description: `Capacity is required and must be one of the valid options for ${formData.group_type} rooms (max: ${maxCapacity})`,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    try {
-      // Prefer admin client, but fallback to regular client (requires RLS policy for admins)
-      const client = supabaseAdmin || supabase;
-
-      // For OTHER locations, don't include capacity/capacity_label
-      const updateData = formData.group_type === "OTHER" 
-        ? { name: formData.name, group_type: formData.group_type, capacity: null, capacity_label: null }
-        : formData;
-
-      const { error } = await client
-        .from("rooms")
-        .update(updateData)
-        .eq("id", selectedRoom.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Room updated successfully",
-      });
-
       setIsEditDialogOpen(false);
       setSelectedRoom(null);
       fetchRooms();
     } catch (error: any) {
-      console.error("Error updating room:", error);
+      console.error("Error saving room - full error:", error);
+      console.error("Error message:", error?.message);
+      console.error("Error details:", error?.details);
       toast({
         title: "Error",
-        description: `Failed to update room: ${error.message}`,
+        description: `Failed to ${selectedRoom ? "update" : "create"} room: ${error?.message || error?.details || "Unknown error"}`,
         variant: "destructive",
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -382,15 +456,29 @@ export default function Rooms() {
     }
   };
 
-  const openEditDialog = (room: Room) => {
-    setSelectedRoom(room);
-    setFormData({
-      name: room.name,
-      group_type: room.group_type,
-      capacity: room.capacity,
-      capacity_label: room.capacity_label || String(room.capacity),
-    });
-    setIsEditDialogOpen(true);
+  const openEditDialog = async (room: Room) => {
+    try {
+      // Fetch the latest room data to ensure we have the most up-to-date information
+      const { data, error } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("id", room.id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching room for edit:", error);
+        // Fallback to using the room from the list
+        setSelectedRoom(room);
+      } else {
+        setSelectedRoom(data);
+      }
+      setIsEditDialogOpen(true);
+    } catch (error: any) {
+      console.error("Error opening edit dialog:", error);
+      // Fallback to using the room from the list
+      setSelectedRoom(room);
+      setIsEditDialogOpen(true);
+    }
   };
 
   const getGroupBadge = (group: RoomGroup) => {
@@ -421,108 +509,10 @@ export default function Rooms() {
           <h2 className="text-2xl font-bold">Room Management</h2>
           <p className="text-muted-foreground">Manage hotel rooms and other locations</p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Room
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Room</DialogTitle>
-              <DialogDescription>
-                Add a new room or location to the system.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Room Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Room 101, Conference Room A"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="group_type">Group Type *</Label>
-                <Select 
-                  value={formData.group_type || ""} 
-                  onValueChange={(value: RoomGroup) => setFormData({ ...formData, group_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select group type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="P1">P1</SelectItem>
-                    <SelectItem value="P2">P2</SelectItem>
-                    <SelectItem value="A1S">A1S</SelectItem>
-                    <SelectItem value="A2S">A2S</SelectItem>
-                    <SelectItem value="OTHER">Other Location</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {formData.group_type !== "OTHER" && (
-                <div className="space-y-2">
-                  <Label htmlFor="capacity">
-                    Capacity {formData.group_type && formData.group_type !== "OTHER" && <span className="text-destructive">*</span>}
-                  </Label>
-                  <Select
-                    disabled={!formData.group_type}
-                    value={(() => {
-                      if (!formData.group_type) return "";
-                      const options = getGuestCountOptions(formData.group_type);
-                      // Find the first matching option to prefer "2" over "1+1" when both exist (unless capacity_label is set)
-                      const matchingOptions = options.filter(opt => opt.value === formData.capacity);
-                      if (formData.capacity_label) {
-                        // If capacity_label is set, find the exact match
-                        const exactMatch = options.find(opt => opt.label === formData.capacity_label && opt.value === formData.capacity);
-                        if (exactMatch) {
-                          return `${exactMatch.value}-${exactMatch.label}`;
-                        }
-                      }
-                      // Otherwise prefer first matching option (which is "2" not "1+1")
-                      const matchingOption = matchingOptions.length > 0 ? matchingOptions[0] : null;
-                      return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : "";
-                    })()}
-                    onValueChange={(value) => {
-                      // Extract both value and label from composite "value-label" format
-                      const [numericValue, label] = value.split('-');
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        capacity: parseInt(numericValue, 10),
-                        capacity_label: label
-                      }));
-                    }}
-                  >
-                    <SelectTrigger id="capacity">
-                      <SelectValue placeholder={formData.group_type ? "Select capacity" : "Select group type first"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {formData.group_type && getGuestCountOptions(formData.group_type).map((option, index) => {
-                        const uniqueValue = `${option.value}-${option.label}`;
-                        return (
-                          <SelectItem key={`${option.value}-${option.label}-${index}`} value={uniqueValue}>
-                            {option.display}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateRoom}>
-                Create Room
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Room
+        </Button>
       </div>
 
       {/* Filters */}
@@ -552,12 +542,12 @@ export default function Rooms() {
         </CardContent>
       </Card>
 
-      {/* Rooms Table */}
+      {/* Rooms Table - Simplified */}
       <Card>
         <CardHeader>
           <CardTitle>Rooms ({filteredRooms.length})</CardTitle>
           <CardDescription>
-            Manage all rooms and locations in the system
+            Click edit to configure capacity options and cleaning types for each room
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -573,12 +563,8 @@ export default function Rooms() {
                     title="Sort by room type"
                   >
                     Type
-                    {typeSortDirection === null && <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />}
-                    {typeSortDirection === 'asc' && <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" />}
-                    {typeSortDirection === 'desc' && <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" />}
                   </button>
                 </TableHead>
-                <TableHead>Capacity</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -595,37 +581,8 @@ export default function Rooms() {
                   <TableCell>{getGroupBadge(room.group_type)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {(() => {
-                        // OTHER locations don't have capacity
-                        if (room.group_type === "OTHER") {
-                          return <span className="text-muted-foreground">-</span>;
-                        }
-                        // Use capacity_label if available, otherwise infer from capacity
-                        if (room.capacity_label) {
-                          // Find the option that matches the stored label
-                          const options = getGuestCountOptions(room.group_type);
-                          const matchingOption = options.find(opt => opt.label === room.capacity_label);
-                          return matchingOption ? matchingOption.display : renderIcons(room.capacity_label);
-                        }
-                        // Fallback: infer from capacity value - prefer first matching option (e.g., "2" not "1+1")
-                        const options = getGuestCountOptions(room.group_type);
-                        const matchingOptions = options.filter(opt => opt.value === room.capacity);
-                        const matchingOption = matchingOptions.length > 0 ? matchingOptions[0] : null;
-                        return matchingOption ? matchingOption.display : (
-                          <div className="flex items-center gap-1">
-                            {Array.from({ length: Math.min(room.capacity, 6) }, (_, i) => (
-                              <User key={i} className="h-4 w-4 text-muted-foreground" />
-                            ))}
-                            {room.capacity > 6 && <span className="text-xs text-muted-foreground">+{room.capacity - 6}</span>}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      {new Date(room.created_at).toLocaleDateString()}
+                      {new Date(room.created_at || new Date()).toLocaleDateString()}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -671,95 +628,26 @@ export default function Rooms() {
         </CardContent>
       </Card>
 
+      {/* Create Dialog */}
+      <RoomConfigurationDialog
+        isOpen={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        room={null}
+        onSave={handleSaveRoom}
+        isSaving={isSaving}
+      />
+
       {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Room</DialogTitle>
-            <DialogDescription>
-              Update room information and settings.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Room Name *</Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-group_type">Group Type *</Label>
-              <Select value={formData.group_type} onValueChange={(value: RoomGroup) => setFormData({ ...formData, group_type: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="P1">P1</SelectItem>
-                  <SelectItem value="P2">P2</SelectItem>
-                  <SelectItem value="A1S">A1S</SelectItem>
-                  <SelectItem value="A2S">A2S</SelectItem>
-                  <SelectItem value="OTHER">Other Location</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {formData.group_type !== "OTHER" && (
-              <div className="space-y-2">
-                <Label htmlFor="edit-capacity">
-                  Capacity {formData.group_type !== "OTHER" && <span className="text-destructive">*</span>}
-                </Label>
-                <Select
-                value={(() => {
-                  const options = getGuestCountOptions(formData.group_type);
-                  // Prefer capacity_label if set, otherwise use first matching option (e.g., "2" not "1+1")
-                  if (formData.capacity_label) {
-                    const exactMatch = options.find(opt => opt.label === formData.capacity_label && opt.value === formData.capacity);
-                    if (exactMatch) {
-                      return `${exactMatch.value}-${exactMatch.label}`;
-                    }
-                  }
-                  const matchingOptions = options.filter(opt => opt.value === formData.capacity);
-                  const matchingOption = matchingOptions.length > 0 ? matchingOptions[0] : null;
-                  return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(formData.capacity);
-                })()}
-                onValueChange={(value) => {
-                  // Extract both value and label from composite "value-label" format
-                  const [numericValue, label] = value.split('-');
-                  setFormData(prev => ({
-                    ...prev,
-                    capacity: parseInt(numericValue, 10),
-                    capacity_label: label
-                  }));
-                }}
-              >
-                <SelectTrigger id="edit-capacity">
-                  <SelectValue placeholder="Select capacity" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getGuestCountOptions(formData.group_type).map((option, index) => {
-                    const uniqueValue = `${option.value}-${option.label}`;
-                    return (
-                      <SelectItem key={`${option.value}-${option.label}-${index}`} value={uniqueValue}>
-                        {option.display}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEditRoom}>
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RoomConfigurationDialog
+        isOpen={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          if (!open) setSelectedRoom(null);
+        }}
+        room={selectedRoom}
+        onSave={handleSaveRoom}
+        isSaving={isSaving}
+      />
     </div>
   );
 }
