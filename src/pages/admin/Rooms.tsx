@@ -128,7 +128,15 @@ export default function Rooms() {
   }) => {
     setIsSaving(true);
     try {
+      // Prefer admin client to bypass RLS, but fallback to regular client
       const client = supabaseAdmin || supabase;
+      
+      // Log which client we're using for debugging
+      if (supabaseAdmin) {
+        console.log("Using admin client (bypasses RLS)");
+      } else {
+        console.warn("Admin client not available, using regular client (subject to RLS)");
+      }
       
       // Prepare the data object
       const roomDataToSave: any = {
@@ -155,7 +163,8 @@ export default function Rooms() {
         roomDataToSave.capacity = roomData.capacity_configurations[0].capacity;
         roomDataToSave.capacity_label = roomData.capacity_configurations[0].capacity_label;
       } else if (roomData.group_type === 'OTHER') {
-        roomDataToSave.capacity = null;
+        // OTHER rooms use capacity 0 (not null, since capacity is NOT NULL in database)
+        roomDataToSave.capacity = 0;
         roomDataToSave.capacity_label = null;
       }
 
@@ -181,10 +190,10 @@ export default function Rooms() {
 
       let data, error;
 
-      // If we have capacity_configurations, try RPC functions first (they're more reliable)
-      // Only try direct save if RPC functions don't exist or fail
+      // Always try RPC functions first for admin operations (they bypass RLS and are more reliable)
+      // RPC functions work for both rooms with and without capacity_configurations
       const hasCapacityConfigs = roomData.capacity_configurations && roomData.capacity_configurations.length > 0;
-      const shouldTryRpcFirst = hasCapacityConfigs;
+      const shouldTryRpcFirst = true; // Always try RPC first to bypass RLS issues
 
       // Use the original capacity_configurations from roomData, not from roomDataToSave
       const capacityConfigsToSave = roomData.capacity_configurations || [];
@@ -218,8 +227,8 @@ export default function Rooms() {
               room_name: roomDataToSave.name,
               room_group_type: roomDataToSave.group_type,
               room_capacity_configurations: capacityConfigsToSave,
-              room_capacity: roomDataToSave.capacity || null,
-              room_capacity_label: roomDataToSave.capacity_label || null
+              room_capacity: roomDataToSave.capacity ?? null,
+              room_capacity_label: roomDataToSave.capacity_label ?? null
             });
             
             if (rpcResult.error) {
@@ -238,8 +247,8 @@ export default function Rooms() {
               room_name: roomDataToSave.name,
               room_group_type: roomDataToSave.group_type,
               room_capacity_configurations: capacityConfigsToSave,
-              room_capacity: roomDataToSave.capacity || null,
-              room_capacity_label: roomDataToSave.capacity_label || null
+              room_capacity: roomDataToSave.capacity ?? null,
+              room_capacity_label: roomDataToSave.capacity_label ?? null
             });
             
             if (rpcResult.error) {
@@ -350,7 +359,7 @@ export default function Rooms() {
                 room_name: roomDataToSave.name,
                 room_group_type: roomDataToSave.group_type,
                 room_capacity_configurations: capacityConfigsToSave,
-                room_capacity: roomDataToSave.capacity || null,
+                room_capacity: roomDataToSave.capacity ?? null,
                 room_capacity_label: roomDataToSave.capacity_label || null
               });
               
@@ -378,7 +387,7 @@ export default function Rooms() {
                 room_name: roomDataToSave.name,
                 room_group_type: roomDataToSave.group_type,
                 room_capacity_configurations: capacityConfigsToSave,
-                room_capacity: roomDataToSave.capacity || null,
+                room_capacity: roomDataToSave.capacity ?? null,
                 room_capacity_label: roomDataToSave.capacity_label || null
               });
               
@@ -464,7 +473,7 @@ export default function Rooms() {
                     room_name: roomDataToSave.name,
                     room_group_type: roomDataToSave.group_type,
                     room_capacity_configurations: capacityConfigsToSave,
-                    room_capacity: roomDataToSave.capacity || null,
+                    room_capacity: roomDataToSave.capacity ?? null,
                     room_capacity_label: roomDataToSave.capacity_label || null
                   });
                   
@@ -492,7 +501,7 @@ export default function Rooms() {
                     room_name: roomDataToSave.name,
                     room_group_type: roomDataToSave.group_type,
                     room_capacity_configurations: capacityConfigsToSave,
-                    room_capacity: roomDataToSave.capacity || null,
+                    room_capacity: roomDataToSave.capacity ?? null,
                     room_capacity_label: roomDataToSave.capacity_label || null
                   });
                   
