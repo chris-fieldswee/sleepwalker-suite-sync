@@ -258,7 +258,29 @@ export default function Users() {
 
       // Update password if provided
       if (formData.password && selectedUser.auth_id) {
-        if (supabaseAdmin) {
+        // Check if updating own password
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const isSelfUpdate = currentUser?.id === selectedUser.auth_id;
+
+        if (isSelfUpdate) {
+          const { error: passwordError } = await supabase.auth.updateUser({
+            password: formData.password
+          });
+
+          if (passwordError) {
+            console.warn("Password update failed:", passwordError);
+            toast({
+              title: "Password update failed",
+              description: passwordError.message,
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Success",
+              description: "Password updated successfully",
+            });
+          }
+        } else if (supabaseAdmin) {
           const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
             selectedUser.auth_id,
             { password: formData.password }
