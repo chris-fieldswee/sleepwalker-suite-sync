@@ -81,3 +81,7 @@ WHERE proname IN ('update_room_with_configurations', 'insert_room_with_configura
 -- 2. Wait 2-3 minutes
 -- 3. Try creating/editing a room again
 
+
+
+
+

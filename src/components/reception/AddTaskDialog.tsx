@@ -12,9 +12,13 @@ import type { Room, Staff } from '@/hooks/useReceptionData';
 import type { NewTaskState } from '@/hooks/useReceptionActions';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
+import { getCapacitySortKey, normalizeCapacityLabel } from "@/lib/capacity-utils";
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
+type TaskStatus = Database["public"]["Enums"]["task_status"];
+
+const OPEN_TASK_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'paused', 'repair_needed'];
 
 // Cleaning type labels with full descriptive names
 const cleaningTypeLabels: Record<CleaningType, string> = {
@@ -35,73 +39,149 @@ const roomGroupLabels: Record<RoomGroup, string> = {
   OTHER: "Other Spaces"
 };
 
-// Available cleaning types based on room group
-const getAvailableCleaningTypes = (roomGroup: RoomGroup | null): CleaningType[] => {
-  if (!roomGroup) return [];
-
-  if (roomGroup === 'OTHER') {
-    return ['S', 'G']; // Standard and Generalne for Other Spaces
+// Helper function to parse capacity_configurations from a room
+const parseCapacityConfigurations = (room: Room | null): Array<{
+  capacity: number;
+  capacity_label: string;
+  cleaning_types: Array<{ type: CleaningType; time_limit: number }>;
+}> => {
+  if (!room || !room.capacity_configurations) return [];
+  
+  try {
+    let configs: any[] = [];
+    if (typeof room.capacity_configurations === 'string') {
+      configs = JSON.parse(room.capacity_configurations);
+    } else if (Array.isArray(room.capacity_configurations)) {
+      configs = room.capacity_configurations;
+    }
+    
+    return configs.map((config: any) => ({
+      capacity: Number(config.capacity) || 0,
+      capacity_label: config.capacity_label || String(config.capacity || ''),
+      cleaning_types: Array.isArray(config.cleaning_types) 
+        ? config.cleaning_types.map((ct: any) => ({
+            type: ct.type as CleaningType,
+            time_limit: Number(ct.time_limit) || 30
+          }))
+        : []
+    }));
+  } catch (e) {
+    console.error("Error parsing capacity_configurations:", e);
+    return [];
   }
-
-  // For all room/apartment groups
-  return ['W', 'P', 'T', 'O', 'G'];
 };
 
-// Guest count options based on room group type
+// Render icons for capacity label
+const renderIcons = (config: string): React.ReactNode => {
+  const normalized = normalizeCapacityLabel(config);
+  const rawParts = normalized.includes("+") ? normalized.split("+") : [normalized];
+  const parts = rawParts
+    .map((part) => parseInt(part.trim(), 10))
+    .filter((count) => !Number.isNaN(count) && count > 0);
+
+  if (parts.length === 0) {
+    const fallback = parseInt(normalized, 10);
+    if (!Number.isNaN(fallback) && fallback > 0) {
+      parts.push(fallback);
+    } else {
+      parts.push(1);
+    }
+  }
+  
+  return (
+    <div className="flex items-center gap-1">
+      {parts.map((count, partIndex) => {
+        const icons = [];
+        for (let i = 0; i < count; i++) {
+          icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
+        }
+        return (
+          <div key={partIndex} className="flex items-center gap-0.5">
+            {icons}
+            {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const prepareGuestOptions = (options: GuestOption[]): GuestOption[] => {
+  const uniqueByLabel = new Map<string, GuestOption>();
+
+  options.forEach((option) => {
+    const normalizedLabel = normalizeCapacityLabel(option.label);
+
+    if (!uniqueByLabel.has(normalizedLabel)) {
+      uniqueByLabel.set(normalizedLabel, {
+        value: option.value,
+        label: normalizedLabel,
+        display: option.display ?? renderIcons(normalizedLabel),
+      });
+    }
+  });
+
+  return Array.from(uniqueByLabel.values()).sort(
+    (a, b) => getCapacitySortKey(a.label) - getCapacitySortKey(b.label)
+  );
+};
+
+// Get guest count options from room's capacity_configurations
 type GuestOption = {
   value: number;
   label: string;
   display: React.ReactNode;
 };
 
-const getGuestCountOptions = (roomGroup: RoomGroup | null): GuestOption[] => {
-  if (!roomGroup) return [];
+const getGuestOptionValue = (option: GuestOption): string =>
+  `${option.value}-${option.label}`;
 
-  const renderIcons = (config: string): React.ReactNode => {
-    // Parse configurations like "1", "2", "1+1", "2+2", "2+2+2"
-    const parts = config.split('+').map(p => parseInt(p.trim()));
-    const total = parts.reduce((sum, val) => sum + val, 0);
-    
-    return (
-      <div className="flex items-center gap-1">
-        {parts.map((count, partIndex) => {
-          const icons = [];
-          for (let i = 0; i < count; i++) {
-            icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
-          }
-          return (
-            <div key={partIndex} className="flex items-center gap-0.5">
-              {icons}
-              {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
+  if (!room) return [];
+  
+  const configs = parseCapacityConfigurations(room);
+  
+  // If room has capacity_configurations, use them
+  if (configs.length > 0) {
+    const options = configs.map(config => {
+      const normalizedLabel = normalizeCapacityLabel(
+        config.capacity_label || String(config.capacity || '')
+      );
+      return {
+      value: config.capacity,
+        label: normalizedLabel,
+        display: renderIcons(normalizedLabel)
+      };
+    });
 
+    return prepareGuestOptions(options);
+  }
+  
+  // Fallback to legacy behavior based on group_type for rooms without configurations
+  const roomGroup = room.group_type;
+  
   switch (roomGroup) {
     case 'P1':
-      return [{ value: 1, label: '1', display: renderIcons('1') }];
+      return prepareGuestOptions([{ value: 1, label: '1', display: renderIcons('1') }]);
     
     case 'P2':
-      return [
+      return prepareGuestOptions([
         { value: 1, label: '1', display: renderIcons('1') },
         { value: 2, label: '2', display: renderIcons('2') },
         { value: 2, label: '1+1', display: renderIcons('1+1') },
-      ];
+      ]);
     
     case 'A1S':
-      return [
+      return prepareGuestOptions([
         { value: 1, label: '1', display: renderIcons('1') },
         { value: 2, label: '2', display: renderIcons('2') },
         { value: 2, label: '1+1', display: renderIcons('1+1') },
         { value: 3, label: '2+1', display: renderIcons('2+1') },
         { value: 4, label: '2+2', display: renderIcons('2+2') },
-      ];
+      ]);
     
     case 'A2S':
-      return [
+      return prepareGuestOptions([
         { value: 1, label: '1', display: renderIcons('1') },
         { value: 2, label: '2', display: renderIcons('2') },
         { value: 2, label: '1+1', display: renderIcons('1+1') },
@@ -110,19 +190,74 @@ const getGuestCountOptions = (roomGroup: RoomGroup | null): GuestOption[] => {
         { value: 3, label: '1+1+1', display: renderIcons('1+1+1') },
         { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
         { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
-      ];
+      ]);
     
     case 'OTHER':
-      // Default options for other locations
-      return Array.from({ length: 10 }, (_, i) => ({
-        value: i + 1,
-        label: String(i + 1),
-        display: renderIcons(String(i + 1)),
-      }));
+      return prepareGuestOptions(
+        Array.from({ length: 10 }, (_, i) => {
+          const label = String(i + 1);
+          return {
+            value: i + 1,
+            label,
+            display: renderIcons(label),
+          };
+        })
+      );
     
     default:
       return [];
   }
+};
+
+const useGuestCountOptions = (selectedRoom: Room | null) => {
+  return useMemo(() => {
+    if (!selectedRoom) {
+      return [];
+    }
+    return getGuestCountOptionsFromRoom(selectedRoom);
+  }, [selectedRoom]);
+};
+
+// Get available cleaning types from room's capacity_configurations
+const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] => {
+  if (!room) return [];
+  
+  const configs = parseCapacityConfigurations(room);
+  
+  // If room has capacity_configurations, extract unique cleaning types
+  if (configs.length > 0) {
+    const cleaningTypesSet = new Set<CleaningType>();
+    configs.forEach(config => {
+      config.cleaning_types.forEach(ct => {
+        cleaningTypesSet.add(ct.type);
+      });
+    });
+    return Array.from(cleaningTypesSet).sort();
+  }
+  
+  // Fallback to group-based logic for rooms without configurations
+  const roomGroup = room.group_type;
+  if (roomGroup === 'OTHER') {
+    return ['S', 'G'];
+  }
+  return ['W', 'P', 'T', 'O', 'G'];
+};
+
+// Get time limit from room's capacity_configurations
+const getTimeLimitFromRoom = (room: Room | null, capacity: number, cleaningType: CleaningType): number | null => {
+  if (!room) return null;
+  
+  const configs = parseCapacityConfigurations(room);
+  
+  // Find the configuration matching the capacity
+  const config = configs.find(c => c.capacity === capacity);
+  if (!config) return null;
+  
+  // Find the cleaning type in that configuration
+  const cleaningTypeConfig = config.cleaning_types.find(ct => ct.type === cleaningType);
+  if (!cleaningTypeConfig) return null;
+  
+  return cleaningTypeConfig.time_limit;
 };
 
 interface AddTaskDialogProps {
@@ -169,10 +304,9 @@ export function AddTaskDialog({
             console.log(`Fetching assigned rooms for date: ${newTask.date}`); // Debug log
             const { data, error } = await supabase
                 .from('tasks')
-                .select('room_id')
+                .select('room_id, status')
                 .eq('date', newTask.date)
-                // Optionally filter out 'done' tasks if they can be reassigned
-                // .not('status', 'eq', 'done');
+                .in('status', OPEN_TASK_STATUSES);
 
             if (error) {
                 console.error('Error fetching assigned rooms:', error);
@@ -180,7 +314,11 @@ export function AddTaskDialog({
                 return;
             }
 
-            const roomIds = new Set(data?.map(task => task.room_id).filter(Boolean) as string[]);
+            const roomIds = new Set(
+                data
+                    ?.map(task => task.room_id)
+                    .filter((roomId): roomId is string => Boolean(roomId))
+            );
             console.log('Assigned room IDs:', roomIds); // Debug log
             setAssignedRoomIds(roomIds);
         };
@@ -188,42 +326,28 @@ export function AddTaskDialog({
         fetchAssignedRooms();
     }, [newTask.date, isOpen]); // Rerun when date changes or dialog opens
 
-    // Fetch time limit when room, cleaning type, and guest count are selected
+    // Get time limit from room's capacity_configurations when room, cleaning type, and guest count are selected
     useEffect(() => {
         if (!newTask.roomId || !newTask.cleaningType || !newTask.guestCount || !isOpen) {
             setTaskTimeLimit(null);
             return;
         }
 
-        const fetchTimeLimit = async () => {
-            try {
-                const selectedRoom = availableRooms.find(r => r.id === newTask.roomId);
-                if (!selectedRoom) return;
+        const selectedRoom = availableRooms.find(r => r.id === newTask.roomId);
+        if (!selectedRoom) {
+            setTaskTimeLimit(null);
+            return;
+        }
 
-                const { data: limitData, error: limitError } = await supabase
-                    .from('limits')
-                    .select('time_limit')
-                    .eq('group_type', selectedRoom.group_type)
-                    .eq('cleaning_type', newTask.cleaningType)
-                    .eq('guest_count', newTask.guestCount)
-                    .maybeSingle();
-
-                if (limitError) {
-                    console.error('Error fetching time limit:', limitError);
-                    setTaskTimeLimit(null);
-                    return;
-                }
-
-                const timeLimit = limitData?.time_limit ?? null;
-                setTaskTimeLimit(timeLimit);
-                console.log(`Time limit for ${selectedRoom.group_type}/${newTask.cleaningType}/${newTask.guestCount}: ${timeLimit} minutes`);
-            } catch (error) {
-                console.error('Error in fetchTimeLimit:', error);
-                setTaskTimeLimit(null);
-            }
-        };
-
-        fetchTimeLimit();
+        // Get time limit from room's capacity_configurations
+        const timeLimit = getTimeLimitFromRoom(selectedRoom, newTask.guestCount, newTask.cleaningType);
+        setTaskTimeLimit(timeLimit);
+        
+        if (timeLimit !== null) {
+            console.log(`Time limit from room config for ${selectedRoom.name}/${newTask.cleaningType}/${newTask.guestCount}: ${timeLimit} minutes`);
+        } else {
+            console.log(`No time limit found in room config for ${selectedRoom.name}/${newTask.cleaningType}/${newTask.guestCount}`);
+        }
     }, [newTask.roomId, newTask.cleaningType, newTask.guestCount, isOpen, availableRooms]);
 
     // Fetch available staff for the selected date and task requirements
@@ -315,10 +439,87 @@ export function AddTaskDialog({
             .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically by name
     }, [selectedGroup, availableRooms, assignedRoomIds]); // Add assignedRoomIds dependency
 
-    // Get available cleaning types based on selected group
+    // Clear selected room if it becomes unavailable (filtered out or assigned)
+    useEffect(() => {
+        if (!newTask.roomId || !isOpen) return;
+        
+        // Check if the selected room is still available in filteredRooms
+        const isRoomStillAvailable = filteredRooms.some(room => room.id === newTask.roomId);
+        
+        // Also check if it's in availableRooms (in case it was deactivated)
+        const isRoomInAvailableRooms = availableRooms.some(room => room.id === newTask.roomId);
+        
+        // Check if the room is now assigned
+        const isRoomAssigned = assignedRoomIds.has(newTask.roomId);
+        
+        if (!isRoomStillAvailable || !isRoomInAvailableRooms || isRoomAssigned) {
+            console.log("Selected room is no longer available, clearing selection:", {
+                roomId: newTask.roomId,
+                isRoomStillAvailable,
+                isRoomInAvailableRooms,
+                isRoomAssigned
+            });
+            
+            setNewTask(prev => ({
+                ...prev,
+                roomId: "", // Clear the room selection
+                staffId: "", // Also clear staff selection
+                guestCount: 1, // Reset to default
+            }));
+        }
+    }, [filteredRooms, availableRooms, assignedRoomIds, newTask.roomId, isOpen]);
+
+    // Get selected room
+    const selectedRoom = useMemo(() => {
+        if (!newTask.roomId) return null;
+        return availableRooms.find(r => r.id === newTask.roomId) || null;
+    }, [newTask.roomId, availableRooms]);
+
+    const isGuestCountDisabled = selectedRoom?.group_type === 'OTHER';
+
+    // Get available cleaning types based on selected room's capacity_configurations
     const availableCleaningTypes = useMemo(() => {
-        return getAvailableCleaningTypes(selectedGroup);
-    }, [selectedGroup]);
+        if (selectedRoom) {
+            return getAvailableCleaningTypesFromRoom(selectedRoom);
+        }
+        // Fallback to group-based if no room selected
+        if (!selectedGroup) return [];
+        if (selectedGroup === 'OTHER') return ['S', 'G'];
+        return ['W', 'P', 'T', 'O', 'G'];
+    }, [selectedRoom, selectedGroup]);
+
+    const guestCountOptions = useGuestCountOptions(selectedRoom);
+
+    useEffect(() => {
+        if (!isOpen || !selectedRoom) return;
+        if (isGuestCountDisabled) return;
+        if (guestCountOptions.length === 0) return;
+
+        const hasMatchingOption = guestCountOptions.some(
+            (option) => option.value === newTask.guestCount
+        );
+
+        if (!hasMatchingOption) {
+            setNewTask((prev) => ({
+                ...prev,
+                guestCount: guestCountOptions[0].value,
+            }));
+        }
+    }, [isOpen, selectedRoom, isGuestCountDisabled, guestCountOptions, newTask.guestCount]);
+
+    const selectedGuestOptionValue = useMemo(() => {
+        if (isGuestCountDisabled || !selectedRoom || guestCountOptions.length === 0) return "";
+
+        const matchingOption = guestCountOptions.find(
+            (option) => option.value === newTask.guestCount
+        );
+
+        if (matchingOption) {
+            return getGuestOptionValue(matchingOption);
+        }
+
+        return getGuestOptionValue(guestCountOptions[0]);
+    }, [selectedRoom, isGuestCountDisabled, guestCountOptions, newTask.guestCount]);
 
     // Reset form when dialog opens
     useEffect(() => {
@@ -347,29 +548,83 @@ export function AddTaskDialog({
         setSelectedGroup(group);
 
         // Reset room and cleaning type when group changes
+        const defaultTypes = group === 'OTHER' ? ['S', 'G'] : ['W', 'P', 'T', 'O', 'G'];
         setNewTask(prev => ({
             ...prev,
             roomId: "", // Clear selected room
-            cleaningType: getAvailableCleaningTypes(group)[0] || 'W' // Set first available type or default
+            cleaningType: defaultTypes[0] || 'W', // Set first available type or default
+            guestCount: 1, // Reset guest count; will be ignored for OTHER
         }));
     };
 
     // Handle room change
     const handleRoomChange = (roomId: string) => {
         const selectedRoom = availableRooms.find(r => r.id === roomId);
-        const roomGroup = selectedRoom?.group_type || null;
-        const guestOptions = getGuestCountOptions(roomGroup);
-        const defaultGuestCount = guestOptions.length > 0 ? guestOptions[0].value : 1;
+        if (!selectedRoom) return;
+        
+        const guestOptions = getGuestCountOptionsFromRoom(selectedRoom);
+        const defaultGuestCount = selectedRoom.group_type === 'OTHER'
+            ? 1
+            : guestOptions.length > 0
+                ? guestOptions[0].value
+                : 1;
+        
+        // Get available cleaning types for this room
+        const availableTypes = getAvailableCleaningTypesFromRoom(selectedRoom);
+        const defaultCleaningType = availableTypes.length > 0 ? availableTypes[0] : 'W';
         
         setNewTask(prev => ({ 
             ...prev, 
             roomId, 
             staffId: "", // Clear staff selection when room changes
-            guestCount: defaultGuestCount // Reset to first available guest count option
+            guestCount: defaultGuestCount, // Reset to first available guest count option
+            cleaningType: defaultCleaningType // Reset to first available cleaning type for this room
         }));
     };
 
     const handleSubmit = async () => {
+        // Validation: Check if roomId is set
+        if (!newTask.roomId) {
+            toast({
+                title: "Room Required",
+                description: "Please select a room before submitting.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        // Validation: Check if the selected room exists in availableRooms
+        // Normalize room ID for comparison
+        const normalizedRoomId = String(newTask.roomId).trim();
+        let selectedRoom = availableRooms.find(r => String(r.id).trim() === normalizedRoomId);
+        
+        // If still not found, try case-insensitive comparison
+        if (!selectedRoom) {
+            selectedRoom = availableRooms.find(r => 
+                String(r.id).trim().toLowerCase() === normalizedRoomId.toLowerCase()
+            );
+        }
+        
+        if (!selectedRoom) {
+            console.error("Room validation failed in handleSubmit:", {
+                roomId: newTask.roomId,
+                normalizedRoomId,
+                roomIdType: typeof newTask.roomId,
+                availableRoomsCount: availableRooms.length,
+                availableRoomIds: availableRooms.map(r => ({ id: r.id, idType: typeof r.id, idString: String(r.id) })),
+                availableRoomNames: availableRooms.map(r => r.name),
+                filteredRoomsCount: filteredRooms.length,
+                isRoomInFiltered: filteredRooms.some(r => String(r.id).trim() === normalizedRoomId),
+                isRoomAssigned: assignedRoomIds.has(newTask.roomId)
+            });
+            toast({
+                title: "Invalid Room Selection",
+                description: "The selected room is no longer available. Please select a different room.",
+                variant: "destructive",
+            });
+            return; // Prevent submission
+        }
+
         // Validation: Check if the selected room is still available (double-check against latest assignedRoomIds)
         if (assignedRoomIds.has(newTask.roomId)) {
              toast({
@@ -377,8 +632,60 @@ export function AddTaskDialog({
                  description: "This room has already been assigned a task for the selected date. Please choose another room.",
                  variant: "destructive",
              });
-             // Optionally re-fetch assigned rooms here if needed, though the useEffect should cover it.
              return; // Prevent submission
+        }
+
+        // Validation: Check if room is in filteredRooms (should be if it passed the above checks)
+        const isRoomInFiltered = filteredRooms.some(r => r.id === newTask.roomId);
+        if (!isRoomInFiltered && selectedGroup) {
+            console.warn("Room is in availableRooms but not in filteredRooms:", {
+                roomId: newTask.roomId,
+                selectedGroup,
+                filteredRooms: filteredRooms.map(r => ({ id: r.id, name: r.name }))
+            });
+            toast({
+                title: "Room Not Available",
+                description: "This room is not available for the selected group or date. Please select a different room.",
+                variant: "destructive",
+            });
+            return; // Prevent submission
+        }
+
+        // Double-check just before submission to prevent race conditions
+        try {
+            const { data: existingOpenTasks, error: existingCheckError } = await supabase
+                .from('tasks')
+                .select('id')
+                .eq('date', newTask.date)
+                .eq('room_id', newTask.roomId)
+                .in('status', OPEN_TASK_STATUSES);
+
+            if (existingCheckError) {
+                console.error("Error verifying existing tasks before submit:", existingCheckError);
+                toast({
+                    title: "Verification Failed",
+                    description: "Could not verify room availability. Please try again.",
+                    variant: "destructive",
+                });
+                return;
+            }
+
+            if (existingOpenTasks && existingOpenTasks.length > 0) {
+                toast({
+                    title: "Room Already Assigned",
+                    description: "There is already an open task for this room on the selected date. Close it before creating another.",
+                    variant: "destructive",
+                });
+                return;
+            }
+        } catch (verificationError) {
+            console.error("Unexpected error during duplicate task verification:", verificationError);
+            toast({
+                title: "Verification Error",
+                description: "Something went wrong while checking room availability. Please try again.",
+                variant: "destructive",
+            });
+            return;
         }
 
         const success = await onSubmit(newTask);
@@ -514,48 +821,42 @@ export function AddTaskDialog({
 
                     {/* Guest Count Select */}
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="guestCount-modal" className="text-right">Guests*</Label>
-                        <Select
-                            value={(() => {
-                                if (!newTask.roomId) return "";
-                                const selectedRoom = availableRooms.find(r => r.id === newTask.roomId);
-                                const roomGroup = selectedRoom?.group_type || null;
-                                const options = getGuestCountOptions(roomGroup);
-                                // Find the last matching option to prefer "1+1" over "2" when both exist
-                                const matchingOptions = options.filter(opt => opt.value === newTask.guestCount);
-                                const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
-                                return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(newTask.guestCount);
-                            })()}
-                            onValueChange={(value) => {
-                                // Extract numeric value from composite "value-label" format
-                                const numericValue = parseInt(value.split('-')[0], 10);
-                                setNewTask(prev => ({ ...prev, guestCount: numericValue }));
-                            }}
-                            disabled={isSubmitting || !newTask.roomId}
-                        >
-                            <SelectTrigger id="guestCount-modal" className="col-span-3">
-                                <SelectValue placeholder={newTask.roomId ? "Select guest count" : "Select room first"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {newTask.roomId ? (() => {
-                                    const selectedRoom = availableRooms.find(r => r.id === newTask.roomId);
-                                    const roomGroup = selectedRoom?.group_type || null;
-                                    const options = getGuestCountOptions(roomGroup);
-                                    
-                                    // Use a composite value: value-label to handle duplicates (e.g., "2-2" vs "2-1+1")
-                                    return options.map((option, index) => {
-                                        const uniqueValue = `${option.value}-${option.label}`;
-                                        return (
-                                            <SelectItem key={`${option.value}-${option.label}-${index}`} value={uniqueValue}>
-                                                {option.display}
-                                            </SelectItem>
-                                        );
-                                    });
-                                })() : (
-                                    <SelectItem value="placeholder" disabled>Select room first</SelectItem>
-                                )}
-                            </SelectContent>
-                        </Select>
+                        <Label htmlFor="guestCount-modal" className="text-right">
+                            {isGuestCountDisabled ? "Guests" : "Guests*"}
+                        </Label>
+                        {isGuestCountDisabled ? (
+                            <div className="col-span-3 border rounded p-2 text-sm text-muted-foreground italic bg-muted/30">
+                                Capacity not tracked for other locations
+                            </div>
+                        ) : (
+                            <Select
+                                value={selectedGuestOptionValue}
+                                onValueChange={(value) => {
+                                    // Extract numeric value from composite "value-label" format
+                                    const numericValue = parseInt(value.split('-')[0], 10);
+                                    setNewTask(prev => ({ ...prev, guestCount: numericValue }));
+                                }}
+                                disabled={isSubmitting || !newTask.roomId}
+                            >
+                                <SelectTrigger id="guestCount-modal" className="col-span-3">
+                                    <SelectValue placeholder={newTask.roomId ? "Select guest count" : "Select room first"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {newTask.roomId && selectedRoom ? (
+                                        guestCountOptions.map((option, index) => {
+                                            const uniqueValue = getGuestOptionValue(option);
+                                            return (
+                                                <SelectItem key={`${uniqueValue}-${index}`} value={uniqueValue}>
+                                                    {option.display}
+                                                </SelectItem>
+                                            );
+                                        })
+                                    ) : (
+                                        <SelectItem value="placeholder" disabled>Select room first</SelectItem>
+                                    )}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </div>
 
                     {/* Staff Select */}
@@ -633,7 +934,14 @@ export function AddTaskDialog({
                         type="button"
                         onClick={handleSubmit}
                         // Disable if submitting OR required fields are missing
-                        disabled={isSubmitting || !newTask.roomId || !newTask.date || !selectedGroup || !newTask.cleaningType || newTask.guestCount < 1}
+                        disabled={
+                            isSubmitting ||
+                            !newTask.roomId ||
+                            !newTask.date ||
+                            !selectedGroup ||
+                            !newTask.cleaningType ||
+                            (!isGuestCountDisabled && newTask.guestCount < 1)
+                        }
                     >
                         {isSubmitting ? "Adding..." : "Add Task"}
                     </Button>

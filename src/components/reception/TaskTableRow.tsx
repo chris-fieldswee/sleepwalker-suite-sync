@@ -1,6 +1,7 @@
 // src/components/reception/TaskTableRow.tsx
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { User, Eye, Trash2, AlertTriangle, MessageSquare, CalendarDays } from "lucide-react"; // Added CalendarDays
 import { cn } from "@/lib/utils";
 import {
@@ -148,126 +149,139 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
   const notesTooltip = `Housekeeping: ${task.housekeeping_notes || '-'}\nReception: ${task.reception_notes || '-'}`;
 
   return (
-    <TooltipProvider delayDuration={100}>
-      <tr className="border-b hover:bg-muted/50 transition-colors text-sm">
-        {/* Status */}
-        <td className="p-2 align-middle">
-          <Badge className={cn(getStatusColor(task.status), "whitespace-nowrap text-xs px-2 py-0.5")}>
-            {getStatusLabel(task.status)}
-          </Badge>
-        </td>
-        {/* Room */}
-        <td className="p-2 align-middle font-medium">{task.room.name}</td>
-        {/* Staff */}
-        <td className="p-2 align-middle text-muted-foreground">{task.user?.name || <span className="italic text-muted-foreground/70">Unassigned</span>}</td>
-        {/* Date Column */}
-        <td className="p-2 align-middle text-center text-muted-foreground tabular-nums">
-            {formatShortDate(task.date)}
-        </td>
-        {/* Type Column */}
-        <td className="p-2 align-middle text-center">{cleaningTypeLabels[task.cleaning_type] || task.cleaning_type}</td>
-        {/* Guests */}
-        <td className="p-2 align-middle">
-          {renderGuestIcons(task.guest_count)}
-        </td>
-        {/* Limit */}
-        <td className="p-2 align-middle text-center">{task.time_limit ?? '-'}</td>
-        {/* Actual - Only show if showActualAndDifference is true */}
-        {showActualAndDifference && (
-          <td className="p-2 align-middle text-center">
+    <TableRow className="border-b hover:bg-muted/50 transition-colors text-sm">
+      {/* Status */}
+      <TableCell className="p-2 align-middle">
+        <Badge className={cn(getStatusColor(task.status), "whitespace-nowrap text-xs px-2 py-0.5")}>
+          {getStatusLabel(task.status)}
+        </Badge>
+      </TableCell>
+      {/* Room */}
+      <TableCell className="p-2 align-middle font-medium">{task.room.name}</TableCell>
+      {/* Staff */}
+      <TableCell className="p-2 align-middle text-muted-foreground">
+        {task.user?.name || <span className="italic text-muted-foreground/70">Unassigned</span>}
+      </TableCell>
+      {/* Date Column */}
+      <TableCell className="p-2 align-middle text-center text-muted-foreground tabular-nums">
+        {formatShortDate(task.date)}
+      </TableCell>
+      {/* Type Column */}
+      <TableCell className="p-2 align-middle text-center">
+        {cleaningTypeLabels[task.cleaning_type] || task.cleaning_type}
+      </TableCell>
+      {/* Guests */}
+      <TableCell className="p-2 align-middle">
+        {renderGuestIcons(task.guest_count)}
+      </TableCell>
+      {/* Limit */}
+      <TableCell className="p-2 align-middle text-center">{task.time_limit ?? '-'}</TableCell>
+      {/* Actual - Only show if showActualAndDifference is true */}
+      {showActualAndDifference && (
+        <TableCell className="p-2 align-middle text-center">
             {task.actual_time !== null ? task.actual_time : "-"}
-          </td>
+        </TableCell>
+      )}
+      {/* Difference - Only show if showActualAndDifference is true */}
+      {showActualAndDifference && (
+        <TableCell className={cn("p-2 align-middle text-center", getDifferenceColor(task.difference))}>
+          {formatDifference(task.difference)}
+        </TableCell>
+      )}
+      {/* Issue */}
+      <TableCell className="p-2 align-middle text-center">
+        {task.issue_flag ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/* Make the icon slightly easier to click if needed */}
+              <span className="inline-flex items-center justify-center h-full w-full">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>{task.issue_description ? `Issue: ${task.issue_description.substring(0, 50)}...` : 'Issue Reported'}</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="text-muted-foreground">-</span>
         )}
-        {/* Difference - Only show if showActualAndDifference is true */}
-        {showActualAndDifference && (
-          <td className={cn("p-2 align-middle text-center", getDifferenceColor(task.difference))}>
-            {formatDifference(task.difference)}
-          </td>
+      </TableCell>
+      {/* Notes Indicator */}
+      <TableCell className="p-2 align-middle text-center">
+        {hasNotes ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/* Make the icon slightly easier to click if needed */}
+              <span className="inline-flex items-center justify-center h-full w-full">
+                <MessageSquare className="h-4 w-4 text-blue-500" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <pre className="text-xs whitespace-pre-wrap max-w-xs">{notesTooltip}</pre>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="text-muted-foreground">-</span>
         )}
-        {/* Issue */}
-        <td className="p-2 align-middle text-center">
-          {task.issue_flag ? (
+      </TableCell>
+      {/* Actions */}
+      <TableCell className="p-2 align-middle text-right">
+        <div className="flex gap-1 justify-end">
+          {/* View Details Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onViewDetails(task)}>
+                <Eye className="h-4 w-4" />
+                <span className="sr-only">View Details</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>View/Edit Details</p>
+            </TooltipContent>
+          </Tooltip>
+          {/* Delete Confirmation Dialog */}
+          <AlertDialog>
             <Tooltip>
-                <TooltipTrigger asChild>
-                    {/* Make the icon slightly easier to click if needed */}
-                    <span className="inline-flex items-center justify-center h-full w-full">
-                        <AlertTriangle className="h-4 w-4 text-red-500" />
-                    </span>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                    <p>{task.issue_description ? `Issue: ${task.issue_description.substring(0, 50)}...` : 'Issue Reported'}</p>
-                </TooltipContent>
+              <TooltipTrigger asChild>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    disabled={isDeleting}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Delete Task</span>
+                  </Button>
+                </AlertDialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Delete Task</p>
+              </TooltipContent>
             </Tooltip>
-           ) : (
-            <span className="text-muted-foreground">-</span>
-           )}
-        </td>
-        {/* Notes Indicator */}
-        <td className="p-2 align-middle text-center">
-          {hasNotes ? (
-              <Tooltip>
-                  <TooltipTrigger asChild>
-                     {/* Make the icon slightly easier to click if needed */}
-                     <span className="inline-flex items-center justify-center h-full w-full">
-                         <MessageSquare className="h-4 w-4 text-blue-500" />
-                     </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                      <pre className="text-xs whitespace-pre-wrap max-w-xs">{notesTooltip}</pre>
-                  </TooltipContent>
-              </Tooltip>
-          ) : (
-            <span className="text-muted-foreground">-</span>
-          )}
-        </td>
-        {/* Actions */}
-        <td className="p-2 align-middle text-right">
-          <div className="flex gap-1 justify-end">
-             {/* View Details Button */}
-             <Tooltip>
-               <TooltipTrigger asChild>
-                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onViewDetails(task)}>
-                   <Eye className="h-4 w-4" />
-                   <span className="sr-only">View Details</span>
-                 </Button>
-               </TooltipTrigger>
-               <TooltipContent side="top"><p>View/Edit Details</p></TooltipContent>
-             </Tooltip>
-             {/* Delete Confirmation Dialog */}
-             <AlertDialog>
-               <Tooltip>
-                 <TooltipTrigger asChild>
-                     <AlertDialogTrigger asChild>
-                         <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" disabled={isDeleting}>
-                             <Trash2 className="h-4 w-4" />
-                             <span className="sr-only">Delete Task</span>
-                         </Button>
-                     </AlertDialogTrigger>
-                 </TooltipTrigger>
-                 <TooltipContent side="top"><p>Delete Task</p></TooltipContent>
-               </Tooltip>
-               <AlertDialogContent>
-                 <AlertDialogHeader>
-                   <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                   <AlertDialogDescription>
-                     This action cannot be undone. This will permanently delete the task for room <span className="font-medium">{task.room.name}</span> scheduled for <span className="font-medium">{formatShortDate(task.date)}</span>.
-                   </AlertDialogDescription>
-                 </AlertDialogHeader>
-                 <AlertDialogFooter>
-                   <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                   <AlertDialogAction
-                     onClick={() => onDeleteTask(task.id)}
-                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                     disabled={isDeleting}
-                   >
-                     {isDeleting ? "Deleting..." : "Delete"}
-                   </AlertDialogAction>
-                 </AlertDialogFooter>
-               </AlertDialogContent>
-             </AlertDialog>
-          </div>
-        </td>
-      </tr>
-    </TooltipProvider>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the task for room{" "}
+                  <span className="font-medium">{task.room.name}</span> scheduled for{" "}
+                  <span className="font-medium">{formatShortDate(task.date)}</span>.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => onDeleteTask(task.id)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 };

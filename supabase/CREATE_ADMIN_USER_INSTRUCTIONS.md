@@ -124,3 +124,7 @@
 - Create script: `supabase/create_admin_user.sql`
 - Verify script: `supabase/verify_password_update.sql`
 
+
+
+
+

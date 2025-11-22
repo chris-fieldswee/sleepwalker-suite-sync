@@ -1,5 +1,5 @@
 // src/components/reception/TaskDetailDialog.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import type { Database } from "@/integrations/supabase/types";
 import type { Room, Staff } from '@/hooks/useReceptionData';
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from '@/integrations/supabase/client';
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
@@ -28,49 +29,92 @@ const cleaningTypeLabels: Record<CleaningType, string> = {
   S: "Standard"
 };
 
-// Available cleaning types based on room group
-const getAvailableCleaningTypes = (roomGroup: RoomGroup | null): CleaningType[] => {
-  if (!roomGroup) return ['W', 'P', 'T', 'O', 'G', 'S'];
-
-  if (roomGroup === 'OTHER') {
-    return ['S', 'G'];
-  }
-
-  return ['W', 'P', 'T', 'O', 'G'];
+const roomGroupLabels: Record<RoomGroup, string> = {
+  P1: "P1 Rooms",
+  P2: "P2 Rooms",
+  A1S: "A1S Apartments",
+  A2S: "A2S Apartments",
+  OTHER: "Other Spaces"
 };
 
-// Guest count options based on room group type (same as AddTaskDialog)
+// Helper function to parse capacity_configurations from a room
+const parseCapacityConfigurations = (room: Room | null): Array<{
+  capacity: number;
+  capacity_label: string;
+  cleaning_types: Array<{ type: CleaningType; time_limit: number }>;
+}> => {
+  if (!room || !room.capacity_configurations) return [];
+  
+  try {
+    let configs: any[] = [];
+    if (typeof room.capacity_configurations === 'string') {
+      configs = JSON.parse(room.capacity_configurations);
+    } else if (Array.isArray(room.capacity_configurations)) {
+      configs = room.capacity_configurations;
+    }
+    
+    return configs.map((config: any) => ({
+      capacity: Number(config.capacity) || 0,
+      capacity_label: config.capacity_label || String(config.capacity || ''),
+      cleaning_types: Array.isArray(config.cleaning_types) 
+        ? config.cleaning_types.map((ct: any) => ({
+            type: ct.type as CleaningType,
+            time_limit: Number(ct.time_limit) || 30
+          }))
+        : []
+    }));
+  } catch (e) {
+    console.error("Error parsing capacity_configurations:", e);
+    return [];
+  }
+};
+
+// Render icons for capacity label
+const renderIcons = (config: string): React.ReactNode => {
+  const parts = config.split('+').map(p => parseInt(p.trim()));
+  
+  return (
+    <div className="flex items-center gap-1">
+      {parts.map((count, partIndex) => {
+        const icons = [];
+        for (let i = 0; i < count; i++) {
+          icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
+        }
+        return (
+          <div key={partIndex} className="flex items-center gap-0.5">
+            {icons}
+            {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Guest count options based on room's capacity_configurations
 type GuestOption = {
   value: number;
   label: string;
   display: React.ReactNode;
 };
 
-const getGuestCountOptions = (roomGroup: RoomGroup | null): GuestOption[] => {
-  if (!roomGroup) return [];
-
-  const renderIcons = (config: string): React.ReactNode => {
-    // Parse configurations like "1", "2", "1+1", "2+2", "2+2+2"
-    const parts = config.split('+').map(p => parseInt(p.trim()));
-    
-    return (
-      <div className="flex items-center gap-1">
-        {parts.map((count, partIndex) => {
-          const icons = [];
-          for (let i = 0; i < count; i++) {
-            icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
-          }
-          return (
-            <div key={partIndex} className="flex items-center gap-0.5">
-              {icons}
-              {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
+const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
+  if (!room) return [];
+  
+  const configs = parseCapacityConfigurations(room);
+  
+  // If room has capacity_configurations, use them
+  if (configs.length > 0) {
+    return configs.map(config => ({
+      value: config.capacity,
+      label: config.capacity_label,
+      display: renderIcons(config.capacity_label)
+    }));
+  }
+  
+  // Fallback to legacy behavior based on group_type for rooms without configurations
+  const roomGroup = room.group_type;
+  
   switch (roomGroup) {
     case 'P1':
       return [{ value: 1, label: '1', display: renderIcons('1') }];
@@ -104,7 +148,6 @@ const getGuestCountOptions = (roomGroup: RoomGroup | null): GuestOption[] => {
       ];
     
     case 'OTHER':
-      // Default options for other locations
       return Array.from({ length: 10 }, (_, i) => ({
         value: i + 1,
         label: String(i + 1),
@@ -114,6 +157,48 @@ const getGuestCountOptions = (roomGroup: RoomGroup | null): GuestOption[] => {
     default:
       return [];
   }
+};
+
+// Get available cleaning types from room's capacity_configurations
+const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] => {
+  if (!room) return [];
+  
+  const configs = parseCapacityConfigurations(room);
+  
+  // If room has capacity_configurations, extract unique cleaning types
+  if (configs.length > 0) {
+    const cleaningTypesSet = new Set<CleaningType>();
+    configs.forEach(config => {
+      config.cleaning_types.forEach(ct => {
+        cleaningTypesSet.add(ct.type);
+      });
+    });
+    return Array.from(cleaningTypesSet).sort();
+  }
+  
+  // Fallback to group-based logic for rooms without configurations
+  const roomGroup = room.group_type;
+  if (roomGroup === 'OTHER') {
+    return ['S', 'G'];
+  }
+  return ['W', 'P', 'T', 'O', 'G'];
+};
+
+// Get time limit from room's capacity_configurations
+const getTimeLimitFromRoom = (room: Room | null, capacity: number, cleaningType: CleaningType): number | null => {
+  if (!room) return null;
+  
+  const configs = parseCapacityConfigurations(room);
+  
+  // Find the configuration matching the capacity
+  const config = configs.find(c => c.capacity === capacity);
+  if (!config) return null;
+  
+  // Find the cleaning type in that configuration
+  const cleaningTypeConfig = config.cleaning_types.find(ct => ct.type === cleaningType);
+  if (!cleaningTypeConfig) return null;
+  
+  return cleaningTypeConfig.time_limit;
 };
 
 // Interface needs start_time and stop_time for display
@@ -173,15 +258,44 @@ export function TaskDetailDialog({
 }: TaskDetailDialogProps) {
     const { toast } = useToast();
     const [editableState, setEditableState] = useState<EditableTaskState | null>(null);
-    const [availableCleaningTypes, setAvailableCleaningTypes] = useState<CleaningType[]>([]);
+    const [selectedGroup, setSelectedGroup] = useState<RoomGroup | null>(null);
     const [isEditMode, setIsEditMode] = useState(false);
+    const [availableStaffOptions, setAvailableStaffOptions] = useState<Staff[]>([]);
+    const housekeepingStaff = useMemo(
+        () => allStaff.filter(staff => staff.role === 'housekeeping'),
+        [allStaff]
+    );
+
+    const availableRoomGroups = useMemo<RoomGroup[]>(() => {
+        const groups = new Set<RoomGroup>();
+        availableRooms.forEach(room => groups.add(room.group_type as RoomGroup));
+        return Array.from(groups).sort();
+    }, [availableRooms]);
+
+    const selectedRoom = useMemo(() => {
+        if (!editableState?.roomId) return null;
+        return availableRooms.find(room => room.id === editableState.roomId) || null;
+    }, [editableState?.roomId, availableRooms]);
+
+    const filteredRooms = useMemo(() => {
+        if (!selectedGroup) return availableRooms;
+        return availableRooms.filter(room => room.group_type === selectedGroup);
+    }, [availableRooms, selectedGroup]);
+
+    const availableCleaningTypes = useMemo(() => {
+        if (selectedRoom) {
+            return getAvailableCleaningTypesFromRoom(selectedRoom);
+        }
+        if (!selectedGroup) return [];
+        if (selectedGroup === 'OTHER') {
+            return ['S', 'G'];
+        }
+        return ['W', 'P', 'T', 'O', 'G'];
+    }, [selectedRoom, selectedGroup]);
 
     useEffect(() => {
-        // ... (keep existing useEffect logic) ...
         if (isOpen && task) {
-            const roomGroup = availableRooms.find(r => r.id === task.room.id)?.group_type || null;
-            setAvailableCleaningTypes(getAvailableCleaningTypes(roomGroup));
-
+            const selectedRoom = availableRooms.find(r => r.id === task.room.id) || null;
             setEditableState({
                 roomId: task.room.id,
                 cleaningType: task.cleaning_type,
@@ -191,30 +305,124 @@ export function TaskDetailDialog({
                 date: task.date,
                 timeLimit: task.time_limit,
             });
+            setSelectedGroup((selectedRoom?.group_type ?? task.room.group_type) as RoomGroup);
             setIsEditMode(false);
         } else if (!isOpen) {
             setEditableState(null);
-            setAvailableCleaningTypes([]);
+            setSelectedGroup(null);
             setIsEditMode(false);
         }
     }, [task, isOpen, availableRooms]);
 
-    const handleFieldChange = <K extends keyof EditableTaskState>(field: K, value: EditableTaskState[K]) => {
-         // ... (keep existing field change logic) ...
-        setEditableState(prev => prev ? { ...prev, [field]: value } : null);
+    useEffect(() => {
+        if (!isOpen) return;
 
-        if (field === 'roomId' && typeof value === 'string') {
-            const roomGroup = availableRooms.find(r => r.id === value)?.group_type || null;
-            const newAvailableTypes = getAvailableCleaningTypes(roomGroup);
-            setAvailableCleaningTypes(newAvailableTypes);
+        const fetchAvailableStaffForTask = async () => {
+            const baseStaff = housekeepingStaff;
 
-            if (editableState && !newAvailableTypes.includes(editableState.cleaningType)) {
-                setEditableState(p => p ? { ...p, cleaningType: newAvailableTypes[0] || 'W' } : null);
+            if (!editableState?.date) {
+                setAvailableStaffOptions(baseStaff);
+                return;
+            }
+
+            const requiredMinutes = editableState.timeLimit ?? task?.time_limit ?? null;
+            const requiredHours = requiredMinutes ? requiredMinutes / 60 : 0;
+
+            try {
+                const { data, error } = await supabase
+                    .from('staff_availability')
+                    .select('staff_id, available_hours')
+                    .eq('date', editableState.date);
+
+                if (error) {
+                    console.error('Error fetching staff availability for task detail:', error);
+                    setAvailableStaffOptions(baseStaff);
+                    return;
+                }
+
+                const filtered = baseStaff.filter(staff => {
+                    const availabilityInfo = data?.find(item => item.staff_id === staff.id);
+                    if (!availabilityInfo) {
+                        return requiredHours === 0;
+                    }
+                    return requiredHours === 0 || availabilityInfo.available_hours >= requiredHours;
+                });
+
+                setAvailableStaffOptions(filtered.length > 0 ? filtered : baseStaff);
+            } catch (fetchError) {
+                console.error('Unexpected error while fetching available staff for task detail:', fetchError);
+                setAvailableStaffOptions(baseStaff);
+            }
+        };
+
+        fetchAvailableStaffForTask();
+    }, [isOpen, editableState?.date, editableState?.timeLimit, housekeepingStaff, task?.time_limit]);
+
+    const staffOptions = useMemo(() => {
+        const baseOptions = availableStaffOptions.length > 0 ? availableStaffOptions : housekeepingStaff;
+        const assignedId = editableState?.staffId;
+        if (assignedId && assignedId !== 'unassigned' && !baseOptions.some(staff => staff.id === assignedId)) {
+            const assignedStaff = allStaff.find(staff => staff.id === assignedId);
+            if (assignedStaff) {
+                return [...baseOptions, assignedStaff];
             }
         }
+        return baseOptions;
+    }, [availableStaffOptions, housekeepingStaff, editableState?.staffId, allStaff]);
+
+    const handleFieldChange = <K extends keyof EditableTaskState>(field: K, value: EditableTaskState[K]) => {
+        if (field === 'timeLimit' && task?.status !== 'done') {
+            return;
+        }
+
+        setEditableState(prev => {
+            if (!prev) return null;
+
+            let nextState: EditableTaskState = { ...prev, [field]: value } as EditableTaskState;
+
+            if (field === 'roomId' && typeof value === 'string') {
+                const selectedRoom = availableRooms.find(r => r.id === value) || null;
+
+                if (selectedRoom) {
+                    setSelectedGroup(selectedRoom.group_type);
+                }
+
+                const newAvailableTypes = getAvailableCleaningTypesFromRoom(selectedRoom);
+                if (newAvailableTypes.length > 0 && !newAvailableTypes.includes(nextState.cleaningType)) {
+                    nextState.cleaningType = newAvailableTypes[0];
+                }
+
+                const guestOptions = getGuestCountOptionsFromRoom(selectedRoom);
+                nextState.guestCount = selectedRoom?.group_type === 'OTHER'
+                    ? 1
+                    : guestOptions.length > 0
+                        ? guestOptions[0].value
+                        : 1;
+            }
+
+            return nextState;
+        });
+    };
+
+    const handleGroupChange = (group: RoomGroup) => {
+        setSelectedGroup(group);
+        setEditableState(prev => {
+            if (!prev) return null;
+            const defaultTypes = group === 'OTHER' ? ['S', 'G'] : ['W', 'P', 'T', 'O', 'G'];
+            const nextCleaningType = defaultTypes.includes(prev.cleaningType) ? prev.cleaningType : (defaultTypes[0] || prev.cleaningType);
+            return {
+                ...prev,
+                roomId: "",
+                guestCount: 1,
+                cleaningType: nextCleaningType as CleaningType,
+            };
+        });
     };
 
     const handleEditClick = () => {
+        if (!selectedGroup && task) {
+            setSelectedGroup(task.room.group_type as RoomGroup);
+        }
         setIsEditMode(true);
     };
 
@@ -222,8 +430,7 @@ export function TaskDetailDialog({
         // ... (keep existing cancel logic) ...
         if (!task) return;
 
-        const roomGroup = availableRooms.find(r => r.id === task.room.id)?.group_type || null;
-        setAvailableCleaningTypes(getAvailableCleaningTypes(roomGroup));
+        const selectedRoom = availableRooms.find(r => r.id === task.room.id) || null;
 
         setEditableState({
             roomId: task.room.id,
@@ -234,6 +441,7 @@ export function TaskDetailDialog({
             date: task.date,
             timeLimit: task.time_limit,
         });
+        setSelectedGroup((selectedRoom?.group_type ?? task.room.group_type) as RoomGroup);
         setIsEditMode(false);
     };
 
@@ -277,6 +485,71 @@ export function TaskDetailDialog({
 
         const success = await onUpdate(task.id, updates);
         if (success) {
+            try {
+                const { data: refreshedTask, error } = await supabase
+                    .from('tasks')
+                    .select(`
+                        id,
+                        date,
+                        cleaning_type,
+                        guest_count,
+                        time_limit,
+                        reception_notes,
+                        room:rooms(id, name, group_type, color),
+                        user:users(id, name, first_name, last_name)
+                    `)
+                    .eq('id', task.id)
+                    .single();
+
+                if (!error && refreshedTask) {
+                    const updatedRoom = refreshedTask.room;
+                    const updatedUser = refreshedTask.user;
+
+                    if (task) {
+                        if (updatedRoom) {
+                            task.room = {
+                                id: updatedRoom.id,
+                                name: updatedRoom.name,
+                                group_type: updatedRoom.group_type,
+                                color: updatedRoom.color,
+                            };
+                        }
+                        task.cleaning_type = refreshedTask.cleaning_type as CleaningType;
+                        task.guest_count = refreshedTask.guest_count;
+                        task.time_limit = refreshedTask.time_limit;
+                        task.reception_notes = refreshedTask.reception_notes;
+                        task.date = refreshedTask.date;
+                        task.user = updatedUser
+                            ? {
+                                id: updatedUser.id,
+                                name: updatedUser.first_name && updatedUser.last_name
+                                    ? `${updatedUser.first_name} ${updatedUser.last_name}`
+                                    : updatedUser.name,
+                            }
+                            : null;
+                    }
+
+                    setEditableState({
+                        roomId: updatedRoom?.id ?? '',
+                        cleaningType: refreshedTask.cleaning_type as CleaningType,
+                        guestCount: updatedRoom?.group_type === 'OTHER' ? 0 : refreshedTask.guest_count,
+                        staffId: updatedUser?.id ?? 'unassigned',
+                        notes: refreshedTask.reception_notes ?? '',
+                        date: refreshedTask.date,
+                        timeLimit: refreshedTask.time_limit,
+                    });
+                    setSelectedGroup((updatedRoom?.group_type ?? task.room.group_type) as RoomGroup);
+                    if (updatedRoom?.group_type === 'OTHER') {
+                        task.guest_count = 0;
+                    }
+                } else {
+                    setEditableState(prev => prev ? { ...prev, ...updates } : prev);
+                }
+            } catch (fetchError) {
+                console.error("Error fetching updated task details:", fetchError);
+                setEditableState(prev => prev ? { ...prev, ...updates } : prev);
+            }
+
             setIsEditMode(false);
         }
     };
@@ -303,6 +576,58 @@ export function TaskDetailDialog({
 
 
     if (!task || !editableState) return null;
+
+    const currentRoom = isEditMode
+        ? selectedRoom
+        : availableRooms.find(room => room.id === task.room.id) || null;
+
+    const effectiveGroup = (currentRoom?.group_type ?? (isEditMode && selectedGroup ? selectedGroup : task.room.group_type)) as RoomGroup;
+    const isOtherLocation = effectiveGroup === 'OTHER';
+    const roomGroupLabel = roomGroupLabels[effectiveGroup] ?? effectiveGroup;
+
+    const effectiveGuestCount = isEditMode ? editableState.guestCount : task.guest_count;
+    const effectiveCleaningType = (isEditMode ? editableState.cleaningType : task.cleaning_type) as CleaningType;
+
+    let capacityLabel = String(effectiveGuestCount);
+    if (currentRoom) {
+        const configs = parseCapacityConfigurations(currentRoom);
+        if (configs.length > 0) {
+            const matchingByCapacity = configs.filter(config => config.capacity === effectiveGuestCount);
+            const matchByCleaning = matchingByCapacity.find(config =>
+                config.cleaning_types.some(ct => ct.type === effectiveCleaningType)
+            );
+            const chosenConfig = matchByCleaning ?? matchingByCapacity[0];
+            if (chosenConfig) {
+                capacityLabel = chosenConfig.capacity_label || String(chosenConfig.capacity);
+            }
+        } else if (currentRoom.capacity_label) {
+            capacityLabel = currentRoom.capacity_label;
+        }
+    }
+
+    const capacityDisplay = currentRoom
+        ? (
+            isOtherLocation ? (
+                <span className="text-sm text-muted-foreground italic">Not tracked for other locations</span>
+            ) : (
+                <div className="flex items-center gap-2">
+                    {renderIcons(capacityLabel)}
+                    <span className="text-xs text-muted-foreground">{capacityLabel}</span>
+                </div>
+            )
+        )
+        : (
+            <span className="text-sm text-muted-foreground italic">
+                {isOtherLocation
+                    ? "Not tracked for other locations"
+                    : isEditMode
+                        ? "Select a room to view capacity"
+                        : "Capacity details unavailable"}
+            </span>
+        );
+
+    const isTaskClosed = task.status === 'done';
+    const canEditTimeLimit = isTaskClosed;
 
     const getStatusLabel = (status: string) => {
          // ... (keep existing getStatusLabel) ...
@@ -341,10 +666,18 @@ export function TaskDetailDialog({
                                  {isEditMode ? 'Edit' : 'View'} Task - {task.room.name}
                              </DialogTitle>
                              <DialogDescription>
-                                 {isEditMode ? 'Modify task information below.' : 'Task details and information.'} Current status: <Badge className={cn(getStatusColor(task.status), "ml-1")}>{getStatusLabel(task.status)}</Badge>
+                                 {isEditMode ? 'Modify task information below.' : 'Task details and information.'}
                              </DialogDescription>
+                             <div className="mt-2 flex items-center gap-2">
+                                 <span className="text-sm text-muted-foreground">Current status:</span>
+                                 <Badge className={cn(getStatusColor(task.status))}>{getStatusLabel(task.status)}</Badge>
+                             </div>
                          </div>
-                         {task.issue_flag && <Badge variant="destructive" className="flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Issue Reported</Badge>}
+                         {task.issue_flag && (
+                             <Badge variant="destructive" className="flex items-center gap-1">
+                                 <AlertTriangle className="h-3 w-3" /> Issue Reported
+                             </Badge>
+                         )}
                      </div>
                 </DialogHeader>
 
@@ -358,60 +691,158 @@ export function TaskDetailDialog({
                             : (<p className="text-sm border p-2 rounded bg-muted/30">{formatDisplayDate(task.date)}</p>)}
                         </div>
                         <div className="space-y-1">
+                            <Label htmlFor="detail-room-group" className="flex items-center gap-1 text-muted-foreground"><DoorOpen className="h-4 w-4"/>Room Group*</Label>
+                            {isEditMode ? (
+                                <Select
+                                    value={selectedGroup ?? undefined}
+                                    onValueChange={(value: RoomGroup) => {
+                                        if (!value) return;
+                                        handleGroupChange(value);
+                                    }}
+                                    disabled={isUpdating}
+                                >
+                                    <SelectTrigger id="detail-room-group">
+                                        <SelectValue placeholder="Select room group" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableRoomGroups.map(group => (
+                                            <SelectItem key={group} value={group}>
+                                                {roomGroupLabels[group] ?? group}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <p className="text-sm border p-2 rounded bg-muted/30">{roomGroupLabel}</p>
+                            )}
+                        </div>
+                        <div className="space-y-1">
                             <Label htmlFor="detail-room" className="flex items-center gap-1 text-muted-foreground"><DoorOpen className="h-4 w-4"/>Room*</Label>
-                            {isEditMode ? (<Select value={editableState.roomId} onValueChange={(value) => handleFieldChange('roomId', value)} disabled={isUpdating}><SelectTrigger id="detail-room"><SelectValue placeholder="Select a room" /></SelectTrigger><SelectContent>{availableRooms.map(room => (<SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>))}</SelectContent></Select>)
-                            : (<p className="text-sm border p-2 rounded bg-muted/30">{task.room.name}</p>)}
+                            {isEditMode ? (
+                                <Select
+                                    value={editableState.roomId || undefined}
+                                    onValueChange={(value) => handleFieldChange('roomId', value)}
+                                    disabled={isUpdating || !selectedGroup}
+                                >
+                                    <SelectTrigger id="detail-room">
+                                        <SelectValue placeholder={selectedGroup ? "Select a room" : "Select room group first"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {selectedGroup && filteredRooms.length === 0 && (
+                                            <SelectItem value="__no_rooms__" disabled>
+                                                No rooms in this group
+                                            </SelectItem>
+                                        )}
+                                        {filteredRooms.map(room => (
+                                            <SelectItem key={room.id} value={room.id}>
+                                                {room.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <p className="text-sm border p-2 rounded bg-muted/30">{task.room.name}</p>
+                            )}
                         </div>
                         <div className="space-y-1">
                             <Label htmlFor="detail-cleaningType" className="flex items-center gap-1 text-muted-foreground"><BedDouble className="h-4 w-4"/>Type*</Label>
-                            {isEditMode ? (<Select value={editableState.cleaningType} onValueChange={(value: CleaningType) => handleFieldChange('cleaningType', value)} disabled={isUpdating}><SelectTrigger id="detail-cleaningType"><SelectValue placeholder="Select type" /></SelectTrigger><SelectContent>{availableCleaningTypes.map(type => (<SelectItem key={type} value={type}>{cleaningTypeLabels[type]}</SelectItem>))}</SelectContent></Select>)
+                            {isEditMode ? (
+                                <Select
+                                    value={editableState.cleaningType}
+                                    onValueChange={(value: CleaningType) => handleFieldChange('cleaningType', value)}
+                                    disabled={isUpdating || availableCleaningTypes.length === 0}
+                                >
+                                    <SelectTrigger id="detail-cleaningType">
+                                        <SelectValue placeholder="Select type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableCleaningTypes.length === 0 ? (
+                                            <SelectItem value="__no_types__" disabled>
+                                                No cleaning types available
+                                            </SelectItem>
+                                        ) : (
+                                            availableCleaningTypes.map(type => (
+                                                <SelectItem key={type} value={type}>
+                                                    {cleaningTypeLabels[type]}
+                                                </SelectItem>
+                                            ))
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            )
                             : (<p className="text-sm border p-2 rounded bg-muted/30">{cleaningTypeLabels[task.cleaning_type]}</p>)}
                         </div>
                         <div className="space-y-1">
                             <Label htmlFor="detail-guestCount" className="flex items-center gap-1 text-muted-foreground"><User className="h-4 w-4"/>Guests*</Label>
                             {isEditMode ? (
-                                <Select
-                                    value={(() => {
-                                        const roomGroup = availableRooms.find(r => r.id === editableState.roomId)?.group_type || null;
-                                        const options = getGuestCountOptions(roomGroup);
-                                        // Find the last matching option to prefer "1+1" over "2" when both exist
-                                        const matchingOptions = options.filter(opt => opt.value === editableState.guestCount);
-                                        const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
-                                        return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(editableState.guestCount);
-                                    })()}
-                                    onValueChange={(value) => {
-                                        // Extract numeric value from composite "value-label" format
-                                        const numericValue = parseInt(value.split('-')[0], 10);
-                                        handleFieldChange('guestCount', numericValue);
-                                    }}
-                                    disabled={isUpdating}
-                                >
-                                    <SelectTrigger id="detail-guestCount">
-                                        <SelectValue placeholder="Select guest count" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {(() => {
-                                            const roomGroup = availableRooms.find(r => r.id === editableState.roomId)?.group_type || null;
-                                            const options = getGuestCountOptions(roomGroup);
-                                            // Use composite value: value-label to handle duplicates
-                                            return options.map((option, index) => {
-                                                const uniqueValue = `${option.value}-${option.label}`;
-                                                return (
-                                                    <SelectItem key={`${option.value}-${option.label}-${index}`} value={uniqueValue}>
-                                                        {option.display}
-                                                    </SelectItem>
-                                                );
-                                            });
+                                isOtherLocation ? (
+                                    <div className="text-sm border p-2 rounded bg-muted/30 text-muted-foreground italic">
+                                        Capacity not tracked for other locations
+                                    </div>
+                                ) : (
+                                    <Select
+                                        value={(() => {
+                                            const selectedRoom = availableRooms.find(r => r.id === editableState.roomId) || null;
+                                            const options = getGuestCountOptionsFromRoom(selectedRoom);
+                                            // Find the last matching option to prefer "1+1" over "2" when both exist
+                                            const matchingOptions = options.filter(opt => opt.value === editableState.guestCount);
+                                            const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
+                                            return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(editableState.guestCount);
                                         })()}
-                                    </SelectContent>
-                                </Select>
+                                        onValueChange={(value) => {
+                                            // Extract numeric value from composite "value-label" format
+                                            const numericValue = parseInt(value.split('-')[0], 10);
+                                            handleFieldChange('guestCount', numericValue);
+                                        }}
+                                        disabled={isUpdating}
+                                    >
+                                        <SelectTrigger id="detail-guestCount">
+                                            <SelectValue placeholder="Select guest count" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {(() => {
+                                                const selectedRoom = availableRooms.find(r => r.id === editableState.roomId) || null;
+                                                const options = getGuestCountOptionsFromRoom(selectedRoom);
+                                                // Use composite value: value-label to handle duplicates
+                                                return options.map((option, index) => {
+                                                    const uniqueValue = `${option.value}-${option.label}`;
+                                                    return (
+                                                        <SelectItem key={`${option.value}-${option.label}-${index}`} value={uniqueValue}>
+                                                            {option.display}
+                                                        </SelectItem>
+                                                    );
+                                                });
+                                            })()}
+                                        </SelectContent>
+                                    </Select>
+                                )
                             ) : (
-                                <p className="text-sm border p-2 rounded bg-muted/30">{task.guest_count}</p>
+                                <div className="text-sm border p-2 rounded bg-muted/30">
+                                    {capacityDisplay}
+                                </div>
                             )}
                         </div>
                         <div className="space-y-1">
                             <Label htmlFor="detail-assignStaff" className="flex items-center gap-1 text-muted-foreground"><User className="h-4 w-4"/>Assigned Staff</Label>
-                            {isEditMode ? (<Select value={editableState.staffId} onValueChange={(value) => handleFieldChange('staffId', value)} disabled={isUpdating}><SelectTrigger id="detail-assignStaff"><SelectValue placeholder="Select staff..." /></SelectTrigger><SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{allStaff.map(staff => (<SelectItem key={staff.id} value={staff.id}>{staff.name}</SelectItem>))}</SelectContent></Select>)
+                            {isEditMode ? (
+                                <Select
+                                    value={editableState.staffId}
+                                    onValueChange={(value) => handleFieldChange('staffId', value)}
+                                    disabled={isUpdating}
+                                >
+                                    <SelectTrigger id="detail-assignStaff">
+                                        <SelectValue placeholder="Select staff..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                                        {staffOptions.map(staff => (
+                                            <SelectItem key={staff.id} value={staff.id}>
+                                                {staff.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )
                             : (<p className="text-sm border p-2 rounded bg-muted/30">{task.user?.name || 'Unassigned'}</p>)}
                         </div>
                         <div className="space-y-1">
@@ -426,7 +857,22 @@ export function TaskDetailDialog({
                         {/* Time Limit */}
                         <div className="space-y-1">
                             <Label htmlFor="detail-timeLimit" className="flex items-center gap-1 text-muted-foreground"><Clock className="h-4 w-4"/>Time Limit (min)</Label>
-                            {isEditMode ? (<Input id="detail-timeLimit" type="number" min="0" value={editableState.timeLimit ?? ''} onChange={(e) => handleFieldChange('timeLimit', e.target.value ? parseInt(e.target.value, 10) : null)} placeholder="None" disabled={isUpdating}/>)
+                            {isEditMode ? (
+                                <>
+                                    <Input
+                                        id="detail-timeLimit"
+                                        type="number"
+                                        min="0"
+                                        value={editableState.timeLimit ?? ''}
+                                        onChange={(e) => handleFieldChange('timeLimit', e.target.value ? parseInt(e.target.value, 10) : null)}
+                                        placeholder="None"
+                                        disabled={isUpdating || !canEditTimeLimit}
+                                    />
+                                    {!canEditTimeLimit && (
+                                        <p className="text-xs text-muted-foreground">Close the task to adjust the time limit.</p>
+                                    )}
+                                </>
+                            )
                             : (<p className="text-sm border p-2 rounded bg-muted/30">{task.time_limit ?? 'None'}</p>)}
                         </div>
 
@@ -515,11 +961,9 @@ export function TaskDetailDialog({
                             <DialogClose asChild>
                                 <Button type="button" variant="outline">Close</Button>
                             </DialogClose>
-                            {task.status !== 'done' && ( // Only allow editing if not done
-                                <Button type="button" onClick={handleEditClick}>
-                                    <Edit2 className="mr-2 h-4 w-4" /> Edit
-                                </Button>
-                            )}
+                            <Button type="button" onClick={handleEditClick}>
+                                <Edit2 className="mr-2 h-4 w-4" /> Edit
+                            </Button>
                         </>
                     )}
                 </DialogFooter>

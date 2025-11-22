@@ -14,6 +14,7 @@ export interface Room {
     capacity: number;
     capacity_label?: string | null;
     color?: string | null;
+    capacity_configurations?: any; // JSONB array of capacity configurations
 }
 export interface Task {
   id: string;
@@ -86,7 +87,7 @@ export function useReceptionData() {
 
   // --- Data Fetching Callbacks ---
   const fetchRooms = useCallback(async () => {
-    const { data, error } = await supabase.from("rooms").select("id, name, group_type, capacity, color").eq("active", true).order("name");
+    const { data, error } = await supabase.from("rooms").select("id, name, group_type, capacity, capacity_label, color, capacity_configurations").eq("active", true).order("name");
     if (error) { console.error("Error fetching rooms:", error); toast({ title: "Error", description: "Could not load rooms.", variant: "destructive" }); }
     else if (isMountedRef.current) { setAvailableRooms(data || []); }
     return data;
@@ -323,7 +324,7 @@ export function useReceptionData() {
             if (refreshError) {
                 toast({ title: "Refresh Partially Failed", description: "Some data could not be refreshed.", variant: "destructive" });
             } else {
-                toast({ title: "Data refreshed" });
+                toast({ title: "Changes saved", description: "Latest data fetched successfully." });
             }
         }
     } catch (error: any) {

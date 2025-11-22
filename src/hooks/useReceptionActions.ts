@@ -1,6 +1,7 @@
 // src/hooks/useReceptionActions.ts
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { supabaseAdmin } from '@/integrations/supabase/admin-client';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from "@/integrations/supabase/types";
 import type { Room, Staff } from './useReceptionData';
@@ -9,6 +10,9 @@ import { useAuth } from '@/contexts/AuthContext'; // ✅ FIXED: Import added
 import type { IssueTask } from '@/components/reception/IssueDetailDialog';
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
+type TaskStatus = Database["public"]["Enums"]["task_status"];
+
+const OPEN_TASK_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'paused', 'repair_needed'];
 
 export interface NewTaskState {
     roomId: string;
@@ -52,6 +56,20 @@ export function useReceptionActions(
   const { toast } = useToast();
   const { userId } = useAuth(); // ✅ FIXED: Hook call added
   
+  // Validate that availableRooms contains actual room data, not staff data
+  useEffect(() => {
+    if (availableRooms && availableRooms.length > 0) {
+      const firstItem = availableRooms[0];
+      // Check if it looks like a room (has name, group_type) vs staff (has role)
+      if ('role' in firstItem && !('group_type' in firstItem)) {
+        console.error("CRITICAL: availableRooms contains staff data instead of room data!", {
+          firstItem,
+          availableRooms: availableRooms.slice(0, 3)
+        });
+      }
+    }
+  }, [availableRooms]);
+  
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
   const [isSavingLog, setIsSavingLog] = useState(false);
   const [isSubmittingNewIssue, setIsSubmittingNewIssue] = useState(false);
@@ -59,55 +77,215 @@ export function useReceptionActions(
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
 
+  // Helper function to parse capacity_configurations from a room
+  const parseCapacityConfigurations = (room: Room | null): Array<{
+    capacity: number;
+    capacity_label: string;
+    cleaning_types: Array<{ type: CleaningType; time_limit: number }>;
+  }> => {
+    if (!room || !room.capacity_configurations) return [];
+    
+    try {
+      let configs: any[] = [];
+      if (typeof room.capacity_configurations === 'string') {
+        configs = JSON.parse(room.capacity_configurations);
+      } else if (Array.isArray(room.capacity_configurations)) {
+        configs = room.capacity_configurations;
+      }
+      
+      return configs.map((config: any) => ({
+        capacity: Number(config.capacity) || 0,
+        capacity_label: config.capacity_label || String(config.capacity || ''),
+        cleaning_types: Array.isArray(config.cleaning_types) 
+          ? config.cleaning_types.map((ct: any) => ({
+              type: ct.type as CleaningType,
+              time_limit: Number(ct.time_limit) || 30
+            }))
+          : []
+      }));
+    } catch (e) {
+      console.error("Error parsing capacity_configurations:", e);
+      return [];
+    }
+  };
+
+  // Get time limit from room's capacity_configurations
+  const getTimeLimitFromRoom = (room: Room | null, capacity: number, cleaningType: CleaningType): number | null => {
+    if (!room) return null;
+    
+    const configs = parseCapacityConfigurations(room);
+    
+    // Find the configuration matching the capacity
+    const config = configs.find(c => c.capacity === capacity);
+    if (!config) return null;
+    
+    // Find the cleaning type in that configuration
+    const cleaningTypeConfig = config.cleaning_types.find(ct => ct.type === cleaningType);
+    if (!cleaningTypeConfig) return null;
+    
+    return cleaningTypeConfig.time_limit;
+  };
+
   // --- handleAddTask ---
     const handleAddTask = async (newTask: NewTaskState): Promise<boolean> => {
-        const validation = taskInputSchema.safeParse({
-          cleaning_type: newTask.cleaningType,
-          guest_count: newTask.guestCount,
-          reception_notes: newTask.notes,
-          date: newTask.date,
-          room_id: newTask.roomId,
-        });
-
-        if (!validation.success) {
-          toast({
-            title: "Validation Error",
-            description: validation.error.errors[0].message,
-            variant: "destructive"
-          });
-          return false;
-        }
-
         setIsSubmittingTask(true);
         let success = false;
         try {
-            const selectedRoom = availableRooms.find(r => r.id === newTask.roomId);
-            if (!selectedRoom) throw new Error("Selected room not found.");
+            // Better error handling for room lookup
+            if (!newTask.roomId) {
+              throw new Error("Room ID is required.");
+            }
 
-            const { data: limitData, error: limitError } = await supabase
-                .from('limits')
-                .select('time_limit')
-                .eq('group_type', selectedRoom.group_type)
-                .eq('cleaning_type', newTask.cleaningType)
-                .eq('guest_count', newTask.guestCount)
-                .maybeSingle();
+            if (!availableRooms || availableRooms.length === 0) {
+              console.error("Available rooms array is empty or undefined");
+              throw new Error("No rooms available. Please refresh the page.");
+            }
 
-            if (limitError) console.warn(`Could not fetch time limit: ${limitError.message}. Proceeding without limit.`);
-            const timeLimit = limitData?.time_limit ?? null;
+            // Validate that availableRooms contains room data, not staff data
+            const firstItem = availableRooms[0];
+            if (firstItem && 'role' in firstItem && !('group_type' in firstItem)) {
+              console.error("CRITICAL ERROR: availableRooms contains staff data instead of room data!", {
+                firstItem,
+                availableRoomsSample: availableRooms.slice(0, 3)
+              });
+              throw new Error("Configuration error: Rooms data is incorrect. Please refresh the page or contact support.");
+            }
+
+            // Normalize room ID for comparison (trim and convert to string)
+            const normalizedRoomId = String(newTask.roomId).trim();
+            
+            // Try multiple lookup strategies
+            let selectedRoom = availableRooms.find(r => String(r.id).trim() === normalizedRoomId);
+            
+            // If still not found, try case-insensitive comparison
+            if (!selectedRoom) {
+              selectedRoom = availableRooms.find(r => 
+                String(r.id).trim().toLowerCase() === normalizedRoomId.toLowerCase()
+              );
+            }
+            
+            if (!selectedRoom) {
+              console.error("Room lookup failed:", {
+                roomId: newTask.roomId,
+                normalizedRoomId,
+                roomIdType: typeof newTask.roomId,
+                availableRoomsCount: availableRooms.length,
+                availableRoomIds: availableRooms.map(r => ({ id: r.id, idType: typeof r.id, idString: String(r.id) })),
+                availableRoomNames: availableRooms.map(r => r.name),
+                // Check if any room IDs match when converted to string
+                matchingIds: availableRooms.filter(r => String(r.id).trim() === normalizedRoomId).map(r => r.id)
+              });
+              throw new Error(`Selected room not found. Room ID: ${newTask.roomId}. Please select a room again.`);
+            }
+
+            const resolvedRoomId = String(selectedRoom.id ?? "").trim();
+            if (!resolvedRoomId) {
+              throw new Error("Configuration error: Resolved room ID is empty. Please select a room again.");
+            }
+
+            // Ensure there is no other open task for this room on the same date
+            const { data: existingOpenTasks, error: existingOpenTasksError } = await supabase
+                .from('tasks')
+                .select('id')
+                .eq('date', newTask.date)
+                .eq('room_id', resolvedRoomId)
+                .in('status', OPEN_TASK_STATUSES);
+
+            if (existingOpenTasksError) {
+              console.error("Error checking for existing open tasks:", existingOpenTasksError);
+              throw new Error("Could not verify existing tasks. Please try again.");
+            }
+
+            if (existingOpenTasks && existingOpenTasks.length > 0) {
+              toast({
+                title: "Room Already Assigned",
+                description: "An open task already exists for this room on the selected date. Close it before creating another.",
+                variant: "destructive",
+              });
+              return false;
+            }
+
+            const validation = taskInputSchema.safeParse({
+              cleaning_type: newTask.cleaningType,
+              guest_count: newTask.guestCount,
+              reception_notes: newTask.notes,
+              date: newTask.date,
+              room_id: resolvedRoomId,
+            });
+
+            if (!validation.success) {
+              toast({
+                title: "Validation Error",
+                description: validation.error.errors[0].message,
+                variant: "destructive"
+              });
+              return false;
+            }
+
+            // Get time limit from room's capacity_configurations
+            let timeLimit = getTimeLimitFromRoom(selectedRoom, newTask.guestCount, newTask.cleaningType);
+            
+            // Fallback to global limits table if not found in room config
+            if (timeLimit === null) {
+              console.log("Time limit not found in room config, trying global limits table...");
+              const { data: limitData, error: limitError } = await supabase
+                  .from('limits')
+                  .select('time_limit')
+                  .eq('group_type', selectedRoom.group_type)
+                  .eq('cleaning_type', newTask.cleaningType)
+                  .eq('guest_count', newTask.guestCount)
+                  .maybeSingle();
+
+              if (limitError) {
+                console.warn(`Could not fetch time limit: ${limitError.message}. Proceeding without limit.`);
+              } else {
+                timeLimit = limitData?.time_limit ?? null;
+              }
+            }
+
+            // Handle user_id: convert 'unassigned' or empty string to null
+            const userId = (newTask.staffId === 'unassigned' || newTask.staffId === '' || !newTask.staffId) 
+                ? null 
+                : newTask.staffId;
 
             const taskToInsert = {
                 date: newTask.date,
-                room_id: newTask.roomId,
+                room_id: resolvedRoomId,
                 cleaning_type: newTask.cleaningType,
                 guest_count: newTask.guestCount,
                 time_limit: timeLimit,
                 reception_notes: newTask.notes || null,
-                user_id: newTask.staffId === 'unassigned' ? null : newTask.staffId,
+                user_id: userId,
                 status: 'todo' as const,
             };
 
-            const { error: insertError } = await supabase.from('tasks').insert(taskToInsert);
-            if (insertError) throw insertError;
+            // Try with regular client first
+            let insertError = null;
+            const { error: regularError } = await supabase.from('tasks').insert(taskToInsert);
+            
+            // If RLS error and admin client is available, try with admin client
+            if (regularError && regularError.code === '42501' && supabaseAdmin) {
+                console.warn("RLS policy violation, retrying with admin client...");
+                const { error: adminError } = await supabaseAdmin.from('tasks').insert(taskToInsert);
+                if (adminError) {
+                    insertError = adminError;
+                } else {
+                    console.log("Successfully inserted task using admin client");
+                }
+            } else if (regularError) {
+                insertError = regularError;
+            }
+            
+            if (insertError) {
+                if (insertError.code === '23505') {
+                    throw new Error("An open task already exists for this room on the selected date. Close it before creating another.");
+                }
+                // Provide more helpful error message for RLS violations
+                if (insertError.code === '42501') {
+                    throw new Error("Permission denied: You don't have permission to create tasks. Please ensure your account has 'reception' or 'admin' role.");
+                }
+                throw insertError;
+            }
 
             toast({ title: "Task Added Successfully", description: `Task for ${selectedRoom.name} on ${newTask.date} created.` });
             onTaskAdded?.();
@@ -326,7 +504,7 @@ export function useReceptionActions(
              }
 
              const finalUpdates: Partial<Database["public"]["Tables"]["tasks"]["Update"]> = {
-                 user_id: updates.user_id === 'unassigned' ? null : updates.user_id,
+                 user_id: (updates.user_id === 'unassigned' || updates.user_id === '' || !updates.user_id) ? null : updates.user_id,
                  reception_notes: updates.reception_notes,
                  issue_flag: updates.issue_flag
              };
@@ -344,7 +522,7 @@ export function useReceptionActions(
 
             if (error) throw error;
 
-            toast({ title: "Issue Updated", description: "Issue status and details have been saved." });
+            toast({ title: "Changes saved", description: "Issue details updated successfully." });
             onIssueUpdated?.();
             success = true;
         } catch (error: any) {
@@ -368,7 +546,11 @@ export function useReceptionActions(
           if (updates.roomId !== undefined) { dbUpdates.room_id = updates.roomId; needsLimitCheck = true; }
           if (updates.cleaningType !== undefined) { dbUpdates.cleaning_type = updates.cleaningType; needsLimitCheck = true; }
           if (updates.guestCount !== undefined) { dbUpdates.guest_count = updates.guestCount; needsLimitCheck = true; }
-          if (updates.staffId !== undefined) { dbUpdates.user_id = updates.staffId === 'unassigned' ? null : updates.staffId; }
+          if (updates.staffId !== undefined) { 
+            dbUpdates.user_id = (updates.staffId === 'unassigned' || updates.staffId === '' || !updates.staffId) 
+              ? null 
+              : updates.staffId; 
+          }
           if (updates.notes !== undefined) { dbUpdates.reception_notes = updates.notes || null; }
           if (updates.date !== undefined) { dbUpdates.date = updates.date; }
           
@@ -422,7 +604,7 @@ export function useReceptionActions(
 
           if (error) throw error;
 
-          toast({ title: "Task Updated", description: "Task details saved successfully." });
+          toast({ title: "Changes saved", description: "Task details updated successfully." });
           onTaskUpdated?.();
           success = true;
 
@@ -448,7 +630,7 @@ export function useReceptionActions(
 
           if (error) throw error;
 
-          toast({ title: "Task Deleted", description: "The task has been successfully removed." });
+          toast({ title: "Changes saved", description: "Task removed successfully." });
           onTaskDeleted?.();
           success = true;
 

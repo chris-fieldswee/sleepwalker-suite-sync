@@ -52,3 +52,7 @@ If restart doesn't work, PostgREST refreshes its cache automatically every 5-30 
 ## Why This Happens
 PostgREST maintains an internal schema cache for performance. When you create new functions, it doesn't immediately detect them. A restart forces PostgREST to rebuild its cache from scratch.
 
+
+
+
+

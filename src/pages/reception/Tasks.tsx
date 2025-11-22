@@ -224,7 +224,7 @@ export default function Tasks({
               <TableHead className="font-semibold w-[100px]">Status</TableHead>
               <TableHead className="font-semibold w-[100px]">Room</TableHead>
               <TableHead className="font-semibold w-[150px]">Staff</TableHead>
-              <TableHead className="font-semibold text-center w-[80px]">Date</TableHead> {/* Date Header Added */}
+              <TableHead className="font-semibold text-center w-[80px]">Date</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Type</TableHead>
               <TableHead className="font-semibold text-center w-[80px]">Guests</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Limit</TableHead>

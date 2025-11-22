@@ -1,6 +1,7 @@
 // src/components/reception/IssueTableRow.tsx
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { Eye, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -83,43 +84,43 @@ export const IssueTableRow = ({ issue, onViewDetails, onDelete, isDeleting }: Is
   };
 
   return (
-    <TooltipProvider delayDuration={100}>
-      <tr className="border-b hover:bg-muted/50 transition-colors text-sm">
-        {/* Room */}
-        <td className="p-2 align-middle font-medium">{issue.room.name}</td>
-        
-        {/* Title */}
-        <td className="p-2 align-middle">{truncateText(issue.title, 50)}</td>
-        
-        {/* Priority */}
-        <td className="p-2 align-middle text-center">
-          {getPriorityBadge(issue.priority)}
-        </td>
-        
-        {/* Status */}
-        <td className="p-2 align-middle text-center">
-          {getStatusBadge(issue.status)}
-        </td>
-        
-        {/* Assigned To */}
-        <td className="p-2 align-middle">
-          {issue.assigned_to ? getDisplayName(issue.assigned_to) : 'Unassigned'}
-        </td>
-        
-        {/* Reported At */}
-        <td className="p-2 align-middle text-center text-muted-foreground">
-          {formatDate(issue.reported_at)}
-        </td>
-        
-        {/* Photo */}
-        <td className="p-2 align-middle text-center">
-          {issue.photo_url ? 'Yes' : '-'}
-        </td>
-        
-        {/* Actions */}
-        <td className="p-2 align-middle text-right">
-          <div className="flex gap-1 justify-end">
-            {/* View Details Button */}
+    <TableRow className="border-b hover:bg-muted/50 transition-colors text-sm">
+      {/* Room */}
+      <TableCell className="p-2 align-middle font-medium">{issue.room.name}</TableCell>
+
+      {/* Title */}
+      <TableCell className="p-2 align-middle">{truncateText(issue.title, 50)}</TableCell>
+
+      {/* Priority */}
+      <TableCell className="p-2 align-middle text-center">
+        {getPriorityBadge(issue.priority)}
+      </TableCell>
+
+      {/* Status */}
+      <TableCell className="p-2 align-middle text-center">
+        {getStatusBadge(issue.status)}
+      </TableCell>
+
+      {/* Assigned To */}
+      <TableCell className="p-2 align-middle">
+        {issue.assigned_to ? getDisplayName(issue.assigned_to) : 'Unassigned'}
+      </TableCell>
+
+      {/* Reported At */}
+      <TableCell className="p-2 align-middle text-center text-muted-foreground">
+        {formatDate(issue.reported_at)}
+      </TableCell>
+
+      {/* Photo */}
+      <TableCell className="p-2 align-middle text-center">
+        {issue.photo_url ? 'Yes' : '-'}
+      </TableCell>
+
+      {/* Actions */}
+      <TableCell className="p-2 align-middle text-right">
+        <div className="flex gap-1 justify-end">
+          {/* View Details Button */}
+          <TooltipProvider delayDuration={100}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onViewDetails(issue)}>
@@ -129,16 +130,18 @@ export const IssueTableRow = ({ issue, onViewDetails, onDelete, isDeleting }: Is
               </TooltipTrigger>
               <TooltipContent side="top"><p>View/Edit Details</p></TooltipContent>
             </Tooltip>
-            
-            {/* Delete Confirmation Dialog */}
-            <AlertDialog>
+          </TooltipProvider>
+
+          {/* Delete Confirmation Dialog */}
+          <AlertDialog>
+            <TooltipProvider delayDuration={100}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <AlertDialogTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                       disabled={isDeleting}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -148,29 +151,30 @@ export const IssueTableRow = ({ issue, onViewDetails, onDelete, isDeleting }: Is
                 </TooltipTrigger>
                 <TooltipContent side="top"><p>Delete Issue</p></TooltipContent>
               </Tooltip>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the issue for room <span className="font-medium">{issue.room.name}</span>.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => onDelete(issue.id)}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? "Deleting..." : "Delete"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </td>
-      </tr>
-    </TooltipProvider>
+            </TooltipProvider>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the issue for room{" "}
+                  <span className="font-medium">{issue.room.name}</span>.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => onDelete(issue.id)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 };
 

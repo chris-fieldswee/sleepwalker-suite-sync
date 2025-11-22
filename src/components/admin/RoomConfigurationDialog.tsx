@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, User } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
+import { getCapacitySortKey, normalizeCapacityLabel } from "@/lib/capacity-utils";
 
 type RoomGroup = Database["public"]["Enums"]["room_group"];
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
@@ -64,7 +65,20 @@ const availableCleaningTypes: Record<RoomGroup, CleaningType[]> = {
 };
 
 const renderIcons = (config: string): React.ReactNode => {
-  const parts = config.split('+').map(p => parseInt(p.trim()));
+  const normalized = normalizeCapacityLabel(config);
+  const rawParts = normalized.includes("+") ? normalized.split("+") : [normalized];
+  const parts = rawParts
+    .map((part) => parseInt(part.trim(), 10))
+    .filter((count) => !Number.isNaN(count) && count > 0);
+
+  if (parts.length === 0) {
+    const fallback = parseInt(normalized, 10);
+    if (!Number.isNaN(fallback) && fallback > 0) {
+      parts.push(fallback);
+    } else {
+      parts.push(1);
+    }
+  }
   return (
     <div className="flex items-center gap-1">
       {parts.map((count, partIndex) => {
@@ -86,11 +100,8 @@ const renderIcons = (config: string): React.ReactNode => {
 // Get ALL available capacity options (not filtered by group type)
 // Admin can select any capacity option for any room
 const getAllCapacityOptions = (): Array<{ value: number; label: string; display: React.ReactNode }> => {
-  // Collect all unique capacity options from all group types
-  // Use label as the unique key since same value can have different labels (e.g., value 2 can be "2" or "1+1")
   const allOptions = new Map<string, { value: number; label: string; display: React.ReactNode }>();
-  
-  // Add all options from all group types
+
   const options = [
     // P1 options
     { value: 1, label: '1', display: renderIcons('1') },
@@ -117,16 +128,21 @@ const getAllCapacityOptions = (): Array<{ value: number; label: string; display:
     { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
     { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
   ];
-  
-  // Add to map using label as unique key (since same value can have different labels)
+
   options.forEach(option => {
-    allOptions.set(option.label, option);
+    const normalizedLabel = normalizeCapacityLabel(option.label);
+
+    if (!allOptions.has(normalizedLabel)) {
+      allOptions.set(normalizedLabel, {
+        value: option.value,
+        label: normalizedLabel,
+        display: option.display ?? renderIcons(normalizedLabel)
+      });
+    }
   });
-  
-  // Return all unique options sorted by value, then by label
+
   return Array.from(allOptions.values()).sort((a, b) => {
-    if (a.value !== b.value) return a.value - b.value;
-    return a.label.localeCompare(b.label);
+    return getCapacitySortKey(a.label) - getCapacitySortKey(b.label);
   });
 };
 
@@ -477,8 +493,8 @@ export function RoomConfigurationDialog({
                         >
                           <span className="flex items-center gap-1">
                             {option.display}
+                            <span className="sr-only">{option.label}</span>
                           </span>
-                          <span className="text-sm text-muted-foreground">({option.label})</span>
                         </Label>
                       </div>
                     );

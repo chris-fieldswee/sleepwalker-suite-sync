@@ -35,3 +35,7 @@ SELECT
 FROM public.users
 WHERE auth_id = '600675ad-af15-4c72-b6d0-59d1b8e572a4';
 
+
+
+
+

@@ -24,10 +24,13 @@ export default function Admin() {
   // Use the same data hooks as reception
   const receptionData = useReceptionData();
   const receptionActions = useReceptionActions(
-    receptionData.allStaff,
     receptionData.availableRooms,
-    receptionData.refresh,
-    toast
+    receptionData.actions.refresh, // onTaskAdded
+    receptionData.actions.refresh, // onWorkLogSaved
+    receptionData.actions.refresh, // onIssueReported
+    receptionData.actions.refresh, // onIssueUpdated
+    receptionData.actions.refresh, // onTaskUpdated
+    receptionData.actions.refresh  // onTaskDeleted
   );
 
   return (

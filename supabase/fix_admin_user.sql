@@ -77,3 +77,7 @@ LEFT JOIN public.users pu ON au.id = pu.auth_id
 LEFT JOIN public.user_roles ur ON au.id = ur.user_id
 WHERE au.email = 'admin@sleepwalker.com';
 
+
+
+
+

@@ -52,3 +52,7 @@ const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
 For development/testing: `admin1234`
 For production: Use a strong, unique password
 
+
+
+
+

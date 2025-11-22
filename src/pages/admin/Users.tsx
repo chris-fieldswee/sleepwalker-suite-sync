@@ -41,6 +41,8 @@ export default function Users() {
     active: true,
   });
 
+  const adminClientAvailable = isAdminClientAvailable();
+
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -230,12 +232,10 @@ export default function Users() {
     if (!selectedUser) return;
 
     try {
-      if (!supabaseAdmin) {
-        throw new Error("Admin client not available. User update requires VITE_SUPABASE_SERVICE_ROLE_KEY");
-      }
+      const client = supabaseAdmin ?? supabase;
 
-      // Update user in users table using admin client to bypass RLS
-      const { error: userError } = await supabaseAdmin
+      // Update user in users table (falls back to standard client when admin client missing)
+      const { error: userError } = await client
         .from("users")
         .update({
           name: formData.name,
@@ -246,37 +246,44 @@ export default function Users() {
         })
         .eq("id", selectedUser.id);
 
-      if (userError) throw userError;
+      if (userError) {
+        // Provide a more helpful message when RLS blocks the update
+        if (!supabaseAdmin && userError.code === "42501") {
+          throw new Error(
+            "Update blocked by RLS. Sign in as an admin user or configure the service role key for elevated access."
+          );
+        }
+        throw userError;
+      }
 
       // Update password if provided
       if (formData.password && selectedUser.auth_id) {
-        if (!supabaseAdmin) {
+        if (supabaseAdmin) {
+          const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
+            selectedUser.auth_id,
+            { password: formData.password }
+          );
+          
+          if (passwordError) {
+            console.warn("Password update failed:", passwordError);
+            // Don't throw error, just warn
+          }
+        } else {
           toast({
-            title: "Error",
-            description: "Admin client not available. Password update requires VITE_SUPABASE_SERVICE_ROLE_KEY",
+            title: "Password not updated",
+            description: "Reset passwords via Supabase dashboard or add VITE_SUPABASE_SERVICE_ROLE_KEY for direct updates.",
             variant: "destructive",
           });
-          return;
         }
-        const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
-          selectedUser.auth_id,
-          { password: formData.password }
-        );
         
-        if (passwordError) {
-          console.warn("Password update failed:", passwordError);
-          // Don't throw error, just warn
-        }
+        // Clear password field after attempting update/reset
+        setFormData((prev) => ({ ...prev, password: "" }));
       }
 
       // Update role in user_roles table if changed
       if (selectedUser.auth_id && formData.role !== selectedUser.role) {
-        if (!supabaseAdmin) {
-          throw new Error("Admin client not available. Role update requires VITE_SUPABASE_SERVICE_ROLE_KEY");
-        }
-
         // Delete ALL existing roles for this user first (to avoid duplicate key errors)
-        const { error: deleteError } = await supabaseAdmin
+        const { error: deleteError } = await client
           .from("user_roles")
           .delete()
           .eq("user_id", selectedUser.auth_id);
@@ -287,7 +294,7 @@ export default function Users() {
         }
 
         // Insert new role (using upsert to be safe, though we just deleted all roles)
-        const { error: roleError } = await supabaseAdmin
+        const { error: roleError } = await client
           .from("user_roles")
           .upsert([{
             user_id: selectedUser.auth_id,
@@ -385,15 +392,16 @@ export default function Users() {
 
   const openEditDialog = (user: User) => {
     setSelectedUser(user);
-    setFormData({
+    setFormData((prev) => ({
+      ...prev,
       name: user.name,
-      email: "", // Don't populate email in edit (can't change it anyway)
-      password: "", // Don't populate password
+      email: "", // Email is managed via auth; keep hidden in edit form
+      password: "",
       first_name: user.first_name || "",
       last_name: user.last_name || "",
       role: user.role,
       active: user.active,
-    });
+    }));
     setIsEditDialogOpen(true);
   };
 
@@ -444,6 +452,13 @@ export default function Users() {
               <DialogDescription>
                 Add a new user to the system with appropriate role and permissions.
               </DialogDescription>
+              {!adminClientAvailable && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  Creating new users requires the Supabase service role key. Configure
+                  <code className="mx-1 rounded bg-amber-100 px-1 py-0.5 text-[0.75rem]">VITE_SUPABASE_SERVICE_ROLE_KEY</code>
+                  or invite users through the Supabase dashboard.
+                </div>
+              )}
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
@@ -515,8 +530,8 @@ export default function Users() {
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleCreateUser}>
-                Create User
+              <Button onClick={handleCreateUser} disabled={!adminClientAvailable}>
+                {adminClientAvailable ? "Create User" : "Service role required"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -664,6 +679,12 @@ export default function Users() {
             <DialogDescription>
               Update user information and permissions.
             </DialogDescription>
+            {!adminClientAvailable && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Profile and role updates work without the service role key. Reset passwords via the Supabase dashboard
+                or add the service key locally to enable direct password changes.
+              </div>
+            )}
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
@@ -702,6 +723,7 @@ export default function Users() {
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="Enter new password"
+                disabled={!adminClientAvailable}
               />
             </div>
             <div className="space-y-2">
