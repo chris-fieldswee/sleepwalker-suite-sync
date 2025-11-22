@@ -20,7 +20,7 @@ import Availability from "./admin/Availability";
 export default function Admin() {
   const { signOut } = useAuth();
   const { toast } = useToast();
-  
+
   // Use the same data hooks as reception
   const receptionData = useReceptionData();
   const receptionActions = useReceptionActions(
@@ -41,7 +41,7 @@ export default function Admin() {
         <main className="flex-1 overflow-auto">
           <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-2">
             <SidebarTrigger />
-            <h2 className="text-lg font-semibold">Admin Management</h2>
+            <h2 className="text-lg font-semibold">Panel Administratora</h2>
           </div>
 
           <div className="container mx-auto p-4 md:p-6">
@@ -118,9 +118,9 @@ export default function Admin() {
               />
 
               {/* Admin-specific routes */}
-            <Route path="users" element={<Users />} />
-            <Route path="rooms" element={<Rooms />} />
-            <Route path="availability" element={<Availability />} />
+              <Route path="users" element={<Users />} />
+              <Route path="rooms" element={<Rooms />} />
+              <Route path="availability" element={<Availability />} />
             </Routes>
           </div>
         </main>

@@ -32,7 +32,7 @@ export function WorkLogDialog({
     const [isOpen, setIsOpen] = useState(false);
     const [editingLog, setEditingLog] = useState<EditingLogState | null>(null);
 
-     // Function to prepare log data for editing state
+    // Function to prepare log data for editing state
     const prepareLogForEditing = (staffMember: Staff): EditingLogState => {
         const log = workLogs.find(l => l.user_id === staffMember.id);
         return {
@@ -64,23 +64,23 @@ export function WorkLogDialog({
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                {triggerButton || <Button variant="outline" size="sm"> <Clock className="mr-2 h-4 w-4" /> Work Logs </Button>}
+                {triggerButton || <Button variant="outline" size="sm"> <Clock className="mr-2 h-4 w-4" /> Czas Pracy </Button>}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[650px] md:max-w-[750px] lg:max-w-[900px]">
                 <DialogHeader>
-                    <DialogTitle>Staff Work Logs for {new Date(filterDate + 'T00:00:00Z').toLocaleDateString()}</DialogTitle> {/* Ensure date is parsed correctly */}
-                    <DialogDescription> Enter or update staff sign-in/out times, breaks, and notes. Times are in local timezone. </DialogDescription>
+                    <DialogTitle>Czas Pracy Personelu dla {new Date(filterDate + 'T00:00:00Z').toLocaleDateString()}</DialogTitle> {/* Ensure date is parsed correctly */}
+                    <DialogDescription> Wprowadź lub zaktualizuj godziny rozpoczęcia/zakończenia pracy, przerwy i notatki. </DialogDescription>
                 </DialogHeader>
                 <div className="mt-4 max-h-[60vh] overflow-y-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[150px]">Staff</TableHead>
-                                <TableHead className="w-[120px]">Time In</TableHead>
-                                <TableHead className="w-[120px]">Time Out</TableHead>
-                                <TableHead className="w-[100px]">Break (min)</TableHead>
-                                <TableHead>Notes</TableHead>
-                                <TableHead className="w-[100px] text-center">Action</TableHead>
+                                <TableHead className="w-[150px]">Personel</TableHead>
+                                <TableHead className="w-[120px]">Rozpoczęcie</TableHead>
+                                <TableHead className="w-[120px]">Zakończenie</TableHead>
+                                <TableHead className="w-[100px]">Przerwa (min)</TableHead>
+                                <TableHead>Notatki</TableHead>
+                                <TableHead className="w-[100px] text-center">Akcja</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -94,32 +94,32 @@ export function WorkLogDialog({
                                         <TableCell className="font-medium">{staffMember.name}</TableCell>
                                         <TableCell>
                                             {isEditing ? (
-                                                <Input type="time" value={displayLog.time_in || ""} onChange={(e) => setEditingLog({...displayLog, time_in: e.target.value})} className="w-full h-9" disabled={isSaving}/>
-                                            ) : (displayLog.time_in || "-") }
+                                                <Input type="time" value={displayLog.time_in || ""} onChange={(e) => setEditingLog({ ...displayLog, time_in: e.target.value })} className="w-full h-9" disabled={isSaving} />
+                                            ) : (displayLog.time_in || "-")}
                                         </TableCell>
                                         <TableCell>
-                                             {isEditing ? (
-                                                <Input type="time" value={displayLog.time_out || ""} onChange={(e) => setEditingLog({...displayLog, time_out: e.target.value})} className="w-full h-9" disabled={isSaving}/>
-                                             ) : (displayLog.time_out || "-") }
+                                            {isEditing ? (
+                                                <Input type="time" value={displayLog.time_out || ""} onChange={(e) => setEditingLog({ ...displayLog, time_out: e.target.value })} className="w-full h-9" disabled={isSaving} />
+                                            ) : (displayLog.time_out || "-")}
                                         </TableCell>
                                         <TableCell>
-                                             {isEditing ? (
-                                                <Input type="number" value={displayLog.break_minutes ?? 0} onChange={(e) => setEditingLog({...displayLog, break_minutes: parseInt(e.target.value, 10) || 0})} min="0" className="w-full h-9" disabled={isSaving}/>
-                                             ) : (displayLog.break_minutes ?? 0) }
-                                         </TableCell>
+                                            {isEditing ? (
+                                                <Input type="number" value={displayLog.break_minutes ?? 0} onChange={(e) => setEditingLog({ ...displayLog, break_minutes: parseInt(e.target.value, 10) || 0 })} min="0" className="w-full h-9" disabled={isSaving} />
+                                            ) : (displayLog.break_minutes ?? 0)}
+                                        </TableCell>
                                         <TableCell>
-                                             {isEditing ? (
-                                                <Input type="text" value={displayLog.notes || ""} onChange={(e) => setEditingLog({...displayLog, notes: e.target.value})} className="w-full h-9" disabled={isSaving}/>
-                                             ) : (<span className="text-xs">{displayLog.notes || "-"}</span>) }
-                                         </TableCell>
+                                            {isEditing ? (
+                                                <Input type="text" value={displayLog.notes || ""} onChange={(e) => setEditingLog({ ...displayLog, notes: e.target.value })} className="w-full h-9" disabled={isSaving} />
+                                            ) : (<span className="text-xs">{displayLog.notes || "-"}</span>)}
+                                        </TableCell>
                                         <TableCell className="text-center">
                                             {isEditing ? (
                                                 <div className="flex gap-1 justify-center">
-                                                    <Button size="icon" className="h-8 w-8" onClick={handleSaveClick} disabled={isSaving}> <Check className="h-4 w-4"/> <span className="sr-only">Save</span> </Button>
-                                                    <Button size="icon" className="h-8 w-8" variant="outline" onClick={() => setEditingLog(null)} disabled={isSaving}> <X className="h-4 w-4"/> <span className="sr-only">Cancel</span> </Button>
+                                                    <Button size="icon" className="h-8 w-8" onClick={handleSaveClick} disabled={isSaving}> <Check className="h-4 w-4" /> <span className="sr-only">Zapisz</span> </Button>
+                                                    <Button size="icon" className="h-8 w-8" variant="outline" onClick={() => setEditingLog(null)} disabled={isSaving}> <X className="h-4 w-4" /> <span className="sr-only">Anuluj</span> </Button>
                                                 </div>
                                             ) : (
-                                                <Button size="icon" className="h-8 w-8 mx-auto" variant="ghost" onClick={() => setEditingLog(prepareLogForEditing(staffMember))}> <Edit2 className="h-4 w-4"/> <span className="sr-only">Edit</span> </Button>
+                                                <Button size="icon" className="h-8 w-8 mx-auto" variant="ghost" onClick={() => setEditingLog(prepareLogForEditing(staffMember))}> <Edit2 className="h-4 w-4" /> <span className="sr-only">Edytuj</span> </Button>
                                             )}
                                         </TableCell>
                                     </TableRow>
@@ -129,7 +129,7 @@ export function WorkLogDialog({
                     </Table>
                 </div>
                 <DialogFooter>
-                    <DialogClose asChild> <Button type="button" variant="secondary">Close</Button> </DialogClose>
+                    <DialogClose asChild> <Button type="button" variant="secondary">Zamknij</Button> </DialogClose>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

@@ -26,29 +26,29 @@ export function ReceptionHeader({
         <header className="border-b bg-card sticky top-0 z-20 shadow-sm">
             <div className="container mx-auto flex items-center justify-between px-4 py-4">
                 <div>
-                    <h1 className="text-2xl font-bold">Reception Dashboard</h1>
+                    <h1 className="text-2xl font-bold">Panel Recepcji</h1>
                     <p className="text-sm text-muted-foreground">
-                        Housekeeping Operations Management
+                        Zarządzanie Operacjami Sprzątania
                     </p>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing || loading}>
-                        <RefreshCw className={`mr-2 h-4 w-4 ${(refreshing || loading) ? "animate-spin" : ""}`} /> Refresh
+                        <RefreshCw className={`mr-2 h-4 w-4 ${(refreshing || loading) ? "animate-spin" : ""}`} /> Odśwież
                     </Button>
 
                     {/* Render triggers passed as props */}
                     {workLogTrigger}
                     {addTaskTrigger}
 
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
+                    <Button
+                        variant="outline"
+                        size="sm"
                         onClick={async (e) => {
                             e.preventDefault();
                             await onSignOut();
                         }}
                     >
-                        <LogOut className="mr-2 h-4 w-4" /> Sign Out
+                        <LogOut className="mr-2 h-4 w-4" /> Wyloguj
                     </Button>
                 </div>
             </div>

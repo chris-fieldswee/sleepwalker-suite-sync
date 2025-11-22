@@ -27,13 +27,13 @@ export function TaskSummaryFooter({ totalLimit, totalActual, totalDifference, vi
       <div className="container mx-auto flex h-14 items-center justify-end gap-6 px-4 md:px-6 text-sm">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
-          <span className="text-muted-foreground">Total Limit:</span>
+          <span className="text-muted-foreground">Całkowity Limit:</span>
           <span className="font-medium">{formatMinutes(totalLimit)}</span>
         </div>
         {showActual && (
           <div className="flex items-center gap-2">
             <Timer className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground">Total Actual:</span>
+            <span className="text-muted-foreground">Całkowity Czas:</span>
             <span
               className={cn(
                 "font-medium",
@@ -49,15 +49,15 @@ export function TaskSummaryFooter({ totalLimit, totalActual, totalDifference, vi
         {showDifference && (
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground">Total Difference:</span>
+            <span className="text-muted-foreground">Całkowita Różnica:</span>
             <span
               className={cn(
                 "font-medium",
                 totalDifference !== null && totalDifference > 0
                   ? "text-red-600 dark:text-red-400"
                   : totalDifference !== null && totalDifference < 0
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-muted-foreground"
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-muted-foreground"
               )}
             >
               {totalDifference !== null ? `${totalDifference > 0 ? '+' : ''}${totalDifference} min` : '-'}

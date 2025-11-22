@@ -44,12 +44,12 @@ type TaskStatus = Database["public"]["Enums"]["task_status"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
 
 const allRoomGroups: RoomGroupOption[] = [
-  { value: 'all', label: 'All Groups' },
+  { value: 'all', label: 'Wszystkie Grupy' },
   { value: 'P1', label: 'P1' },
   { value: 'P2', label: 'P2' },
   { value: 'A1S', label: 'A1S' },
   { value: 'A2S', label: 'A2S' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'OTHER', label: 'Inne' },
 ];
 
 // Interface for props received from Reception.tsx
@@ -87,12 +87,12 @@ export default function Archive({
   const [activeTab, setActiveTab] = useState<"regular" | "other" | "all">("all");
 
   // Split tasks by room group type
-  const regularTasks = useMemo(() => 
-    archivedTasks.filter(task => task.room.group_type !== 'OTHER'), 
+  const regularTasks = useMemo(() =>
+    archivedTasks.filter(task => task.room.group_type !== 'OTHER'),
     [archivedTasks]
   );
-  const otherTasks = useMemo(() => 
-    archivedTasks.filter(task => task.room.group_type === 'OTHER'), 
+  const otherTasks = useMemo(() =>
+    archivedTasks.filter(task => task.room.group_type === 'OTHER'),
     [archivedTasks]
   );
   const allTasks = useMemo(() => archivedTasks, [archivedTasks]);
@@ -109,7 +109,7 @@ export default function Archive({
     try {
       const today = new Date().toISOString().split('T')[0];
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      
+
       let query = supabase
         .from("tasks")
         .select(`
@@ -171,8 +171,8 @@ export default function Archive({
     } catch (error: any) {
       console.error("Error fetching archived tasks:", error);
       toast({
-        title: "Error Loading Archive",
-        description: `Failed to load archived tasks: ${error.message}`,
+        title: "Błąd Ładowania Archiwum",
+        description: `Nie udało się załadować zarchiwizowanych zadań: ${error.message}`,
         variant: "destructive",
       });
       setArchivedTasks([]); // Clear tasks on error
@@ -196,31 +196,31 @@ export default function Archive({
     let differenceIsNull = true;
 
     tasksToSum.forEach(task => {
-        // Ensure time_limit is treated as a number
-        const limit = typeof task.time_limit === 'number' ? task.time_limit : null;
-        if (limit !== null) {
-            totalLimit = (totalLimit ?? 0) + limit;
-            limitIsNull = false;
-        }
-        // Ensure actual_time is treated as a number
-        const actual = typeof task.actual_time === 'number' ? task.actual_time : null;
-        if (actual !== null) {
-            totalActual = (totalActual ?? 0) + actual;
-            actualIsNull = false;
-        }
-        // Calculate difference (actual - limit)
-        const difference = typeof task.difference === 'number' ? task.difference : null;
-        if (difference !== null) {
-            totalDifference = (totalDifference ?? 0) + difference;
-            differenceIsNull = false;
-        }
+      // Ensure time_limit is treated as a number
+      const limit = typeof task.time_limit === 'number' ? task.time_limit : null;
+      if (limit !== null) {
+        totalLimit = (totalLimit ?? 0) + limit;
+        limitIsNull = false;
+      }
+      // Ensure actual_time is treated as a number
+      const actual = typeof task.actual_time === 'number' ? task.actual_time : null;
+      if (actual !== null) {
+        totalActual = (totalActual ?? 0) + actual;
+        actualIsNull = false;
+      }
+      // Calculate difference (actual - limit)
+      const difference = typeof task.difference === 'number' ? task.difference : null;
+      if (difference !== null) {
+        totalDifference = (totalDifference ?? 0) + difference;
+        differenceIsNull = false;
+      }
     });
 
     return {
-        totalLimit: limitIsNull ? null : totalLimit,
-        totalActual: actualIsNull ? null : totalActual,
-        totalDifference: differenceIsNull ? null : totalDifference,
-        visibleTaskCount: tasksToSum.length
+      totalLimit: limitIsNull ? null : totalLimit,
+      totalActual: actualIsNull ? null : totalActual,
+      totalDifference: differenceIsNull ? null : totalDifference,
+      visibleTaskCount: tasksToSum.length
     };
   }, [activeTab, regularTasks, otherTasks, allTasks]);
 
@@ -263,7 +263,7 @@ export default function Archive({
       // Fallback for unexpected formats
       const date = new Date(dateString + 'T00:00:00Z'); // Use UTC to avoid timezone shifts
       if (isNaN(date.getTime())) return dateString;
-       return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }); // Format as DD/MM/YYYY
+      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }); // Format as DD/MM/YYYY
     } catch (error) {
       console.error("Date formatting error:", error, dateString);
       return dateString;
@@ -276,12 +276,12 @@ export default function Archive({
     loading ? (
       <div className="flex items-center justify-center py-12">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        <span className="ml-2">Loading archived tasks...</span>
+        <span className="ml-2">Ładowanie zarchiwizowanych zadań...</span>
       </div>
     ) : taskList.length === 0 ? (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <p className="text-lg font-medium text-muted-foreground">{emptyMessage}</p>
-        <p className="text-sm text-muted-foreground">Try adjusting filters or check the date range.</p>
+        <p className="text-sm text-muted-foreground">Spróbuj dostosować filtry lub sprawdź zakres dat.</p>
       </div>
     ) : (
       <div className="overflow-x-auto max-h-[calc(8*3.5rem)] overflow-y-auto">
@@ -289,17 +289,17 @@ export default function Archive({
           <TableHeader>
             <TableRow className="bg-muted/50 sticky top-0 z-10">
               <TableHead className="font-semibold w-[100px]">Status</TableHead>
-              <TableHead className="font-semibold w-[100px]">Room</TableHead>
-              <TableHead className="font-semibold w-[150px]">Staff</TableHead>
-              <TableHead className="font-semibold text-center w-[80px]">Date</TableHead>
-              <TableHead className="font-semibold text-center w-[60px]">Type</TableHead>
-              <TableHead className="font-semibold text-center w-[80px]">Guests</TableHead>
+              <TableHead className="font-semibold w-[100px]">Pokój</TableHead>
+              <TableHead className="font-semibold w-[150px]">Personel</TableHead>
+              <TableHead className="font-semibold text-center w-[80px]">Data</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Typ</TableHead>
+              <TableHead className="font-semibold text-center w-[80px]">Goście</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Limit</TableHead>
-              <TableHead className="font-semibold text-center w-[60px]">Actual</TableHead>
-              <TableHead className="font-semibold text-center w-[80px]">Difference</TableHead>
-              <TableHead className="font-semibold text-center w-[60px]">Issue</TableHead>
-              <TableHead className="font-semibold text-center w-[60px]">Notes</TableHead>
-              <TableHead className="font-semibold text-right w-[100px]">Actions</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Czas</TableHead>
+              <TableHead className="font-semibold text-center w-[80px]">Różnica</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Problem</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Notatki</TableHead>
+              <TableHead className="font-semibold text-right w-[100px]">Akcje</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -321,7 +321,7 @@ export default function Archive({
   );
 
   const getDisplayDateRange = () => {
-    return "Historical Tasks"; // More descriptive default
+    return "Zadania Historyczne"; // More descriptive default
   };
 
 
@@ -330,16 +330,16 @@ export default function Archive({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Archive</h1>
-          <p className="text-muted-foreground mt-1">View completed and historical tasks</p>
+          <h1 className="text-3xl font-bold">Archiwum</h1>
+          <p className="text-muted-foreground mt-1">Zobacz zakończone i historyczne zadania</p>
         </div>
       </div>
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={(value) => setActiveTab(value as "regular" | "other" | "all")} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">All Locations ({allTasks.length})</TabsTrigger>
-          <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
-          <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
+          <TabsTrigger value="all">Wszystkie Lokalizacje ({allTasks.length})</TabsTrigger>
+          <TabsTrigger value="regular">Pokoje Hotelowe ({regularTasks.length})</TabsTrigger>
+          <TabsTrigger value="other">Inne Lokalizacje ({otherTasks.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
@@ -370,12 +370,12 @@ export default function Archive({
 
           <Card>
             <CardHeader>
-              <CardTitle>All Location Tasks for {getDisplayDateRange()}</CardTitle>
+              <CardTitle>Wszystkie Zadania Lokalizacji dla {getDisplayDateRange()}</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {renderTaskTable(
                 allTasks,
-                "No historical tasks found"
+                "Nie znaleziono historycznych zadań"
               )}
             </CardContent>
           </Card>
@@ -409,12 +409,12 @@ export default function Archive({
 
           <Card>
             <CardHeader>
-              <CardTitle>Hotel Room Tasks for {getDisplayDateRange()}</CardTitle>
+              <CardTitle>Zadania Pokoi Hotelowych dla {getDisplayDateRange()}</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {renderTaskTable(
                 regularTasks,
-                "No historical hotel room tasks found"
+                "Nie znaleziono historycznych zadań pokoi hotelowych"
               )}
             </CardContent>
           </Card>
@@ -448,12 +448,12 @@ export default function Archive({
 
           <Card>
             <CardHeader>
-              <CardTitle>Other Location Tasks for {getDisplayDateRange()}</CardTitle>
+              <CardTitle>Zadania Innych Lokalizacji dla {getDisplayDateRange()}</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {renderTaskTable(
                 otherTasks,
-                "No historical other location tasks found"
+                "Nie znaleziono historycznych zadań innych lokalizacji"
               )}
             </CardContent>
           </Card>
@@ -468,10 +468,10 @@ export default function Archive({
         isOpen={isDetailDialogOpen}
         onOpenChange={setIsDetailDialogOpen}
         onUpdate={async (taskId, updates) => {
-            const success = await onUpdateTask(taskId, updates);
-            if (success) fetchArchivedTasks();
-            return success;
-         }}
+          const success = await onUpdateTask(taskId, updates);
+          if (success) fetchArchivedTasks();
+          return success;
+        }}
         isUpdating={isUpdatingTask}
       />
 

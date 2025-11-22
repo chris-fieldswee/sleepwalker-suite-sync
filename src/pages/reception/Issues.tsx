@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableHeader, TableRow, TableHead } from "@/components/ui/table";
 import { RefreshCw } from "lucide-react";
 import { Plus, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ReportNewIssueDialog } from "@/components/reception/ReportNewIssueDialog";
@@ -107,8 +108,8 @@ export default function Issues({
     } catch (error: any) {
       console.error("Error fetching issues:", error);
       toast({
-        title: "Error",
-        description: `Failed to load issues: ${error.message}`,
+        title: "Błąd",
+        description: `Nie udało się załadować problemów: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -135,8 +136,8 @@ export default function Issues({
   }, [fetchIssues]);
 
   const handleDelete = async (issueId: string) => {
-    if (!confirm('Are you sure you want to delete this issue?')) return;
-    
+    if (!confirm('Czy na pewno chcesz usunąć ten problem?')) return;
+
     setIsDeleting(true);
     try {
       const { error } = await supabase
@@ -145,18 +146,18 @@ export default function Issues({
         .eq('id', issueId);
 
       if (error) throw error;
-      
+
       toast({
-        title: "Success",
-        description: "Issue deleted successfully",
+        title: "Sukces",
+        description: "Problem usunięty pomyślnie",
       });
-      
+
       fetchIssues();
     } catch (error: any) {
       console.error("Error deleting issue:", error);
       toast({
-        title: "Error",
-        description: `Failed to delete issue: ${error.message}`,
+        title: "Błąd",
+        description: `Nie udało się usunąć problemu: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -172,18 +173,18 @@ export default function Issues({
         .eq('id', issueId);
 
       if (error) throw error;
-      
+
       toast({
-        title: "Success",
-        description: "Issue marked as resolved",
+        title: "Sukces",
+        description: "Problem oznaczony jako rozwiązany",
       });
-      
+
       fetchIssues();
     } catch (error: any) {
       console.error("Error updating issue:", error);
       toast({
-        title: "Error",
-        description: `Failed to update issue: ${error.message}`,
+        title: "Błąd",
+        description: `Nie udało się zaktualizować problemu: ${error.message}`,
         variant: "destructive",
       });
     }
@@ -198,18 +199,18 @@ export default function Issues({
         .single();
 
       let photoUrl: string | null = null;
-      
+
       if (photo) {
         const fileExt = photo.name.split('.').pop();
         const fileName = `issue_${Date.now()}.${fileExt}`;
         const filePath = `issue_photos/${fileName}`;
-        
+
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('task_issues')
           .upload(filePath, photo);
 
         if (uploadError) throw uploadError;
-        
+
         const { data: urlData } = supabase.storage.from('task_issues').getPublicUrl(filePath);
         photoUrl = urlData?.publicUrl || null;
       }
@@ -229,8 +230,8 @@ export default function Issues({
       if (insertError) throw insertError;
 
       toast({
-        title: "Success",
-        description: "Issue created successfully",
+        title: "Sukces",
+        description: "Problem utworzony pomyślnie",
       });
 
       fetchIssues();
@@ -238,8 +239,8 @@ export default function Issues({
     } catch (error: any) {
       console.error("Error creating issue:", error);
       toast({
-        title: "Error",
-        description: `Failed to create issue: ${error.message}`,
+        title: "Błąd",
+        description: `Nie udało się utworzyć problemu: ${error.message}`,
         variant: "destructive",
       });
       return false;
@@ -248,10 +249,10 @@ export default function Issues({
 
   const getStatusBadge = (status: IssueStatus) => {
     const config = {
-      open: { label: 'Open', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
-      in_progress: { label: 'In Progress', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
-      resolved: { label: 'Resolved', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
-      closed: { label: 'Closed', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200' },
+      open: { label: 'Otwarte', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
+      in_progress: { label: 'W Trakcie', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
+      resolved: { label: 'Rozwiązane', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
+      closed: { label: 'Zamknięte', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200' },
     };
     const { label, className } = config[status];
     return <Badge className={className}>{label}</Badge>;
@@ -259,10 +260,10 @@ export default function Issues({
 
   const getPriorityBadge = (priority: IssuePriority) => {
     const config = {
-      low: { label: 'Low', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' },
-      medium: { label: 'Medium', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
-      high: { label: 'High', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' },
-      urgent: { label: 'Urgent', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
+      low: { label: 'Niski', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' },
+      medium: { label: 'Średni', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
+      high: { label: 'Wysoki', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' },
+      urgent: { label: 'Pilny', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
     };
     const { label, className } = config[priority];
     return <Badge className={className}>{label}</Badge>;
@@ -276,7 +277,7 @@ export default function Issues({
   };
 
   const getDisplayName = (user: { id: string; name: string; first_name: string | null; last_name: string | null } | null) => {
-    if (!user) return "Unassigned";
+    if (!user) return "Nieprzypisane";
     if (user.first_name && user.last_name) {
       return `${user.first_name} ${user.last_name}`;
     }
@@ -301,13 +302,13 @@ export default function Issues({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Issues</h1>
-          <p className="text-muted-foreground mt-1">Track and resolve reported maintenance issues</p>
+          <h1 className="text-3xl font-bold">Problemy</h1>
+          <p className="text-muted-foreground mt-1">Śledź i rozwiązuj zgłoszone problemy konserwacyjne</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing || loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${(refreshing || loading) ? "animate-spin" : ""}`} />
-            Refresh
+            Odśwież
           </Button>
           <ReportNewIssueDialog
             availableRooms={availableRooms}
@@ -316,7 +317,7 @@ export default function Issues({
             triggerButton={
               <Button size="sm">
                 <Plus className="mr-2 h-4 w-4" />
-                Create Issue
+                Utwórz Problem
               </Button>
             }
           />
@@ -326,7 +327,7 @@ export default function Issues({
       {/* Filters */}
       <Card>
         <CardHeader className="py-4">
-          <CardTitle className="text-lg">Filters</CardTitle>
+          <CardTitle className="text-lg">Filtry</CardTitle>
         </CardHeader>
         <CardContent className="pt-0 pb-4">
           <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5 items-end">
@@ -335,27 +336,27 @@ export default function Issues({
               <Label htmlFor="status-filter">Status</Label>
               <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as IssueStatus | 'all')}>
                 <SelectTrigger id="status-filter" className="bg-card h-9 text-sm">
-                  <SelectValue placeholder="Filter status..." />
+                  <SelectValue placeholder="Filtruj status..." />
                 </SelectTrigger>
                 <SelectContent className="bg-card z-50">
-                  <SelectItem value="all" className="text-sm">All Statuses</SelectItem>
-                  <SelectItem value="open" className="text-sm">Open</SelectItem>
-                  <SelectItem value="in_progress" className="text-sm">In Progress</SelectItem>
-                  <SelectItem value="resolved" className="text-sm">Resolved</SelectItem>
-                  <SelectItem value="closed" className="text-sm">Closed</SelectItem>
+                  <SelectItem value="all" className="text-sm">Wszystkie Statusy</SelectItem>
+                  <SelectItem value="open" className="text-sm">Otwarte</SelectItem>
+                  <SelectItem value="in_progress" className="text-sm">W Trakcie</SelectItem>
+                  <SelectItem value="resolved" className="text-sm">Rozwiązane</SelectItem>
+                  <SelectItem value="closed" className="text-sm">Zamknięte</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Room Filter */}
             <div className="space-y-1">
-              <Label htmlFor="room-filter">Room</Label>
+              <Label htmlFor="room-filter">Pokój</Label>
               <Select value={filterRoom} onValueChange={setFilterRoom}>
                 <SelectTrigger id="room-filter" className="bg-card h-9 text-sm">
-                  <SelectValue placeholder="Filter room..." />
+                  <SelectValue placeholder="Filtruj pokój..." />
                 </SelectTrigger>
                 <SelectContent className="bg-card z-50">
-                  <SelectItem value="all" className="text-sm">All Rooms</SelectItem>
+                  <SelectItem value="all" className="text-sm">Wszystkie Pokoje</SelectItem>
                   {availableRooms.map(room => (
                     <SelectItem key={room.id} value={room.id} className="text-sm">
                       {room.name}
@@ -367,17 +368,17 @@ export default function Issues({
 
             {/* Priority Filter */}
             <div className="space-y-1">
-              <Label htmlFor="priority-filter">Priority</Label>
+              <Label htmlFor="priority-filter">Priorytet</Label>
               <Select value={filterPriority} onValueChange={(value) => setFilterPriority(value as IssuePriority | 'all')}>
                 <SelectTrigger id="priority-filter" className="bg-card h-9 text-sm">
-                  <SelectValue placeholder="Filter priority..." />
+                  <SelectValue placeholder="Filtruj priorytet..." />
                 </SelectTrigger>
                 <SelectContent className="bg-card z-50">
-                  <SelectItem value="all" className="text-sm">All Priorities</SelectItem>
-                  <SelectItem value="low" className="text-sm">Low</SelectItem>
-                  <SelectItem value="medium" className="text-sm">Medium</SelectItem>
-                  <SelectItem value="high" className="text-sm">High</SelectItem>
-                  <SelectItem value="urgent" className="text-sm">Urgent</SelectItem>
+                  <SelectItem value="all" className="text-sm">Wszystkie Priorytety</SelectItem>
+                  <SelectItem value="low" className="text-sm">Niski</SelectItem>
+                  <SelectItem value="medium" className="text-sm">Średni</SelectItem>
+                  <SelectItem value="high" className="text-sm">Wysoki</SelectItem>
+                  <SelectItem value="urgent" className="text-sm">Pilny</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -386,7 +387,7 @@ export default function Issues({
             <div className="md:col-span-3 lg:col-span-2">
               <Button variant="outline" onClick={handleClearFilters} className="w-full h-9 text-sm">
                 <X className="mr-1.5 h-4 w-4" />
-                Clear
+                Wyczyść
               </Button>
             </div>
           </div>
@@ -396,32 +397,32 @@ export default function Issues({
       {/* Issues Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Issues</CardTitle>
+          <CardTitle>Problemy</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {loading && !refreshing ? (
             <div className="flex items-center justify-center py-12">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              <span className="ml-2">Loading issues...</span>
+              <span className="ml-2">Ładowanie problemów...</span>
             </div>
           ) : issues.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <p className="text-lg font-medium text-muted-foreground">No issues found</p>
-              <p className="text-sm text-muted-foreground">Try adjusting the filters or report a new issue.</p>
+              <p className="text-lg font-medium text-muted-foreground">Nie znaleziono problemów</p>
+              <p className="text-sm text-muted-foreground">Spróbuj dostosować filtry lub zgłoś nowy problem.</p>
             </div>
           ) : (
             <div className="overflow-x-auto max-h-[calc(8*3.5rem)] overflow-y-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 sticky top-0 z-10">
-                    <TableHead className="font-semibold w-[120px]">Room</TableHead>
-                    <TableHead className="font-semibold">Title</TableHead>
-                    <TableHead className="font-semibold text-center w-[100px]">Priority</TableHead>
+                    <TableHead className="font-semibold w-[120px]">Pokój</TableHead>
+                    <TableHead className="font-semibold">Tytuł</TableHead>
+                    <TableHead className="font-semibold text-center w-[100px]">Priorytet</TableHead>
                     <TableHead className="font-semibold text-center w-[120px]">Status</TableHead>
-                    <TableHead className="font-semibold w-[150px]">Assigned To</TableHead>
-                    <TableHead className="font-semibold text-center w-[120px]">Reported</TableHead>
-                    <TableHead className="font-semibold text-center w-[80px]">Photo</TableHead>
-                    <TableHead className="font-semibold text-right w-[100px]">Actions</TableHead>
+                    <TableHead className="font-semibold w-[150px]">Przypisano do</TableHead>
+                    <TableHead className="font-semibold text-center w-[120px]">Zgłoszono</TableHead>
+                    <TableHead className="font-semibold text-center w-[80px]">Zdjęcie</TableHead>
+                    <TableHead className="font-semibold text-right w-[100px]">Akcje</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

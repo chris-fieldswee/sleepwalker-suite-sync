@@ -44,14 +44,14 @@ export default function Reception() {
     handleDeleteTask, // Needed for Tasks and Archive
     isDeletingTask,   // Needed for Tasks and Archive
   } = useReceptionActions(
-      availableRooms,
-      dataActions.refresh, // onTaskAdded
-      dataActions.refresh, // onWorkLogSaved
-      dataActions.refresh, // onIssueReported
-      dataActions.refresh, // onIssueUpdated
-      dataActions.refresh, // onTaskUpdated
-      dataActions.refresh  // onTaskDeleted
-   );
+    availableRooms,
+    dataActions.refresh, // onTaskAdded
+    dataActions.refresh, // onWorkLogSaved
+    dataActions.refresh, // onIssueReported
+    dataActions.refresh, // onIssueUpdated
+    dataActions.refresh, // onTaskUpdated
+    dataActions.refresh  // onTaskDeleted
+  );
 
   return (
     <SidebarProvider>
@@ -61,7 +61,7 @@ export default function Reception() {
         <main className="flex-1 overflow-auto">
           <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-2">
             <SidebarTrigger />
-            <h2 className="text-lg font-semibold">Reception Management</h2>
+            <h2 className="text-lg font-semibold">Panel Recepcji</h2>
           </div>
 
           <div className="container mx-auto p-4 md:p-6">

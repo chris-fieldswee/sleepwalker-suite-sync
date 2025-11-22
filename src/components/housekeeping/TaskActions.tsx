@@ -32,7 +32,7 @@ export function TaskActions({ task, activeTaskId, onStart, onPause, onResume, on
       {task.status === "in_progress" && (
         <>
           <Button size="sm" variant="outline" onClick={() => onPause(task.id)} disabled={!canPauseOrStop} className="text-orange-600 border-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-600 dark:hover:bg-orange-900/30">
-            <Pause className="mr-1 h-4 w-4" /> Pause
+            <Pause className="mr-1 h-4 w-4" /> Pauza
           </Button>
           <Button size="sm" onClick={() => onStop(task.id)} disabled={!canPauseOrStop} className="bg-blue-600 hover:bg-blue-700 text-white">
             <Square className="mr-1 h-4 w-4" /> Stop
@@ -45,7 +45,7 @@ export function TaskActions({ task, activeTaskId, onStart, onPause, onResume, on
         <>
           {/* Resume is enabled if no other task is active */}
           <Button size="sm" onClick={() => onResume(task.id)} disabled={!!activeTaskId} className="bg-green-600 hover:bg-green-700 text-white">
-            <Play className="mr-1 h-4 w-4" /> Resume
+            <Play className="mr-1 h-4 w-4" /> Wznów
           </Button>
           {/* Stop can also be pressed when paused, no active task check needed here as pausing implies it was active */}
           <Button size="sm" variant="outline" onClick={() => onStop(task.id)} className="text-blue-600 border-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-600 dark:hover:bg-blue-900/30">
@@ -54,8 +54,8 @@ export function TaskActions({ task, activeTaskId, onStart, onPause, onResume, on
         </>
       )}
 
-       {/* Show Completed text when done */}
-       {task.status === "done" && <span className="text-sm text-muted-foreground self-center">Completed</span>}
+      {/* Show Completed text when done */}
+      {task.status === "done" && <span className="text-sm text-muted-foreground self-center">Zakończone</span>}
     </div>
   );
 }

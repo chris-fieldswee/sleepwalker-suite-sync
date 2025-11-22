@@ -23,17 +23,17 @@ export function SecondaryTaskActions({ task, onSaveNote, onReportIssue }: Second
       <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
         <DialogTrigger asChild>
           <Button variant="ghost" size="sm" className="text-muted-foreground hover:bg-accent px-2">
-            <MessageSquare className="mr-1 h-4 w-4" /> Note
+            <MessageSquare className="mr-1 h-4 w-4" /> Notatka
           </Button>
         </DialogTrigger>
         {/* Render dialog only when open to ensure fresh initial state */}
         {isNoteDialogOpen && (
-            <NoteDialog
-              task={task}
-              initialNote={task.housekeeping_notes || ""}
-              onSave={onSaveNote}
-              onClose={() => setIsNoteDialogOpen(false)} // Pass handler to close
-            />
+          <NoteDialog
+            task={task}
+            initialNote={task.housekeeping_notes || ""}
+            onSave={onSaveNote}
+            onClose={() => setIsNoteDialogOpen(false)} // Pass handler to close
+          />
         )}
       </Dialog>
 
@@ -42,7 +42,7 @@ export function SecondaryTaskActions({ task, onSaveNote, onReportIssue }: Second
         <Dialog open={isIssueDialogOpen} onOpenChange={setIsIssueDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 px-2">
-              <AlertTriangle className="mr-1 h-4 w-4" /> Report Issue
+              <AlertTriangle className="mr-1 h-4 w-4" /> Zgłoś Problem
             </Button>
           </DialogTrigger>
           {/* Render dialog only when open */}

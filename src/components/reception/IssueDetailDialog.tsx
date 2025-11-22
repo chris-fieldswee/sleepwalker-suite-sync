@@ -11,33 +11,33 @@ import type { Database } from "@/integrations/supabase/types";
 import type { Staff } from '@/hooks/useReceptionData';
 
 export type IssueTask = {
-  id: string;
-  date: string;
-  room: { name: string; color: string | null };
-  user: { id: string; name: string } | null;
-  issue_description: string | null;
-  issue_photo: string | null;
-  // status: Database["public"]["Enums"]["task_status"]; // Status might still be useful internally
-  issue_flag: boolean | null; // Use issue_flag for status display/update
-  cleaning_type: string;
-  reception_notes: string | null;
-  housekeeping_notes: string | null;
+    id: string;
+    date: string;
+    room: { name: string; color: string | null };
+    user: { id: string; name: string } | null;
+    issue_description: string | null;
+    issue_photo: string | null;
+    // status: Database["public"]["Enums"]["task_status"]; // Status might still be useful internally
+    issue_flag: boolean | null; // Use issue_flag for status display/update
+    cleaning_type: string;
+    reception_notes: string | null;
+    housekeeping_notes: string | null;
 };
 
 // Simplified status type based on issue_flag
 type IssueDisplayStatus = 'To Fix' | 'Fixed';
 
 interface IssueDetailDialogProps {
-  issue: IssueTask | null;
-  allStaff: Staff[];
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  // Updated onUpdate prop type
-  onUpdate: (taskId: string, updates: Partial<{
-      issue_flag: boolean | null;
-      reception_notes: string | null;
-      user_id: string | null;
-  }>) => Promise<boolean>;
+    issue: IssueTask | null;
+    allStaff: Staff[];
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    // Updated onUpdate prop type
+    onUpdate: (taskId: string, updates: Partial<{
+        issue_flag: boolean | null;
+        reception_notes: string | null;
+        user_id: string | null;
+    }>) => Promise<boolean>;
 }
 
 export function IssueDetailDialog({
@@ -87,36 +87,36 @@ export function IssueDetailDialog({
 
     // New handler for the "Mark Fixed" button
     const handleMarkFixed = async () => {
-         if (!issue) return;
-         setIsSaving(true); // Reuse saving state
-         const updates = {
-             issue_flag: false, // Mark as fixed
-             // Optionally add current notes/assignee if needed, or update separately
-             // user_id: assignedStaffId === "unassigned" ? null : assignedStaffId,
-             // reception_notes: receptionNotes || null,
-         };
-         const success = await onUpdate(issue.id, updates);
-         setIsSaving(false);
-         if (success) {
-             onOpenChange(false); // Close dialog
-         }
+        if (!issue) return;
+        setIsSaving(true); // Reuse saving state
+        const updates = {
+            issue_flag: false, // Mark as fixed
+            // Optionally add current notes/assignee if needed, or update separately
+            // user_id: assignedStaffId === "unassigned" ? null : assignedStaffId,
+            // reception_notes: receptionNotes || null,
+        };
+        const success = await onUpdate(issue.id, updates);
+        setIsSaving(false);
+        if (success) {
+            onOpenChange(false); // Close dialog
+        }
     };
 
     const formatDate = (dateString: string | null) => {
-      // ... (formatDate remains the same) ...
-      if (!dateString) return "N/A";
-      return new Date(dateString + 'T00:00:00Z').toLocaleDateString(undefined, {
-        year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC'
-      });
+        // ... (formatDate remains the same) ...
+        if (!dateString) return "N/A";
+        return new Date(dateString + 'T00:00:00Z').toLocaleDateString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC'
+        });
     };
 
     // Get simplified status badge based on issue_flag
     const getIssueStatusBadge = (isIssue: boolean | null): React.ReactNode => {
-      if (isIssue === true) {
-          return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200">To Fix</Badge>;
-      }
-      // Assuming null or false means fixed
-      return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200">Fixed</Badge>;
+        if (isIssue === true) {
+            return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200">Do Naprawy</Badge>;
+        }
+        // Assuming null or false means fixed
+        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200">Naprawione</Badge>;
     };
 
     if (!issue) return null;
@@ -129,9 +129,9 @@ export function IssueDetailDialog({
                 <DialogHeader>
                     <div className="flex justify-between items-start">
                         <div>
-                            <DialogTitle>Issue Details - Room {issue.room.name}</DialogTitle>
+                            <DialogTitle>Szczegóły Problemu - Pokój {issue.room.name}</DialogTitle>
                             <DialogDescription>
-                                Reported on {formatDate(issue.date)}. Task Type: {issue.cleaning_type}.
+                                Zgłoszono {formatDate(issue.date)}. Typ Zadania: {issue.cleaning_type}.
                             </DialogDescription>
                         </div>
                         {getIssueStatusBadge(issue.issue_flag)}
@@ -140,51 +140,51 @@ export function IssueDetailDialog({
                 <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
                     {/* Display Fields */}
                     <div className="space-y-1">
-                        <Label className="text-muted-foreground">Description</Label>
+                        <Label className="text-muted-foreground">Opis</Label>
                         <p className="text-sm border p-2 rounded bg-muted/30 min-h-[40px]">
-                            {issue.issue_description || <span className="italic text-muted-foreground/70">No description provided.</span>}
+                            {issue.issue_description || <span className="italic text-muted-foreground/70">Brak opisu.</span>}
                         </p>
                     </div>
 
                     {issue.housekeeping_notes && (
-                         <div className="space-y-1">
-                            <Label className="text-muted-foreground">Housekeeper Notes</Label>
-                             <p className="text-sm border p-2 rounded bg-muted/30 min-h-[40px]">
+                        <div className="space-y-1">
+                            <Label className="text-muted-foreground">Notatki Pokojówki</Label>
+                            <p className="text-sm border p-2 rounded bg-muted/30 min-h-[40px]">
                                 {issue.housekeeping_notes}
-                             </p>
-                         </div>
+                            </p>
+                        </div>
                     )}
 
                     {issue.issue_photo && (
-                       // ... photo display remains the same ...
-                       <div className="space-y-1">
-                           <Label className="text-muted-foreground">Photo</Label>
+                        // ... photo display remains the same ...
+                        <div className="space-y-1">
+                            <Label className="text-muted-foreground">Zdjęcie</Label>
                             <a href={issue.issue_photo} target="_blank" rel="noopener noreferrer" className="block w-fit">
-                               <img
-                                   src={issue.issue_photo}
-                                   alt="Issue evidence"
-                                   className="max-h-40 w-auto object-contain rounded border hover:opacity-80 transition-opacity"
-                               />
-                               <span className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1">
-                                   View full size <ExternalLink className="h-3 w-3" />
-                               </span>
+                                <img
+                                    src={issue.issue_photo}
+                                    alt="Issue evidence"
+                                    className="max-h-40 w-auto object-contain rounded border hover:opacity-80 transition-opacity"
+                                />
+                                <span className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1">
+                                    Zobacz pełny rozmiar <ExternalLink className="h-3 w-3" />
+                                </span>
                             </a>
-                       </div>
+                        </div>
                     )}
 
                     <hr className="my-2" />
 
                     {/* Editable Fields */}
-                     <div className="grid grid-cols-1 gap-4 items-end">
-                         {/* Removed Status Dropdown */}
-                         <div className="space-y-1">
-                            <Label htmlFor="issue-assignee">Assign Staff</Label>
-                             <Select value={assignedStaffId} onValueChange={setAssignedStaffId} disabled={isSaving || currentIssueStatus === 'Fixed'}>
+                    <div className="grid grid-cols-1 gap-4 items-end">
+                        {/* Removed Status Dropdown */}
+                        <div className="space-y-1">
+                            <Label htmlFor="issue-assignee">Przypisz Personel</Label>
+                            <Select value={assignedStaffId} onValueChange={setAssignedStaffId} disabled={isSaving || currentIssueStatus === 'Fixed'}>
                                 <SelectTrigger id="issue-assignee">
-                                    <SelectValue placeholder="Assign staff" />
+                                    <SelectValue placeholder="Przypisz personel" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                                    <SelectItem value="unassigned">Nieprzypisane</SelectItem>
                                     {allStaff.map(staff => (
                                         <SelectItem key={staff.id} value={staff.id}>{staff.name}</SelectItem>
                                     ))}
@@ -194,17 +194,17 @@ export function IssueDetailDialog({
                     </div>
 
                     <div className="space-y-1 mt-2">
-                        <Label htmlFor="issue-reception-notes">Reception Notes</Label>
+                        <Label htmlFor="issue-reception-notes">Notatki Recepcji</Label>
                         <Textarea
                             id="issue-reception-notes"
                             value={receptionNotes}
                             onChange={(e) => setReceptionNotes(e.target.value)}
                             className="min-h-[80px]"
-                            placeholder="Add notes for maintenance or housekeeping..."
+                            placeholder="Dodaj notatki dla konserwacji lub sprzątania..."
                             disabled={isSaving || currentIssueStatus === 'Fixed'}
                             maxLength={2000}
                         />
-                         <p className="text-xs text-muted-foreground text-right">{receptionNotes.length} / 2000</p>
+                        <p className="text-xs text-muted-foreground text-right">{receptionNotes.length} / 2000</p>
                     </div>
                 </div>
                 <DialogFooter className="justify-between sm:justify-between">
@@ -217,22 +217,22 @@ export function IssueDetailDialog({
                             disabled={isSaving}
                             className="bg-green-600 hover:bg-green-700 text-white"
                         >
-                            <CheckSquare className="mr-2 h-4 w-4" /> Mark as Fixed
+                            <CheckSquare className="mr-2 h-4 w-4" /> Oznacz jako Naprawione
                         </Button>
                     ) : (
-                        <span className="text-sm text-green-700 font-medium">Issue marked as fixed.</span> // Placeholder if already fixed
+                        <span className="text-sm text-green-700 font-medium">Problem oznaczony jako naprawiony.</span> // Placeholder if already fixed
                     )}
 
                     <div className="flex gap-2">
-                        <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Cancel</Button></DialogClose>
+                        <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Anuluj</Button></DialogClose>
                         {/* Save button might be less necessary if "Mark Fixed" is the primary action, but kept for notes/assignee */}
-                         <Button
+                        <Button
                             type="button"
                             onClick={handleSave} // Saves Assignee/Notes
                             disabled={isSaving || currentIssueStatus === 'Fixed'} // Disable save if fixed
-                         >
-                            {isSaving ? "Saving..." : "Save Notes/Assignee"}
-                         </Button>
+                        >
+                            {isSaving ? "Zapisywanie..." : "Zapisz Notatki/Przypisanie"}
+                        </Button>
                     </div>
                 </DialogFooter>
             </DialogContent>

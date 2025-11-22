@@ -1,0 +1,6 @@
+<!-- This is a placeholder SVG icon. Replace with your actual logo -->
+<svg width="192" height="192" xmlns="http://www.w3.org/2000/svg">
+  <rect width="192" height="192" fill="#4F46E5" rx="24"/>
+  <path d="M48 96 L96 48 L144 96 L96 144 Z" fill="#ffffff" opacity="0.9"/>
+  <circle cx="96" cy="96" r="18" fill="#ffffff"/>
+</svg>

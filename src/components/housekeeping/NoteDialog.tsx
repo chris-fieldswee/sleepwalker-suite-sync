@@ -30,24 +30,24 @@ export function NoteDialog({ task, initialNote, onSave, onClose }: NoteDialogPro
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>Note for Room {task.room?.name || 'Unknown'}</DialogTitle>
-        <DialogDescription>Add or update housekeeping notes (e.g., lost & found, specific observations).</DialogDescription>
+        <DialogTitle>Notatka dla Pokoju {task.room?.name || 'Nieznany'}</DialogTitle>
+        <DialogDescription>Dodaj lub zaktualizuj notatki sprzątania (np. rzeczy znalezione, uwagi).</DialogDescription>
       </DialogHeader>
       <div className="py-4">
-        <Label htmlFor={`note-${task.id}`} className="sr-only">Note Content</Label>
+        <Label htmlFor={`note-${task.id}`} className="sr-only">Treść Notatki</Label>
         <Textarea
           id={`note-${task.id}`}
           value={currentNote}
           onChange={(e) => setCurrentNote(e.target.value)}
           className="min-h-[100px]"
-          placeholder="E.g., Extra towels requested, guest left wallet..."
+          placeholder="Np. prośba o dodatkowe ręczniki, gość zostawił portfel..."
           disabled={isSaving}
         />
       </div>
       <DialogFooter>
-        <DialogClose asChild><Button type="button" variant="secondary" disabled={isSaving}>Cancel</Button></DialogClose>
+        <DialogClose asChild><Button type="button" variant="secondary" disabled={isSaving}>Anuluj</Button></DialogClose>
         <Button type="button" onClick={handleSaveClick} disabled={isSaving}>
-          {isSaving ? "Saving..." : "Save Note"}
+          {isSaving ? "Zapisywanie..." : "Zapisz Notatkę"}
         </Button>
       </DialogFooter>
     </DialogContent>

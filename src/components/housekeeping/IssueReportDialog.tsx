@@ -46,14 +46,14 @@ export function IssueReportDialog({ task, onReport, onClose }: IssueReportDialog
       try {
         setIssuePhotoPreview(URL.createObjectURL(file));
       } catch (error) {
-         console.error("Error creating object URL for preview:", error);
-         setIssuePhotoPreview(null);
-         toast({title:"Preview Error", description: "Could not create image preview.", variant: "destructive"})
+        console.error("Error creating object URL for preview:", error);
+        setIssuePhotoPreview(null);
+        toast({ title: "Błąd Podglądu", description: "Nie można utworzyć podglądu zdjęcia.", variant: "destructive" })
       }
     } else {
       if (file) {
-         toast({title:"Invalid File", description: "Please select an image file.", variant: "destructive"})
-         e.target.value = ''; // Clear the input
+        toast({ title: "Nieprawidłowy Plik", description: "Proszę wybrać plik obrazu.", variant: "destructive" })
+        e.target.value = ''; // Clear the input
       }
       setIssuePhoto(null);
       // Keep existing non-blob URL if no new file selected, otherwise clear
@@ -63,8 +63,8 @@ export function IssueReportDialog({ task, onReport, onClose }: IssueReportDialog
 
   const handleReportClick = async () => {
     if (!issueDescription.trim()) {
-        toast({ title: "Missing Description", description: "Please describe the issue.", variant: "destructive" });
-        return;
+      toast({ title: "Brak Opisu", description: "Proszę opisać problem.", variant: "destructive" });
+      return;
     }
     setIsReporting(true);
     const success = await onReport(task.id, issueDescription, issuePhoto);
@@ -78,24 +78,24 @@ export function IssueReportDialog({ task, onReport, onClose }: IssueReportDialog
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>Report Issue for Room {task.room?.name || 'Unknown'}</DialogTitle>
-        <DialogDescription>Describe the maintenance issue and optionally add a photo. This will mark the task as needing repair.</DialogDescription>
+        <DialogTitle>Zgłoś Problem dla Pokoju {task.room?.name || 'Nieznany'}</DialogTitle>
+        <DialogDescription>Opisz problem konserwacyjny i opcjonalnie dodaj zdjęcie. Oznaczy to zadanie jako wymagające naprawy.</DialogDescription>
       </DialogHeader>
       <div className="grid gap-4 py-4">
         <div className="space-y-1">
-          <Label htmlFor={`issueDescription-${task.id}`}>Description*</Label>
+          <Label htmlFor={`issueDescription-${task.id}`}>Opis*</Label>
           <Textarea
             id={`issueDescription-${task.id}`}
             value={issueDescription}
             onChange={(e) => setIssueDescription(e.target.value)}
             className="min-h-[80px]"
-            placeholder="E.g., Leaking faucet in bathroom sink..."
+            placeholder="Np. cieknący kran w umywalce łazienkowej..."
             required
             disabled={isReporting}
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor={`issuePhoto-${task.id}`}>Photo (Optional)</Label>
+          <Label htmlFor={`issuePhoto-${task.id}`}>Zdjęcie (Opcjonalnie)</Label>
           <Input
             id={`issuePhoto-${task.id}`}
             type="file"
@@ -106,15 +106,15 @@ export function IssueReportDialog({ task, onReport, onClose }: IssueReportDialog
         </div>
         {issuePhotoPreview && (
           <div className="mt-2 text-center">
-            <img src={issuePhotoPreview} alt="Issue preview" className="max-h-40 w-auto object-contain rounded border inline-block"/>
-            <p className="text-xs text-muted-foreground mt-1">{issuePhoto ? `New photo selected` : "Existing photo"}</p>
+            <img src={issuePhotoPreview} alt="Issue preview" className="max-h-40 w-auto object-contain rounded border inline-block" />
+            <p className="text-xs text-muted-foreground mt-1">{issuePhoto ? `Wybrano nowe zdjęcie` : "Istniejące zdjęcie"}</p>
           </div>
         )}
       </div>
       <DialogFooter>
-        <DialogClose asChild><Button type="button" variant="secondary" disabled={isReporting}>Cancel</Button></DialogClose>
+        <DialogClose asChild><Button type="button" variant="secondary" disabled={isReporting}>Anuluj</Button></DialogClose>
         <Button type="button" variant="destructive" onClick={handleReportClick} disabled={isReporting || !issueDescription.trim()}>
-          {isReporting ? "Reporting..." : "Report Issue"}
+          {isReporting ? "Zgłaszanie..." : "Zgłoś Problem"}
         </Button>
       </DialogFooter>
     </DialogContent>

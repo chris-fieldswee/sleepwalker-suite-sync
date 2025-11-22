@@ -33,7 +33,7 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
   const parseCsvData = (csvContent: string) => {
     const lines = csvContent.trim().split('\n');
     const headers = lines[0].split(/[\t,]/); // Support both tab and comma separation
-    
+
     // Expected headers: Data, Pracownik, Stanowisko, Lokalizacja, Start, Koniec, Suma Godzin
     const dataIndex = headers.findIndex(h => h.toLowerCase().includes('data'));
     const nameIndex = headers.findIndex(h => h.toLowerCase().includes('pracownik'));
@@ -44,7 +44,7 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
     const hoursIndex = headers.findIndex(h => h.toLowerCase().includes('suma godzin'));
 
     if (dataIndex === -1 || nameIndex === -1 || hoursIndex === -1) {
-      throw new Error('Invalid CSV format. Expected columns: Data, Pracownik, Suma Godzin');
+      throw new Error('Nieprawidłowy format CSV. Oczekiwane kolumny: Data, Pracownik, Suma Godzin');
     }
 
     const records = [];
@@ -79,8 +79,8 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
   const handleImport = async () => {
     if (!csvData.trim()) {
       toast({
-        title: "Error",
-        description: "Please provide CSV data",
+        title: "Błąd",
+        description: "Proszę podać dane CSV",
         variant: "destructive",
       });
       return;
@@ -89,7 +89,7 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
     setIsImporting(true);
     try {
       const records = parseCsvData(csvData);
-      
+
       // Get all users to match names
       const { data: users, error: usersError } = await supabase
         .from('users')
@@ -124,10 +124,10 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
 
       for (const record of records) {
         const userId = nameToUserId.get(record.name.toLowerCase());
-        
+
         console.log(`Looking for user: "${record.name}" (${record.name.toLowerCase()})`);
         console.log('Available name mappings:', Array.from(nameToUserId.keys()));
-        
+
         if (userId) {
           availabilityRecords.push({
             staff_id: userId,
@@ -144,12 +144,12 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
       }
 
       if (availabilityRecords.length === 0) {
-        throw new Error('No matching users found. Please check the names in your CSV.');
+        throw new Error('Nie znaleziono pasujących użytkowników. Sprawdź nazwiska w pliku CSV.');
       }
 
       // Insert availability records using upsert to handle duplicates
       const { error: insertError } = await supabase
-        .from('staff_availability')
+        .from('staff_availability' as any)
         .upsert(availabilityRecords, {
           onConflict: 'staff_id,date',
           ignoreDuplicates: false
@@ -158,11 +158,11 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
       if (insertError) throw insertError;
 
       // Show results
-      const message = `Successfully imported ${availabilityRecords.length} availability records.` +
-        (unmatchedNames.length > 0 ? ` ${unmatchedNames.length} names could not be matched: ${unmatchedNames.join(', ')}` : '');
+      const message = `Pomyślnie zaimportowano ${availabilityRecords.length} rekordów dostępności.` +
+        (unmatchedNames.length > 0 ? ` ${unmatchedNames.length} nazwiska nie mogły zostać dopasowane: ${unmatchedNames.join(', ')}` : '');
 
       toast({
-        title: "Import Successful",
+        title: "Import Zakończony Pomyślnie",
         description: message,
       });
 
@@ -173,8 +173,8 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
     } catch (error: any) {
       console.error('Import error:', error);
       toast({
-        title: "Import Failed",
-        description: error.message || "Failed to import availability data",
+        title: "Import Nieudany",
+        description: error.message || "Nie udało się zaimportować danych o dostępności",
         variant: "destructive",
       });
     } finally {
@@ -187,20 +187,20 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
       <DialogTrigger asChild>
         <Button variant="outline">
           <Upload className="h-4 w-4 mr-2" />
-          Import Staff Availability
+          Importuj Dostępność Personelu
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Import Staff Availability</DialogTitle>
+          <DialogTitle>Importuj Dostępność Personelu</DialogTitle>
           <DialogDescription>
-            Upload a CSV file with staff availability data. Expected format: Data, Pracownik, Stanowisko, Lokalizacja, Start, Koniec, Suma Godzin
+            Prześlij plik CSV z danymi o dostępności personelu. Oczekiwany format: Data, Pracownik, Stanowisko, Lokalizacja, Start, Koniec, Suma Godzin
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div>
-            <Label htmlFor="file-upload">Upload CSV File</Label>
+            <Label htmlFor="file-upload">Prześlij Plik CSV</Label>
             <Input
               id="file-upload"
               type="file"
@@ -209,12 +209,12 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
               className="mt-1"
             />
           </div>
-          
+
           <div>
-            <Label htmlFor="csv-data">Or paste CSV data directly</Label>
+            <Label htmlFor="csv-data">Lub wklej dane CSV bezpośrednio</Label>
             <Textarea
               id="csv-data"
-              placeholder="Paste your CSV data here..."
+              placeholder="Wklej tutaj swoje dane CSV..."
               value={csvData}
               onChange={(e) => setCsvData(e.target.value)}
               rows={8}
@@ -225,7 +225,7 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
           <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
             <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5" />
             <div className="text-sm text-blue-800">
-              <p className="font-medium">Expected CSV format:</p>
+              <p className="font-medium">Oczekiwany format CSV:</p>
               <p className="mt-1">Data	Pracownik	Stanowisko	Lokalizacja	Start	Koniec	Suma Godzin</p>
               <p className="mt-1">2025-10-27	Ewelina Szczudlek	Recepcja I zm.	Recepcja	6:00	14:30	8.5</p>
             </div>
@@ -234,10 +234,10 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setIsOpen(false)}>
-            Cancel
+            Anuluj
           </Button>
           <Button onClick={handleImport} disabled={isImporting || !csvData.trim()}>
-            {isImporting ? "Importing..." : "Import"}
+            {isImporting ? "Importowanie..." : "Importuj"}
           </Button>
         </DialogFooter>
       </DialogContent>

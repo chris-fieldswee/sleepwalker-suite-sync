@@ -33,8 +33,8 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
   const createUsers = async () => {
     if (!supabaseAdmin) {
       toast({
-        title: "Error",
-        description: "Admin client not available. Please ensure VITE_SUPABASE_SERVICE_ROLE_KEY is set in .env.local",
+        title: "Błąd",
+        description: "Klient administratora niedostępny. Upewnij się, że VITE_SUPABASE_SERVICE_ROLE_KEY jest ustawiony w .env.local",
         variant: "destructive",
       });
       return;
@@ -42,7 +42,7 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
 
     setIsCreating(true);
     setResults([]);
-    
+
     const creationResults: UserCreationResult[] = [];
 
     for (const user of housekeepingUsers) {
@@ -59,14 +59,14 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
             creationResults.push({
               name: user.name,
               success: true,
-              error: 'User already exists with auth account',
+              error: 'Użytkownik już istnieje z kontem autoryzacji',
               userId: existingUser.id
             });
           } else {
             creationResults.push({
               name: user.name,
               success: true,
-              error: 'User exists but needs auth account - please create manually',
+              error: 'Użytkownik istnieje, ale potrzebuje konta autoryzacji - utwórz ręcznie',
               userId: existingUser.id
             });
           }
@@ -86,7 +86,7 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
         });
 
         if (authError) throw authError;
-        if (!authData.user) throw new Error("Failed to create auth user");
+        if (!authData.user) throw new Error("Nie udało się utworzyć użytkownika autoryzacji");
 
         // Step 2: Insert user into public.users table
         const { data: userData, error: userError } = await supabase
@@ -152,8 +152,8 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
     const errorCount = creationResults.filter(r => !r.success).length;
 
     toast({
-      title: "Bulk User Creation Complete",
-      description: `Successfully created ${successCount} users. ${errorCount} failed.`,
+      title: "Tworzenie Użytkowników Zakończone",
+      description: `Pomyślnie utworzono ${successCount} użytkowników. ${errorCount} nie powiodło się.`,
       variant: errorCount > 0 ? "destructive" : "default",
     });
   };
@@ -161,10 +161,10 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create Housekeeping Users</CardTitle>
+        <CardTitle>Utwórz Użytkowników Sprzątających</CardTitle>
         <CardDescription>
-          Create the housekeeping users needed for staff availability mapping.
-          These users will match the "Pracownik" names in your CSV import.
+          Utwórz użytkowników sprzątających potrzebnych do mapowania dostępności personelu.
+          Ci użytkownicy będą pasować do nazw "Pracownik" w imporcie CSV.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -180,30 +180,30 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            All users will be created with the default password: <strong>housekeeping123</strong>
+            Wszyscy użytkownicy zostaną utworzeni z domyślnym hasłem: <strong>housekeeping123</strong>
             <br />
-            Users should change their password on first login.
+            Użytkownicy powinni zmienić hasło przy pierwszym logowaniu.
           </AlertDescription>
         </Alert>
 
-        <Button 
-          onClick={createUsers} 
+        <Button
+          onClick={createUsers}
           disabled={isCreating}
           className="w-full"
         >
           {isCreating ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Creating Users...
+              Tworzenie Użytkowników...
             </>
           ) : (
-            'Create All Housekeeping Users'
+            'Utwórz Wszystkich Użytkowników Sprzątających'
           )}
         </Button>
 
         {results.length > 0 && (
           <div className="space-y-2">
-            <h4 className="font-medium">Creation Results:</h4>
+            <h4 className="font-medium">Wyniki Tworzenia:</h4>
             {results.map((result, index) => (
               <div key={index} className="flex items-center gap-2 p-2 rounded border">
                 {result.success ? (

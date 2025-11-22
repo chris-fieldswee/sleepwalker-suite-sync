@@ -49,16 +49,16 @@ export default function Auth() {
             error: error
           });
           toast({
-            title: "Error",
-            description: error.message || `Login failed: ${error.status || 'Unknown error'}`,
+            title: "Błąd",
+            description: error.message || `Logowanie nieudane: ${error.status || 'Nieznany błąd'}`,
             variant: "destructive",
           });
           setSubmitting(false);
         } else {
           // Success - auth state change will handle redirect
           toast({
-            title: "Success",
-            description: "Signing in...",
+            title: "Sukces",
+            description: "Logowanie...",
           });
           // Don't set submitting to false here - let auth state change handle redirect
         }
@@ -67,15 +67,15 @@ export default function Auth() {
         const { error } = await signUp(trimmedEmail, password, name);
         if (error) {
           toast({
-            title: "Error",
+            title: "Błąd",
             description: error.message,
             variant: "destructive",
           });
           setSubmitting(false);
         } else {
           toast({
-            title: "Success",
-            description: "Account created successfully. Contact admin for role assignment.",
+            title: "Sukces",
+            description: "Konto utworzone pomyślnie. Skontaktuj się z administratorem w celu przypisania roli.",
           });
           setIsLogin(true);
           setEmail("");
@@ -86,8 +86,8 @@ export default function Auth() {
       }
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "An unexpected error occurred.",
+        title: "Błąd",
+        description: error.message || "Wystąpił nieoczekiwany błąd.",
         variant: "destructive",
       });
       setSubmitting(false);
@@ -99,19 +99,19 @@ export default function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">
-            {isLogin ? "Sign In" : "Create Account"}
+            {isLogin ? "Zaloguj" : "Utwórz Konto"}
           </CardTitle>
           <CardDescription>
             {isLogin
-              ? "Enter your credentials to access the system"
-              : "Fill in your details to create an account"}
+              ? "Wprowadź swoje dane, aby uzyskać dostęp do systemu"
+              : "Wypełnij swoje dane, aby utworzyć konto"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="name">Pełne Imię i Nazwisko</Label>
                 <Input
                   id="name"
                   type="text"
@@ -136,7 +136,7 @@ export default function Auth() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Hasło</Label>
               <Input
                 id="password"
                 type="password"
@@ -150,31 +150,31 @@ export default function Auth() {
 
 
             <Button type="submit" className="w-full" disabled={submitting || loading}>
-              {submitting ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
+              {submitting ? "Ładowanie..." : isLogin ? "Zaloguj" : "Zarejestruj"}
             </Button>
           </form>
 
           <div className="mt-4 text-center text-sm">
             {isLogin ? (
               <>
-                Don't have an account?{" "}
+                Nie masz konta?{" "}
                 <button
                   type="button"
                   onClick={() => setIsLogin(false)}
                   className="font-medium text-primary hover:underline"
                 >
-                  Sign up
+                  Zarejestruj się
                 </button>
               </>
             ) : (
               <>
-                Already have an account?{" "}
+                Masz już konto?{" "}
                 <button
                   type="button"
                   onClick={() => setIsLogin(true)}
                   className="font-medium text-primary hover:underline"
                 >
-                  Sign in
+                  Zaloguj się
                 </button>
               </>
             )}

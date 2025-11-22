@@ -21,210 +21,210 @@ type RoomGroup = Database["public"]["Enums"]["room_group"];
 
 // Cleaning type labels
 const cleaningTypeLabels: Record<CleaningType, string> = {
-  W: "Wyjazd",
-  P: "Przyjazd",
-  T: "Trakt",
-  O: "Odświeżenie",
-  G: "Generalne",
-  S: "Standard"
+    W: "Wyjazd",
+    P: "Przyjazd",
+    T: "Trakt",
+    O: "Odświeżenie",
+    G: "Generalne",
+    S: "Standard"
 };
 
 const roomGroupLabels: Record<RoomGroup, string> = {
-  P1: "P1 Rooms",
-  P2: "P2 Rooms",
-  A1S: "A1S Apartments",
-  A2S: "A2S Apartments",
-  OTHER: "Other Spaces"
+    P1: "Pokoje P1",
+    P2: "Pokoje P2",
+    A1S: "Apartamenty A1S",
+    A2S: "Apartamenty A2S",
+    OTHER: "Inne Przestrzenie"
 };
 
 // Helper function to parse capacity_configurations from a room
 const parseCapacityConfigurations = (room: Room | null): Array<{
-  capacity: number;
-  capacity_label: string;
-  cleaning_types: Array<{ type: CleaningType; time_limit: number }>;
+    capacity: number;
+    capacity_label: string;
+    cleaning_types: Array<{ type: CleaningType; time_limit: number }>;
 }> => {
-  if (!room || !room.capacity_configurations) return [];
-  
-  try {
-    let configs: any[] = [];
-    if (typeof room.capacity_configurations === 'string') {
-      configs = JSON.parse(room.capacity_configurations);
-    } else if (Array.isArray(room.capacity_configurations)) {
-      configs = room.capacity_configurations;
+    if (!room || !room.capacity_configurations) return [];
+
+    try {
+        let configs: any[] = [];
+        if (typeof room.capacity_configurations === 'string') {
+            configs = JSON.parse(room.capacity_configurations);
+        } else if (Array.isArray(room.capacity_configurations)) {
+            configs = room.capacity_configurations;
+        }
+
+        return configs.map((config: any) => ({
+            capacity: Number(config.capacity) || 0,
+            capacity_label: config.capacity_label || String(config.capacity || ''),
+            cleaning_types: Array.isArray(config.cleaning_types)
+                ? config.cleaning_types.map((ct: any) => ({
+                    type: ct.type as CleaningType,
+                    time_limit: Number(ct.time_limit) || 30
+                }))
+                : []
+        }));
+    } catch (e) {
+        console.error("Error parsing capacity_configurations:", e);
+        return [];
     }
-    
-    return configs.map((config: any) => ({
-      capacity: Number(config.capacity) || 0,
-      capacity_label: config.capacity_label || String(config.capacity || ''),
-      cleaning_types: Array.isArray(config.cleaning_types) 
-        ? config.cleaning_types.map((ct: any) => ({
-            type: ct.type as CleaningType,
-            time_limit: Number(ct.time_limit) || 30
-          }))
-        : []
-    }));
-  } catch (e) {
-    console.error("Error parsing capacity_configurations:", e);
-    return [];
-  }
 };
 
 // Render icons for capacity label
 const renderIcons = (config: string): React.ReactNode => {
-  const parts = config.split('+').map(p => parseInt(p.trim()));
-  
-  return (
-    <div className="flex items-center gap-1">
-      {parts.map((count, partIndex) => {
-        const icons = [];
-        for (let i = 0; i < count; i++) {
-          icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
-        }
-        return (
-          <div key={partIndex} className="flex items-center gap-0.5">
-            {icons}
-            {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
-          </div>
-        );
-      })}
-    </div>
-  );
+    const parts = config.split('+').map(p => parseInt(p.trim()));
+
+    return (
+        <div className="flex items-center gap-1">
+            {parts.map((count, partIndex) => {
+                const icons = [];
+                for (let i = 0; i < count; i++) {
+                    icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
+                }
+                return (
+                    <div key={partIndex} className="flex items-center gap-0.5">
+                        {icons}
+                        {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
+                    </div>
+                );
+            })}
+        </div>
+    );
 };
 
 // Guest count options based on room's capacity_configurations
 type GuestOption = {
-  value: number;
-  label: string;
-  display: React.ReactNode;
+    value: number;
+    label: string;
+    display: React.ReactNode;
 };
 
 const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
-  if (!room) return [];
-  
-  const configs = parseCapacityConfigurations(room);
-  
-  // If room has capacity_configurations, use them
-  if (configs.length > 0) {
-    return configs.map(config => ({
-      value: config.capacity,
-      label: config.capacity_label,
-      display: renderIcons(config.capacity_label)
-    }));
-  }
-  
-  // Fallback to legacy behavior based on group_type for rooms without configurations
-  const roomGroup = room.group_type;
-  
-  switch (roomGroup) {
-    case 'P1':
-      return [{ value: 1, label: '1', display: renderIcons('1') }];
-    
-    case 'P2':
-      return [
-        { value: 1, label: '1', display: renderIcons('1') },
-        { value: 2, label: '2', display: renderIcons('2') },
-        { value: 2, label: '1+1', display: renderIcons('1+1') },
-      ];
-    
-    case 'A1S':
-      return [
-        { value: 1, label: '1', display: renderIcons('1') },
-        { value: 2, label: '2', display: renderIcons('2') },
-        { value: 2, label: '1+1', display: renderIcons('1+1') },
-        { value: 3, label: '2+1', display: renderIcons('2+1') },
-        { value: 4, label: '2+2', display: renderIcons('2+2') },
-      ];
-    
-    case 'A2S':
-      return [
-        { value: 1, label: '1', display: renderIcons('1') },
-        { value: 2, label: '2', display: renderIcons('2') },
-        { value: 2, label: '1+1', display: renderIcons('1+1') },
-        { value: 3, label: '2+1', display: renderIcons('2+1') },
-        { value: 4, label: '2+2', display: renderIcons('2+2') },
-        { value: 3, label: '1+1+1', display: renderIcons('1+1+1') },
-        { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
-        { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
-      ];
-    
-    case 'OTHER':
-      return Array.from({ length: 10 }, (_, i) => ({
-        value: i + 1,
-        label: String(i + 1),
-        display: renderIcons(String(i + 1)),
-      }));
-    
-    default:
-      return [];
-  }
+    if (!room) return [];
+
+    const configs = parseCapacityConfigurations(room);
+
+    // If room has capacity_configurations, use them
+    if (configs.length > 0) {
+        return configs.map(config => ({
+            value: config.capacity,
+            label: config.capacity_label,
+            display: renderIcons(config.capacity_label)
+        }));
+    }
+
+    // Fallback to legacy behavior based on group_type for rooms without configurations
+    const roomGroup = room.group_type;
+
+    switch (roomGroup) {
+        case 'P1':
+            return [{ value: 1, label: '1', display: renderIcons('1') }];
+
+        case 'P2':
+            return [
+                { value: 1, label: '1', display: renderIcons('1') },
+                { value: 2, label: '2', display: renderIcons('2') },
+                { value: 2, label: '1+1', display: renderIcons('1+1') },
+            ];
+
+        case 'A1S':
+            return [
+                { value: 1, label: '1', display: renderIcons('1') },
+                { value: 2, label: '2', display: renderIcons('2') },
+                { value: 2, label: '1+1', display: renderIcons('1+1') },
+                { value: 3, label: '2+1', display: renderIcons('2+1') },
+                { value: 4, label: '2+2', display: renderIcons('2+2') },
+            ];
+
+        case 'A2S':
+            return [
+                { value: 1, label: '1', display: renderIcons('1') },
+                { value: 2, label: '2', display: renderIcons('2') },
+                { value: 2, label: '1+1', display: renderIcons('1+1') },
+                { value: 3, label: '2+1', display: renderIcons('2+1') },
+                { value: 4, label: '2+2', display: renderIcons('2+2') },
+                { value: 3, label: '1+1+1', display: renderIcons('1+1+1') },
+                { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
+                { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
+            ];
+
+        case 'OTHER':
+            return Array.from({ length: 10 }, (_, i) => ({
+                value: i + 1,
+                label: String(i + 1),
+                display: renderIcons(String(i + 1)),
+            }));
+
+        default:
+            return [];
+    }
 };
 
 // Get available cleaning types from room's capacity_configurations
 const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] => {
-  if (!room) return [];
-  
-  const configs = parseCapacityConfigurations(room);
-  
-  // If room has capacity_configurations, extract unique cleaning types
-  if (configs.length > 0) {
-    const cleaningTypesSet = new Set<CleaningType>();
-    configs.forEach(config => {
-      config.cleaning_types.forEach(ct => {
-        cleaningTypesSet.add(ct.type);
-      });
-    });
-    return Array.from(cleaningTypesSet).sort();
-  }
-  
-  // Fallback to group-based logic for rooms without configurations
-  const roomGroup = room.group_type;
-  if (roomGroup === 'OTHER') {
-    return ['S', 'G'];
-  }
-  return ['W', 'P', 'T', 'O', 'G'];
+    if (!room) return [];
+
+    const configs = parseCapacityConfigurations(room);
+
+    // If room has capacity_configurations, extract unique cleaning types
+    if (configs.length > 0) {
+        const cleaningTypesSet = new Set<CleaningType>();
+        configs.forEach(config => {
+            config.cleaning_types.forEach(ct => {
+                cleaningTypesSet.add(ct.type);
+            });
+        });
+        return Array.from(cleaningTypesSet).sort();
+    }
+
+    // Fallback to group-based logic for rooms without configurations
+    const roomGroup = room.group_type;
+    if (roomGroup === 'OTHER') {
+        return ['S', 'G'];
+    }
+    return ['W', 'P', 'T', 'O', 'G'];
 };
 
 // Get time limit from room's capacity_configurations
 const getTimeLimitFromRoom = (room: Room | null, capacity: number, cleaningType: CleaningType): number | null => {
-  if (!room) return null;
-  
-  const configs = parseCapacityConfigurations(room);
-  
-  // Find the configuration matching the capacity
-  const config = configs.find(c => c.capacity === capacity);
-  if (!config) return null;
-  
-  // Find the cleaning type in that configuration
-  const cleaningTypeConfig = config.cleaning_types.find(ct => ct.type === cleaningType);
-  if (!cleaningTypeConfig) return null;
-  
-  return cleaningTypeConfig.time_limit;
+    if (!room) return null;
+
+    const configs = parseCapacityConfigurations(room);
+
+    // Find the configuration matching the capacity
+    const config = configs.find(c => c.capacity === capacity);
+    if (!config) return null;
+
+    // Find the cleaning type in that configuration
+    const cleaningTypeConfig = config.cleaning_types.find(ct => ct.type === cleaningType);
+    if (!cleaningTypeConfig) return null;
+
+    return cleaningTypeConfig.time_limit;
 };
 
 // Interface needs start_time and stop_time for display
 interface Task {
-  id: string;
-  date: string;
-  status: string;
-  room: { id: string; name: string; group_type: string; color: string | null };
-  user: { id: string; name: string } | null;
-  cleaning_type: CleaningType;
-  guest_count: number;
-  time_limit: number | null;
-  actual_time: number | null;
-  difference: number | null;
-  issue_flag: boolean;
-  issue_description: string | null;
-  issue_photo: string | null;
-  housekeeping_notes: string | null;
-  reception_notes: string | null;
-  start_time: string | null; // Keep for display
-  stop_time: string | null; // Keep for display
-  // These can remain if needed for other logic, but won't be displayed directly
-  pause_start: string | null;
-  pause_stop: string | null;
-  total_pause: number | null;
-  created_at?: string;
+    id: string;
+    date: string;
+    status: string;
+    room: { id: string; name: string; group_type: string; color: string | null };
+    user: { id: string; name: string } | null;
+    cleaning_type: CleaningType;
+    guest_count: number;
+    time_limit: number | null;
+    actual_time: number | null;
+    difference: number | null;
+    issue_flag: boolean;
+    issue_description: string | null;
+    issue_photo: string | null;
+    housekeeping_notes: string | null;
+    reception_notes: string | null;
+    start_time: string | null; // Keep for display
+    stop_time: string | null; // Keep for display
+    // These can remain if needed for other logic, but won't be displayed directly
+    pause_start: string | null;
+    pause_stop: string | null;
+    total_pause: number | null;
+    created_at?: string;
 }
 
 interface EditableTaskState {
@@ -238,13 +238,13 @@ interface EditableTaskState {
 }
 
 interface TaskDetailDialogProps {
-  task: Task | null;
-  allStaff: Staff[];
-  availableRooms: Room[];
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  onUpdate: (taskId: string, updates: Partial<EditableTaskState>) => Promise<boolean>;
-  isUpdating: boolean;
+    task: Task | null;
+    allStaff: Staff[];
+    availableRooms: Room[];
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    onUpdate: (taskId: string, updates: Partial<EditableTaskState>) => Promise<boolean>;
+    isUpdating: boolean;
 }
 
 export function TaskDetailDialog({
@@ -450,21 +450,21 @@ export function TaskDetailDialog({
         if (!task || !editableState) return;
 
         if (!editableState.roomId) {
-            toast({ title: "Validation Error", description: "Room cannot be empty.", variant: "destructive" });
+            toast({ title: "Błąd Walidacji", description: "Pokój nie może być pusty.", variant: "destructive" });
             return;
         }
         if (editableState.guestCount < 1) {
-            toast({ title: "Validation Error", description: "Guest count must be at least 1.", variant: "destructive" });
+            toast({ title: "Błąd Walidacji", description: "Liczba gości musi wynosić co najmniej 1.", variant: "destructive" });
             return;
         }
         if (editableState.notes && editableState.notes.length > 2000) {
-            toast({ title: "Validation Error", description: "Notes cannot exceed 2000 characters.", variant: "destructive" });
+            toast({ title: "Błąd Walidacji", description: "Notatki nie mogą przekraczać 2000 znaków.", variant: "destructive" });
             return;
         }
-         if (editableState.timeLimit !== null && editableState.timeLimit < 0) {
-              toast({ title: "Validation Error", description: "Time limit cannot be negative.", variant: "destructive" });
-              return;
-         }
+        if (editableState.timeLimit !== null && editableState.timeLimit < 0) {
+            toast({ title: "Błąd Walidacji", description: "Limit czasu nie może być ujemny.", variant: "destructive" });
+            return;
+        }
 
         const updates: Partial<EditableTaskState> = {};
         let changed = false;
@@ -478,7 +478,7 @@ export function TaskDetailDialog({
         if (editableState.timeLimit !== task.time_limit) { updates.timeLimit = editableState.timeLimit; changed = true; }
 
         if (!changed) {
-            toast({ title: "No Changes", description: "No details were modified." });
+            toast({ title: "Brak Zmian", description: "Żadne szczegóły nie zostały zmienione." });
             setIsEditMode(false);
             return;
         }
@@ -608,7 +608,7 @@ export function TaskDetailDialog({
     const capacityDisplay = currentRoom
         ? (
             isOtherLocation ? (
-                <span className="text-sm text-muted-foreground italic">Not tracked for other locations</span>
+                <span className="text-sm text-muted-foreground italic">Pojemność nie jest śledzona dla innych lokalizacji</span>
             ) : (
                 <div className="flex items-center gap-2">
                     {renderIcons(capacityLabel)}
@@ -619,10 +619,10 @@ export function TaskDetailDialog({
         : (
             <span className="text-sm text-muted-foreground italic">
                 {isOtherLocation
-                    ? "Not tracked for other locations"
+                    ? "Pojemność nie jest śledzona dla innych lokalizacji"
                     : isEditMode
-                        ? "Select a room to view capacity"
-                        : "Capacity details unavailable"}
+                        ? "Wybierz pokój aby zobaczyć pojemność"
+                        : "Szczegóły pojemności niedostępne"}
             </span>
         );
 
@@ -630,13 +630,13 @@ export function TaskDetailDialog({
     const canEditTimeLimit = isTaskClosed;
 
     const getStatusLabel = (status: string) => {
-         // ... (keep existing getStatusLabel) ...
+        // ... (keep existing getStatusLabel) ...
         const labels: Record<string, string> = {
-            todo: "To Clean",
-            in_progress: "In Progress",
-            paused: "Paused",
-            done: "Done",
-            repair_needed: "Repair"
+            todo: "Do Sprzątania",
+            in_progress: "W Trakcie",
+            paused: "Wstrzymane",
+            done: "Gotowe",
+            repair_needed: "Naprawa"
         };
         return labels[status] || status;
     };
@@ -660,25 +660,25 @@ export function TaskDetailDialog({
             <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     {/* ... (keep existing header) ... */}
-                     <div className="flex justify-between items-start">
-                         <div>
-                             <DialogTitle className="text-2xl">
-                                 {isEditMode ? 'Edit' : 'View'} Task - {task.room.name}
-                             </DialogTitle>
-                             <DialogDescription>
-                                 {isEditMode ? 'Modify task information below.' : 'Task details and information.'}
-                             </DialogDescription>
-                             <div className="mt-2 flex items-center gap-2">
-                                 <span className="text-sm text-muted-foreground">Current status:</span>
-                                 <Badge className={cn(getStatusColor(task.status))}>{getStatusLabel(task.status)}</Badge>
-                             </div>
-                         </div>
-                         {task.issue_flag && (
-                             <Badge variant="destructive" className="flex items-center gap-1">
-                                 <AlertTriangle className="h-3 w-3" /> Issue Reported
-                             </Badge>
-                         )}
-                     </div>
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <DialogTitle className="text-2xl">
+                                {isEditMode ? 'Edytuj' : 'Szczegóły'} Zadania - {task.room.name}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {isEditMode ? 'Zmodyfikuj informacje o zadaniu poniżej.' : 'Szczegóły i informacje o zadaniu.'}
+                            </DialogDescription>
+                            <div className="mt-2 flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">Obecny status:</span>
+                                <Badge className={cn(getStatusColor(task.status))}>{getStatusLabel(task.status)}</Badge>
+                            </div>
+                        </div>
+                        {task.issue_flag && (
+                            <Badge variant="destructive" className="flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" /> Zgłoszono Problem
+                            </Badge>
+                        )}
+                    </div>
                 </DialogHeader>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 py-4 overflow-y-auto px-1 flex-grow">
@@ -686,12 +686,12 @@ export function TaskDetailDialog({
                     <div className="space-y-4">
                         {/* ... (Date, Room, Type, Guests, Staff, Reception Notes - keep existing structure) ... */}
                         <div className="space-y-1">
-                            <Label htmlFor="detail-date" className="flex items-center gap-1 text-muted-foreground"><CalendarDays className="h-4 w-4"/>Date*</Label>
-                            {isEditMode ? (<Input id="detail-date" type="date" value={editableState.date} onChange={(e) => handleFieldChange('date', e.target.value)} min={todayDateString} required disabled={isUpdating}/>)
-                            : (<p className="text-sm border p-2 rounded bg-muted/30">{formatDisplayDate(task.date)}</p>)}
+                            <Label htmlFor="detail-date" className="flex items-center gap-1 text-muted-foreground"><CalendarDays className="h-4 w-4" />Data*</Label>
+                            {isEditMode ? (<Input id="detail-date" type="date" value={editableState.date} onChange={(e) => handleFieldChange('date', e.target.value)} min={todayDateString} required disabled={isUpdating} />)
+                                : (<p className="text-sm border p-2 rounded bg-muted/30">{formatDisplayDate(task.date)}</p>)}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="detail-room-group" className="flex items-center gap-1 text-muted-foreground"><DoorOpen className="h-4 w-4"/>Room Group*</Label>
+                            <Label htmlFor="detail-room-group" className="flex items-center gap-1 text-muted-foreground"><DoorOpen className="h-4 w-4" />Grupa Pokoi*</Label>
                             {isEditMode ? (
                                 <Select
                                     value={selectedGroup ?? undefined}
@@ -702,7 +702,7 @@ export function TaskDetailDialog({
                                     disabled={isUpdating}
                                 >
                                     <SelectTrigger id="detail-room-group">
-                                        <SelectValue placeholder="Select room group" />
+                                        <SelectValue placeholder="Wybierz grupę pokoi" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {availableRoomGroups.map(group => (
@@ -717,7 +717,7 @@ export function TaskDetailDialog({
                             )}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="detail-room" className="flex items-center gap-1 text-muted-foreground"><DoorOpen className="h-4 w-4"/>Room*</Label>
+                            <Label htmlFor="detail-room" className="flex items-center gap-1 text-muted-foreground"><DoorOpen className="h-4 w-4" />Pokój*</Label>
                             {isEditMode ? (
                                 <Select
                                     value={editableState.roomId || undefined}
@@ -725,12 +725,12 @@ export function TaskDetailDialog({
                                     disabled={isUpdating || !selectedGroup}
                                 >
                                     <SelectTrigger id="detail-room">
-                                        <SelectValue placeholder={selectedGroup ? "Select a room" : "Select room group first"} />
+                                        <SelectValue placeholder={selectedGroup ? "Wybierz pokój" : "Najpierw wybierz grupę"} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {selectedGroup && filteredRooms.length === 0 && (
                                             <SelectItem value="__no_rooms__" disabled>
-                                                No rooms in this group
+                                                Brak pokoi w tej grupie
                                             </SelectItem>
                                         )}
                                         {filteredRooms.map(room => (
@@ -745,7 +745,7 @@ export function TaskDetailDialog({
                             )}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="detail-cleaningType" className="flex items-center gap-1 text-muted-foreground"><BedDouble className="h-4 w-4"/>Type*</Label>
+                            <Label htmlFor="detail-cleaningType" className="flex items-center gap-1 text-muted-foreground"><BedDouble className="h-4 w-4" />Typ*</Label>
                             {isEditMode ? (
                                 <Select
                                     value={editableState.cleaningType}
@@ -753,12 +753,12 @@ export function TaskDetailDialog({
                                     disabled={isUpdating || availableCleaningTypes.length === 0}
                                 >
                                     <SelectTrigger id="detail-cleaningType">
-                                        <SelectValue placeholder="Select type" />
+                                        <SelectValue placeholder="Wybierz typ" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {availableCleaningTypes.length === 0 ? (
                                             <SelectItem value="__no_types__" disabled>
-                                                No cleaning types available
+                                                Brak dostępnych typów sprzątania
                                             </SelectItem>
                                         ) : (
                                             availableCleaningTypes.map(type => (
@@ -770,14 +770,14 @@ export function TaskDetailDialog({
                                     </SelectContent>
                                 </Select>
                             )
-                            : (<p className="text-sm border p-2 rounded bg-muted/30">{cleaningTypeLabels[task.cleaning_type]}</p>)}
+                                : (<p className="text-sm border p-2 rounded bg-muted/30">{cleaningTypeLabels[task.cleaning_type]}</p>)}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="detail-guestCount" className="flex items-center gap-1 text-muted-foreground"><User className="h-4 w-4"/>Guests*</Label>
+                            <Label htmlFor="detail-guestCount" className="flex items-center gap-1 text-muted-foreground"><User className="h-4 w-4" />Goście*</Label>
                             {isEditMode ? (
                                 isOtherLocation ? (
                                     <div className="text-sm border p-2 rounded bg-muted/30 text-muted-foreground italic">
-                                        Capacity not tracked for other locations
+                                        Pojemność nie jest śledzona dla innych lokalizacji
                                     </div>
                                 ) : (
                                     <Select
@@ -797,7 +797,7 @@ export function TaskDetailDialog({
                                         disabled={isUpdating}
                                     >
                                         <SelectTrigger id="detail-guestCount">
-                                            <SelectValue placeholder="Select guest count" />
+                                            <SelectValue placeholder="Wybierz liczbę gości" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {(() => {
@@ -823,7 +823,7 @@ export function TaskDetailDialog({
                             )}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="detail-assignStaff" className="flex items-center gap-1 text-muted-foreground"><User className="h-4 w-4"/>Assigned Staff</Label>
+                            <Label htmlFor="detail-assignStaff" className="flex items-center gap-1 text-muted-foreground"><User className="h-4 w-4" />Assigned Staff</Label>
                             {isEditMode ? (
                                 <Select
                                     value={editableState.staffId}
@@ -843,12 +843,12 @@ export function TaskDetailDialog({
                                     </SelectContent>
                                 </Select>
                             )
-                            : (<p className="text-sm border p-2 rounded bg-muted/30">{task.user?.name || 'Unassigned'}</p>)}
+                                : (<p className="text-sm border p-2 rounded bg-muted/30">{task.user?.name || 'Unassigned'}</p>)}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="detail-notes" className="flex items-center gap-1 text-muted-foreground"><StickyNote className="h-4 w-4"/>Reception Notes</Label>
-                            {isEditMode ? (<><Textarea id="detail-notes" placeholder="Optional notes..." value={editableState.notes} onChange={(e) => handleFieldChange('notes', e.target.value)} className="min-h-[80px]" maxLength={2000} disabled={isUpdating}/><p className="text-xs text-muted-foreground text-right">{editableState.notes.length} / 2000</p></>)
-                            : (<p className="text-sm border p-2 rounded bg-muted/30 min-h-[40px]">{task.reception_notes || <span className="text-muted-foreground italic">No notes</span>}</p>)}
+                            <Label htmlFor="detail-notes" className="flex items-center gap-1 text-muted-foreground"><StickyNote className="h-4 w-4" />Reception Notes</Label>
+                            {isEditMode ? (<><Textarea id="detail-notes" placeholder="Optional notes..." value={editableState.notes} onChange={(e) => handleFieldChange('notes', e.target.value)} className="min-h-[80px]" maxLength={2000} disabled={isUpdating} /><p className="text-xs text-muted-foreground text-right">{editableState.notes.length} / 2000</p></>)
+                                : (<p className="text-sm border p-2 rounded bg-muted/30 min-h-[40px]">{task.reception_notes || <span className="text-muted-foreground italic">No notes</span>}</p>)}
                         </div>
                     </div>
 
@@ -856,7 +856,7 @@ export function TaskDetailDialog({
                     <div className="space-y-4">
                         {/* Time Limit */}
                         <div className="space-y-1">
-                            <Label htmlFor="detail-timeLimit" className="flex items-center gap-1 text-muted-foreground"><Clock className="h-4 w-4"/>Time Limit (min)</Label>
+                            <Label htmlFor="detail-timeLimit" className="flex items-center gap-1 text-muted-foreground"><Clock className="h-4 w-4" />Time Limit (min)</Label>
                             {isEditMode ? (
                                 <>
                                     <Input
@@ -873,38 +873,38 @@ export function TaskDetailDialog({
                                     )}
                                 </>
                             )
-                            : (<p className="text-sm border p-2 rounded bg-muted/30">{task.time_limit ?? 'None'}</p>)}
+                                : (<p className="text-sm border p-2 rounded bg-muted/30">{task.time_limit ?? 'None'}</p>)}
                         </div>
 
-                         {/* ** MODIFICATION START: Simplified Time Display Card ** */}
-                         {(task.start_time || task.actual_time !== null) && ( // Show if started or completed
+                        {/* ** MODIFICATION START: Simplified Time Display Card ** */}
+                        {(task.start_time || task.actual_time !== null) && ( // Show if started or completed
                             <Card className="bg-muted/30">
                                 <CardHeader className="p-3">
-                                    <CardTitle className="text-base flex items-center gap-1"><Timer className="h-4 w-4"/>Timing</CardTitle>
+                                    <CardTitle className="text-base flex items-center gap-1"><Timer className="h-4 w-4" />Timing</CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-3 pt-0 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                                     {/* Start Time */}
                                     <div className="flex items-center gap-1">
-                                         <PlayCircle className="h-3 w-3 text-muted-foreground"/>
-                                         <span className="text-muted-foreground">Start:</span> {formatDisplayTime(task.start_time)}
+                                        <PlayCircle className="h-3 w-3 text-muted-foreground" />
+                                        <span className="text-muted-foreground">Start:</span> {formatDisplayTime(task.start_time)}
                                     </div>
                                     {/* Stop Time */}
                                     <div className="flex items-center gap-1">
-                                        <Square className="h-3 w-3 text-muted-foreground"/>
+                                        <Square className="h-3 w-3 text-muted-foreground" />
                                         <span className="text-muted-foreground">Stop:</span> {formatDisplayTime(task.stop_time)}
                                     </div>
                                     {/* Actual Time */}
-                                     {task.actual_time !== null && (
-                                         <div className="col-span-1 mt-1">
-                                             <span className="text-muted-foreground">Actual:</span> {task.actual_time} min
-                                         </div>
-                                     )}
-                                     {/* Difference */}
-                                     {task.difference !== null && (
-                                         <div className={cn("col-span-1 mt-1 font-medium", task.difference > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400")}>
-                                             <span className="text-muted-foreground font-normal">Diff:</span> {task.difference > 0 ? '+' : ''}{task.difference} min
-                                         </div>
-                                     )}
+                                    {task.actual_time !== null && (
+                                        <div className="col-span-1 mt-1">
+                                            <span className="text-muted-foreground">Actual:</span> {task.actual_time} min
+                                        </div>
+                                    )}
+                                    {/* Difference */}
+                                    {task.difference !== null && (
+                                        <div className={cn("col-span-1 mt-1 font-medium", task.difference > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400")}>
+                                            <span className="text-muted-foreground font-normal">Diff:</span> {task.difference > 0 ? '+' : ''}{task.difference} min
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
                         )}
@@ -913,7 +913,7 @@ export function TaskDetailDialog({
                         {/* Housekeeping Note */}
                         {task.housekeeping_notes && (
                             <div className="space-y-1">
-                                <Label className="flex items-center gap-1 text-muted-foreground"><StickyNote className="h-4 w-4"/>Housekeeping Note</Label>
+                                <Label className="flex items-center gap-1 text-muted-foreground"><StickyNote className="h-4 w-4" />Housekeeping Note</Label>
                                 <p className="text-sm border p-2 rounded bg-muted/30 min-h-[40px]">{task.housekeeping_notes}</p>
                             </div>
                         )}
@@ -922,7 +922,7 @@ export function TaskDetailDialog({
                         {task.issue_flag && (
                             <Card className="border-red-500 bg-red-50 dark:bg-red-900/20">
                                 <CardHeader className="p-3">
-                                    <CardTitle className="text-base flex items-center gap-1 text-red-700 dark:text-red-300"><AlertTriangle className="h-4 w-4"/>Issue Details</CardTitle>
+                                    <CardTitle className="text-base flex items-center gap-1 text-red-700 dark:text-red-300"><AlertTriangle className="h-4 w-4" />Issue Details</CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-3 pt-0 space-y-2">
                                     {task.issue_description && <p className="text-sm">{task.issue_description}</p>}
@@ -937,10 +937,10 @@ export function TaskDetailDialog({
                         )}
                         {/* Add a placeholder if no issue and in view mode */}
                         {!task.issue_flag && !isEditMode && (
-                           <div className="space-y-1">
-                               <Label className="flex items-center gap-1 text-muted-foreground"><AlertTriangle className="h-4 w-4"/>Issue</Label>
-                               <p className="text-sm border p-2 rounded bg-muted/30 italic text-muted-foreground/70">No issue reported for this task.</p>
-                           </div>
+                            <div className="space-y-1">
+                                <Label className="flex items-center gap-1 text-muted-foreground"><AlertTriangle className="h-4 w-4" />Issue</Label>
+                                <p className="text-sm border p-2 rounded bg-muted/30 italic text-muted-foreground/70">No issue reported for this task.</p>
+                            </div>
                         )}
                     </div>
                 </div>

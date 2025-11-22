@@ -10,10 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import type { Room } from '@/hooks/useReceptionData';
 
 interface ReportNewIssueDialogProps {
-  availableRooms: Room[];
-  onSubmit: (roomId: string, description: string, photo: File | null) => Promise<boolean>; // Returns true on success
-  isSubmitting: boolean;
-  triggerButton?: React.ReactNode;
+    availableRooms: Room[];
+    onSubmit: (roomId: string, description: string, photo: File | null) => Promise<boolean>; // Returns true on success
+    isSubmitting: boolean;
+    triggerButton?: React.ReactNode;
 }
 
 export function ReportNewIssueDialog({
@@ -68,11 +68,11 @@ export function ReportNewIssueDialog({
             } catch (error) {
                 console.error("Error creating object URL for preview:", error);
                 setPhotoPreview(null);
-                toast({ title: "Preview Error", description: "Could not create image preview.", variant: "destructive" });
+                toast({ title: "Błąd Podglądu", description: "Nie udało się utworzyć podglądu zdjęcia.", variant: "destructive" });
             }
         } else {
             if (file) {
-                toast({ title: "Invalid File", description: "Please select an image file.", variant: "destructive" });
+                toast({ title: "Nieprawidłowy Plik", description: "Proszę wybrać plik obrazu.", variant: "destructive" });
                 e.target.value = ''; // Clear the input
             }
             setPhoto(null);
@@ -82,16 +82,16 @@ export function ReportNewIssueDialog({
 
     const handleSubmit = async () => {
         if (!roomId) {
-            toast({ title: "Missing Room", description: "Please select a room.", variant: "destructive" });
+            toast({ title: "Brak Pokoju", description: "Proszę wybrać pokój.", variant: "destructive" });
             return;
         }
         if (!description.trim()) {
-            toast({ title: "Missing Description", description: "Please describe the issue.", variant: "destructive" });
+            toast({ title: "Brak Opisu", description: "Proszę opisać problem.", variant: "destructive" });
             return;
         }
         if (description.length > 5000) {
-             toast({ title: "Description Too Long", description: "Description must be less than 5000 characters.", variant: "destructive" });
-             return;
+            toast({ title: "Opis Zbyt Długi", description: "Opis musi mieć mniej niż 5000 znaków.", variant: "destructive" });
+            return;
         }
 
         const success = await onSubmit(roomId, description, photo);
@@ -110,21 +110,21 @@ export function ReportNewIssueDialog({
                 </DialogTrigger>
             ) : (
                 <DialogTrigger asChild>
-                    <Button variant="outline">Report New Issue</Button>
+                    <Button variant="outline">Zgłoś Nowy Problem</Button>
                 </DialogTrigger>
             )}
             <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
-                    <DialogTitle>Report New Maintenance Issue</DialogTitle>
-                    <DialogDescription>Select the room, describe the issue, and optionally add a photo.</DialogDescription>
+                    <DialogTitle>Zgłoś Nowy Problem Techniczny</DialogTitle>
+                    <DialogDescription>Wybierz pokój, opisz problem i opcjonalnie dodaj zdjęcie.</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     {/* Room Select */}
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="issue-room-modal" className="text-right">Room*</Label>
+                        <Label htmlFor="issue-room-modal" className="text-right">Pokój*</Label>
                         <Select value={roomId} onValueChange={setRoomId} required>
                             <SelectTrigger id="issue-room-modal" className="col-span-3">
-                                <SelectValue placeholder="Select a room" />
+                                <SelectValue placeholder="Wybierz pokój" />
                             </SelectTrigger>
                             <SelectContent>
                                 {availableRooms.map(room => (
@@ -136,13 +136,13 @@ export function ReportNewIssueDialog({
 
                     {/* Description Textarea */}
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="issue-description-modal" className="text-right">Description*</Label>
+                        <Label htmlFor="issue-description-modal" className="text-right">Opis*</Label>
                         <Textarea
                             id="issue-description-modal"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             className="col-span-3 min-h-[80px]"
-                            placeholder="E.g., Leaking faucet in bathroom sink..."
+                            placeholder="Np. Cieknący kran w łazience..."
                             required
                             disabled={isSubmitting}
                         />
@@ -150,7 +150,7 @@ export function ReportNewIssueDialog({
 
                     {/* Photo Input */}
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="issue-photo-modal" className="text-right">Photo</Label>
+                        <Label htmlFor="issue-photo-modal" className="text-right">Zdjęcie</Label>
                         <Input
                             id="issue-photo-modal"
                             type="file"
@@ -169,14 +169,14 @@ export function ReportNewIssueDialog({
                     )}
                 </div>
                 <DialogFooter>
-                    <DialogClose asChild><Button type="button" variant="secondary" disabled={isSubmitting}>Cancel</Button></DialogClose>
+                    <DialogClose asChild><Button type="button" variant="secondary" disabled={isSubmitting}>Anuluj</Button></DialogClose>
                     <Button
                         type="button"
                         variant="destructive"
                         onClick={handleSubmit}
                         disabled={isSubmitting || !roomId || !description.trim()}
                     >
-                        {isSubmitting ? "Reporting..." : "Report Issue"}
+                        {isSubmitting ? "Zgłaszanie..." : "Zgłoś Problem"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

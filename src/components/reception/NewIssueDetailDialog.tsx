@@ -15,27 +15,27 @@ import type { Staff } from '@/hooks/useReceptionData';
 
 type Issue = Database["public"]["Tables"]["issues"]["Row"];
 type IssueWithRelations = Issue & {
-  room: { id: string; name: string; color: string | null };
-  assigned_to?: { id: string; name: string; first_name: string | null; last_name: string | null } | null;
-  reported_by?: { id: string; name: string; first_name: string | null; last_name: string | null } | null;
-  resolved_by?: { id: string; name: string; first_name: string | null; last_name: string | null } | null;
-  task?: { id: string; date: string } | null;
+    room: { id: string; name: string; color: string | null };
+    assigned_to?: { id: string; name: string; first_name: string | null; last_name: string | null } | null;
+    reported_by?: { id: string; name: string; first_name: string | null; last_name: string | null } | null;
+    resolved_by?: { id: string; name: string; first_name: string | null; last_name: string | null } | null;
+    task?: { id: string; date: string } | null;
 };
 
 interface IssueDetailDialogProps {
-  issue: IssueWithRelations | null;
-  allStaff: Staff[];
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  onUpdate: () => void;
+    issue: IssueWithRelations | null;
+    allStaff: Staff[];
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    onUpdate: () => void;
 }
 
 // Filter staff to only show reception and admin users
 const getFilteredStaff = (allStaff: Staff[]) => {
-  return allStaff.filter(staff => {
-    const role = staff.role?.toLowerCase();
-    return role === 'reception' || role === 'admin';
-  });
+    return allStaff.filter(staff => {
+        const role = staff.role?.toLowerCase();
+        return role === 'reception' || role === 'admin';
+    });
 };
 
 export function IssueDetailDialog({
@@ -79,7 +79,7 @@ export function IssueDetailDialog({
 
     const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files ? e.target.files[0] : null;
-        
+
         if (photoPreview && !issue?.photo_url) {
             URL.revokeObjectURL(photoPreview);
         }
@@ -89,8 +89,8 @@ export function IssueDetailDialog({
             setPhotoPreview(URL.createObjectURL(file));
         } else if (file) {
             toast({
-                title: "Invalid File",
-                description: "Please select an image file.",
+                title: "Nieprawidłowy Plik",
+                description: "Proszę wybrać plik obrazu.",
                 variant: "destructive",
             });
             e.target.value = '';
@@ -99,37 +99,37 @@ export function IssueDetailDialog({
 
     const handleSave = async () => {
         if (!issue) return;
-        
+
         setIsSaving(true);
-        
+
         try {
             let photoUrl = issue.photo_url;
-            
+
             // Upload new photo if one was selected
             if (photo) {
                 const { data: authData } = await supabase.auth.getUser();
                 const userId = authData?.user?.id;
-                
+
                 if (!userId) {
                     throw new Error("User not authenticated");
                 }
-                
+
                 const fileExt = photo.name.split('.').pop();
                 const fileName = `${issue.id}/${Date.now()}.${fileExt}`;
-                
+
                 const { data: uploadData, error: uploadError } = await supabase.storage
                     .from('issue-photos')
                     .upload(fileName, photo, { upsert: true });
-                
+
                 if (uploadError) throw uploadError;
-                
+
                 const { data: { publicUrl } } = supabase.storage
                     .from('issue-photos')
                     .getPublicUrl(fileName);
-                    
+
                 photoUrl = publicUrl;
             }
-            
+
             const { error } = await supabase
                 .from('issues')
                 .update({
@@ -144,17 +144,17 @@ export function IssueDetailDialog({
             if (error) throw error;
 
             toast({
-                title: "Success",
-                description: "Issue updated successfully",
+                title: "Sukces",
+                description: "Problem zaktualizowany pomyślnie",
             });
-            
+
             onUpdate();
             onOpenChange(false);
         } catch (error: any) {
             console.error("Error updating issue:", error);
             toast({
-                title: "Error",
-                description: `Failed to update issue: ${error.message}`,
+                title: "Błąd",
+                description: `Nie udało się zaktualizować problemu: ${error.message}`,
                 variant: "destructive",
             });
         } finally {
@@ -172,7 +172,7 @@ export function IssueDetailDialog({
     };
 
     const getDisplayName = (user: { id: string; name: string; first_name: string | null; last_name: string | null } | null) => {
-        if (!user) return "Unassigned";
+        if (!user) return "Nieprzypisane";
         if (user.first_name && user.last_name) {
             return `${user.first_name} ${user.last_name}`;
         }
@@ -181,10 +181,10 @@ export function IssueDetailDialog({
 
     const getStatusBadge = (status: string) => {
         const config: Record<string, { label: string; className: string }> = {
-            open: { label: 'Open', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
-            in_progress: { label: 'In Progress', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
-            resolved: { label: 'Resolved', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
-            closed: { label: 'Closed', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200' },
+            open: { label: 'Otwarte', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
+            in_progress: { label: 'W Trakcie', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
+            resolved: { label: 'Rozwiązane', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
+            closed: { label: 'Zamknięte', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200' },
         };
         const { label, className } = config[status] || { label: status, className: '' };
         return <Badge className={className}>{label}</Badge>;
@@ -192,10 +192,10 @@ export function IssueDetailDialog({
 
     const getPriorityBadge = (priority: string) => {
         const config: Record<string, { label: string; className: string }> = {
-            low: { label: 'Low', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' },
-            medium: { label: 'Medium', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
-            high: { label: 'High', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' },
-            urgent: { label: 'Urgent', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
+            low: { label: 'Niski', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' },
+            medium: { label: 'Średni', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
+            high: { label: 'Wysoki', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' },
+            urgent: { label: 'Pilny', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
         };
         const { label, className } = config[priority] || { label: priority, className: '' };
         return <Badge className={className}>{label}</Badge>;
@@ -207,7 +207,7 @@ export function IssueDetailDialog({
                 <DialogHeader>
                     <div className="flex justify-between items-start">
                         <div>
-                            <DialogTitle>Issue Details - {issue.room.name}</DialogTitle>
+                            <DialogTitle>Szczegóły Problemu - {issue.room.name}</DialogTitle>
                             <DialogDescription>
                                 {formatDate(issue.reported_at)} · {issue.title}
                             </DialogDescription>
@@ -223,7 +223,7 @@ export function IssueDetailDialog({
                                     className="h-8"
                                 >
                                     <Edit2 className="h-4 w-4 mr-1" />
-                                    Edit
+                                    Edytuj
                                 </Button>
                             )}
                             {isEditMode && (
@@ -234,7 +234,7 @@ export function IssueDetailDialog({
                                     className="h-8"
                                 >
                                     <X className="h-4 w-4 mr-1" />
-                                    Cancel
+                                    Anuluj
                                 </Button>
                             )}
                         </div>
@@ -243,9 +243,9 @@ export function IssueDetailDialog({
                 <div className="grid gap-4 py-4">
                     {/* Description */}
                     <div className="space-y-1">
-                        <Label className="text-muted-foreground">Description</Label>
+                        <Label className="text-muted-foreground">Opis</Label>
                         <p className="text-sm border p-3 rounded bg-muted/30 min-h-[60px]">
-                            {issue.description || <span className="italic text-muted-foreground/70">No description provided.</span>}
+                            {issue.description || <span className="italic text-muted-foreground/70">Brak opisu.</span>}
                         </p>
                     </div>
 
@@ -253,7 +253,7 @@ export function IssueDetailDialog({
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                             <Label className="text-muted-foreground flex items-center gap-1">
-                                <CalendarDays className="h-4 w-4" /> Reported
+                                <CalendarDays className="h-4 w-4" /> Zgłoszono
                             </Label>
                             <p className="text-sm border p-2 rounded bg-muted/30">
                                 {formatDate(issue.reported_at)}
@@ -262,7 +262,7 @@ export function IssueDetailDialog({
                         {issue.reported_by && (
                             <div className="space-y-1">
                                 <Label className="text-muted-foreground flex items-center gap-1">
-                                    <User className="h-4 w-4" /> Reported By
+                                    <User className="h-4 w-4" /> Zgłaszający
                                 </Label>
                                 <p className="text-sm border p-2 rounded bg-muted/30">
                                     {getDisplayName(issue.reported_by)}
@@ -274,24 +274,24 @@ export function IssueDetailDialog({
                     {/* Assigned Staff */}
                     <div className="space-y-1">
                         <Label className="flex items-center gap-1 text-muted-foreground">
-                            <User className="h-4 w-4" /> Assigned To
+                            <User className="h-4 w-4" /> Przypisano do
                         </Label>
                         {!isEditMode ? (
                             <p className="text-sm border p-2 rounded bg-muted/30">
-                                {issue.assigned_to ? getDisplayName(issue.assigned_to) : <span className="italic text-muted-foreground/70">Unassigned</span>}
+                                {issue.assigned_to ? getDisplayName(issue.assigned_to) : <span className="italic text-muted-foreground/70">Nieprzypisane</span>}
                             </p>
                         ) : (
                             <Select value={assignedStaffId} onValueChange={setAssignedStaffId} disabled={isSaving || !isEditMode}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Select staff..." />
+                                    <SelectValue placeholder="Wybierz personel..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                                  {getFilteredStaff(allStaff).map(staff => (
-                                    <SelectItem key={staff.id} value={staff.id}>
-                                      {staff.name}
-                                    </SelectItem>
-                                  ))}
+                                    <SelectItem value="unassigned">Nieprzypisane</SelectItem>
+                                    {getFilteredStaff(allStaff).map(staff => (
+                                        <SelectItem key={staff.id} value={staff.id}>
+                                            {staff.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         )}
@@ -304,7 +304,7 @@ export function IssueDetailDialog({
                         </Label>
                         {!isEditMode ? (
                             <p className="text-sm border p-2 rounded bg-muted/30">
-                                {issue.status === 'open' ? 'Open' : issue.status === 'in_progress' ? 'In Progress' : issue.status === 'resolved' ? 'Resolved' : 'Closed'}
+                                {issue.status === 'open' ? 'Otwarte' : issue.status === 'in_progress' ? 'W Trakcie' : issue.status === 'resolved' ? 'Rozwiązane' : 'Zamknięte'}
                             </p>
                         ) : (
                             <Select value={status} onValueChange={setStatus} disabled={isSaving || !isEditMode}>
@@ -312,10 +312,10 @@ export function IssueDetailDialog({
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="open">Open</SelectItem>
-                                    <SelectItem value="in_progress">In Progress</SelectItem>
-                                    <SelectItem value="resolved">Resolved</SelectItem>
-                                    <SelectItem value="closed">Closed</SelectItem>
+                                    <SelectItem value="open">Otwarte</SelectItem>
+                                    <SelectItem value="in_progress">W Trakcie</SelectItem>
+                                    <SelectItem value="resolved">Rozwiązane</SelectItem>
+                                    <SelectItem value="closed">Zamknięte</SelectItem>
                                 </SelectContent>
                             </Select>
                         )}
@@ -323,10 +323,10 @@ export function IssueDetailDialog({
 
                     {/* Priority */}
                     <div className="space-y-1">
-                        <Label className="flex items-center gap-1 text-muted-foreground">Priority</Label>
+                        <Label className="flex items-center gap-1 text-muted-foreground">Priorytet</Label>
                         {!isEditMode ? (
                             <p className="text-sm border p-2 rounded bg-muted/30">
-                                {issue.priority === 'low' ? 'Low' : issue.priority === 'medium' ? 'Medium' : issue.priority === 'high' ? 'High' : 'Urgent'}
+                                {issue.priority === 'low' ? 'Niski' : issue.priority === 'medium' ? 'Średni' : issue.priority === 'high' ? 'Wysoki' : 'Pilny'}
                             </p>
                         ) : (
                             <Select value={priority} onValueChange={setPriority} disabled={isSaving || !isEditMode}>
@@ -334,10 +334,10 @@ export function IssueDetailDialog({
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="low">Low</SelectItem>
-                                    <SelectItem value="medium">Medium</SelectItem>
-                                    <SelectItem value="high">High</SelectItem>
-                                    <SelectItem value="urgent">Urgent</SelectItem>
+                                    <SelectItem value="low">Niski</SelectItem>
+                                    <SelectItem value="medium">Średni</SelectItem>
+                                    <SelectItem value="high">Wysoki</SelectItem>
+                                    <SelectItem value="urgent">Pilny</SelectItem>
                                 </SelectContent>
                             </Select>
                         )}
@@ -348,7 +348,7 @@ export function IssueDetailDialog({
                         issue.photo_url ? (
                             <div className="space-y-1">
                                 <Label className="flex items-center gap-1 text-muted-foreground">
-                                    <ImageIcon className="h-4 w-4" /> Photo
+                                    <ImageIcon className="h-4 w-4" /> Zdjęcie
                                 </Label>
                                 <div className="border rounded p-2 bg-muted/30">
                                     <img
@@ -362,7 +362,7 @@ export function IssueDetailDialog({
                     ) : (
                         <div className="space-y-1">
                             <Label className="flex items-center gap-1 text-muted-foreground">
-                                <ImageIcon className="h-4 w-4" /> Photo
+                                <ImageIcon className="h-4 w-4" /> Zdjęcie
                             </Label>
                             <Input
                                 type="file"
@@ -384,17 +384,17 @@ export function IssueDetailDialog({
 
                     {/* Notes */}
                     <div className="space-y-1">
-                        <Label className="flex items-center gap-1 text-muted-foreground">Notes</Label>
+                        <Label className="flex items-center gap-1 text-muted-foreground">Notatki</Label>
                         {!isEditMode ? (
                             <p className="text-sm border p-2 rounded bg-muted/30 min-h-[60px]">
-                                {issue.notes || <span className="italic text-muted-foreground/70">No notes added.</span>}
+                                {issue.notes || <span className="italic text-muted-foreground/70">Brak notatek.</span>}
                             </p>
                         ) : (
                             <Textarea
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
                                 className="min-h-[80px]"
-                                placeholder="Add any additional notes..."
+                                placeholder="Dodaj dodatkowe notatki..."
                                 disabled={isSaving || !isEditMode}
                             />
                         )}
@@ -403,11 +403,11 @@ export function IssueDetailDialog({
                     {issue.resolved_at && (
                         <div className="space-y-1 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-3">
                             <Label className="flex items-center gap-1 text-green-700 dark:text-green-300">
-                                <CheckSquare className="h-4 w-4" /> Resolved
+                                <CheckSquare className="h-4 w-4" /> Rozwiązane
                             </Label>
                             <p className="text-sm text-green-600 dark:text-green-400">
-                                Resolved on {formatDate(issue.resolved_at)}
-                                {issue.resolved_by && ` by ${getDisplayName(issue.resolved_by)}`}
+                                Rozwiązano dnia {formatDate(issue.resolved_at)}
+                                {issue.resolved_by && ` przez ${getDisplayName(issue.resolved_by)}`}
                             </p>
                         </div>
                     )}
@@ -416,14 +416,14 @@ export function IssueDetailDialog({
                     {!isEditMode ? (
                         <DialogClose asChild>
                             <Button type="button" variant="secondary">
-                                Close
+                                Zamknij
                             </Button>
                         </DialogClose>
                     ) : (
                         <>
-                            <Button 
-                                type="button" 
-                                variant="secondary" 
+                            <Button
+                                type="button"
+                                variant="secondary"
                                 onClick={() => {
                                     setIsEditMode(false);
                                     // Reset state to original issue values
@@ -438,14 +438,14 @@ export function IssueDetailDialog({
                                 }}
                                 disabled={isSaving}
                             >
-                                Cancel
+                                Anuluj
                             </Button>
                             <Button
                                 type="button"
                                 onClick={handleSave}
                                 disabled={isSaving}
                             >
-                                {isSaving ? "Saving..." : "Save Changes"}
+                                {isSaving ? "Zapisywanie..." : "Zapisz Zmiany"}
                             </Button>
                         </>
                     )}

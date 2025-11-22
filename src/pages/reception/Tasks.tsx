@@ -70,7 +70,7 @@ export interface WorkLog {
 const getTodayDateString = () => new Date().toISOString().split("T")[0];
 
 const getDisplayDate = (dateStr: string | null) => {
-  if (!dateStr) return "Upcoming Tasks";
+  if (!dateStr) return "Nadchodzące Zadania";
   try {
     return new Date(dateStr + 'T00:00:00Z').toLocaleDateString(undefined, {
       year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
@@ -81,12 +81,12 @@ const getDisplayDate = (dateStr: string | null) => {
 };
 
 const allRoomGroups: RoomGroupOption[] = [
-  { value: 'all', label: 'All Groups' },
+  { value: 'all', label: 'Wszystkie Grupy' },
   { value: 'P1', label: 'P1' },
   { value: 'P2', label: 'P2' },
   { value: 'A1S', label: 'A1S' },
   { value: 'A2S', label: 'A2S' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'OTHER', label: 'Inne' },
 ];
 
 interface TasksProps {
@@ -183,24 +183,24 @@ export default function Tasks({
     let actualIsNull = true;
 
     tasksToSum.forEach(task => {
-        // Ensure time_limit is treated as a number
-        const limit = typeof task.time_limit === 'number' ? task.time_limit : null;
-        if (limit !== null) {
-            totalLimit = (totalLimit ?? 0) + limit;
-            limitIsNull = false;
-        }
-        // Ensure actual_time is treated as a number
-        const actual = typeof task.actual_time === 'number' ? task.actual_time : null;
-        if (actual !== null) {
-            totalActual = (totalActual ?? 0) + actual;
-            actualIsNull = false;
-        }
+      // Ensure time_limit is treated as a number
+      const limit = typeof task.time_limit === 'number' ? task.time_limit : null;
+      if (limit !== null) {
+        totalLimit = (totalLimit ?? 0) + limit;
+        limitIsNull = false;
+      }
+      // Ensure actual_time is treated as a number
+      const actual = typeof task.actual_time === 'number' ? task.actual_time : null;
+      if (actual !== null) {
+        totalActual = (totalActual ?? 0) + actual;
+        actualIsNull = false;
+      }
     });
 
     return {
-        totalLimit: limitIsNull ? null : totalLimit,
-        totalActual: actualIsNull ? null : totalActual,
-        visibleTaskCount: tasksToSum.length
+      totalLimit: limitIsNull ? null : totalLimit,
+      totalActual: actualIsNull ? null : totalActual,
+      visibleTaskCount: tasksToSum.length
     };
   }, [activeTab, regularTasks, otherTasks, allTasks]);
 
@@ -208,12 +208,12 @@ export default function Tasks({
     loading && !refreshing ? (
       <div className="flex items-center justify-center py-12">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        <span className="ml-2">Loading tasks...</span>
+        <span className="ml-2">Ładowanie zadań...</span>
       </div>
     ) : taskList.length === 0 ? (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <p className="text-lg font-medium text-muted-foreground">{emptyMessage}</p>
-        <p className="text-sm text-muted-foreground">Try adjusting filters or add a new task.</p>
+        <p className="text-sm text-muted-foreground">Spróbuj zmienić filtry lub dodaj nowe zadanie.</p>
       </div>
     ) : (
       // Added max-height and overflow classes here
@@ -222,15 +222,15 @@ export default function Tasks({
           <TableHeader>
             <TableRow className="bg-muted/50 sticky top-0 z-10">
               <TableHead className="font-semibold w-[100px]">Status</TableHead>
-              <TableHead className="font-semibold w-[100px]">Room</TableHead>
-              <TableHead className="font-semibold w-[150px]">Staff</TableHead>
-              <TableHead className="font-semibold text-center w-[80px]">Date</TableHead>
-              <TableHead className="font-semibold text-center w-[60px]">Type</TableHead>
-              <TableHead className="font-semibold text-center w-[80px]">Guests</TableHead>
+              <TableHead className="font-semibold w-[100px]">Pokój</TableHead>
+              <TableHead className="font-semibold w-[150px]">Personel</TableHead>
+              <TableHead className="font-semibold text-center w-[80px]">Data</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Typ</TableHead>
+              <TableHead className="font-semibold text-center w-[80px]">Goście</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Limit</TableHead>
-              <TableHead className="font-semibold text-center w-[60px]">Issue</TableHead>
-              <TableHead className="font-semibold text-center w-[60px]">Notes</TableHead>
-              <TableHead className="font-semibold text-right w-[100px]">Actions</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Problem</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Notatki</TableHead>
+              <TableHead className="font-semibold text-right w-[100px]">Akcje</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -255,13 +255,13 @@ export default function Tasks({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Tasks</h1>
-          <p className="text-muted-foreground mt-1">Manage active housekeeping tasks</p>
+          <h1 className="text-3xl font-bold">Zadania</h1>
+          <p className="text-muted-foreground mt-1">Zarządzaj aktywnymi zadaniami sprzątania</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing || loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${(refreshing || loading) ? "animate-spin" : ""}`} />
-            Refresh
+            Odśwież
           </Button>
           <WorkLogDialog
             filterDate={filters.date || getTodayDateString()}
@@ -282,15 +282,15 @@ export default function Tasks({
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={(value) => setActiveTab(value as "regular" | "other" | "all")} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">All Locations ({allTasks.length})</TabsTrigger>
-          <TabsTrigger value="regular">Hotel Rooms ({regularTasks.length})</TabsTrigger>
-          <TabsTrigger value="other">Other Locations ({otherTasks.length})</TabsTrigger>
+          <TabsTrigger value="all">Wszystkie Lokalizacje ({allTasks.length})</TabsTrigger>
+          <TabsTrigger value="regular">Pokoje Hotelowe ({regularTasks.length})</TabsTrigger>
+          <TabsTrigger value="other">Inne Lokalizacje ({otherTasks.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
           <Card>
             <CardHeader className="py-4">
-              <CardTitle className="text-lg">Filters</CardTitle>
+              <CardTitle className="text-lg">Filtry</CardTitle>
             </CardHeader>
             <CardContent className="pt-0 pb-4">
               <TaskFilters
@@ -315,14 +315,14 @@ export default function Tasks({
 
           <Card>
             <CardHeader>
-              <CardTitle>All Location Tasks for {getDisplayDate(filters.date)}</CardTitle>
+              <CardTitle>Wszystkie Zadania dla {getDisplayDate(filters.date)}</CardTitle>
             </CardHeader>
             <CardContent className="p-0"> {/* Removed padding */}
               {renderTaskTable(
                 allTasks,
                 filters.date
-                  ? `No tasks found for ${getDisplayDate(filters.date)} with current filters`
-                  : "No upcoming tasks found with current filters"
+                  ? `Nie znaleziono zadań dla ${getDisplayDate(filters.date)} z obecnymi filtrami`
+                  : "Nie znaleziono nadchodzących zadań z obecnymi filtrami"
               )}
             </CardContent>
           </Card>
@@ -331,7 +331,7 @@ export default function Tasks({
         <TabsContent value="regular" className="space-y-4">
           <Card>
             <CardHeader className="py-4">
-              <CardTitle className="text-lg">Filters</CardTitle>
+              <CardTitle className="text-lg">Filtry</CardTitle>
             </CardHeader>
             <CardContent className="pt-0 pb-4">
               <TaskFilters
@@ -356,14 +356,14 @@ export default function Tasks({
 
           <Card>
             <CardHeader>
-              <CardTitle>Hotel Room Tasks for {getDisplayDate(filters.date)}</CardTitle>
+              <CardTitle>Zadania w Pokojach dla {getDisplayDate(filters.date)}</CardTitle>
             </CardHeader>
             <CardContent className="p-0"> {/* Removed padding */}
               {renderTaskTable(
                 regularTasks,
                 filters.date
-                  ? `No hotel room tasks found for ${getDisplayDate(filters.date)} with current filters`
-                  : "No upcoming hotel room tasks found with current filters"
+                  ? `Nie znaleziono zadań w pokojach dla ${getDisplayDate(filters.date)} z obecnymi filtrami`
+                  : "Nie znaleziono nadchodzących zadań w pokojach z obecnymi filtrami"
               )}
             </CardContent>
           </Card>
@@ -372,7 +372,7 @@ export default function Tasks({
         <TabsContent value="other" className="space-y-4">
           <Card>
             <CardHeader className="py-4">
-              <CardTitle className="text-lg">Filters</CardTitle>
+              <CardTitle className="text-lg">Filtry</CardTitle>
             </CardHeader>
             <CardContent className="pt-0 pb-4">
               <TaskFilters
@@ -397,14 +397,14 @@ export default function Tasks({
 
           <Card>
             <CardHeader>
-              <CardTitle>Other Location Tasks for {getDisplayDate(filters.date)}</CardTitle>
+              <CardTitle>Zadania w Innych Lokalizacjach dla {getDisplayDate(filters.date)}</CardTitle>
             </CardHeader>
             <CardContent className="p-0"> {/* Removed padding */}
               {renderTaskTable(
                 otherTasks,
                 filters.date
-                  ? `No other location tasks found for ${getDisplayDate(filters.date)} with current filters`
-                  : "No upcoming other location tasks found with current filters"
+                  ? `Nie znaleziono zadań w innych lokalizacjach dla ${getDisplayDate(filters.date)} z obecnymi filtrami`
+                  : "Nie znaleziono nadchodzących zadań w innych lokalizacjach z obecnymi filtrami"
               )}
             </CardContent>
           </Card>

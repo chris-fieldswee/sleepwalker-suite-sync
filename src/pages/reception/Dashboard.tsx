@@ -46,89 +46,89 @@ export default function Dashboard({
   return (
     <div className="space-y-6">
       {/* ... Header, StatsCards, Navigation Links Grid remain the same ... */}
-       <div>
-         <h1 className="text-3xl font-bold">{basePath === "/admin" ? "Admin Dashboard" : "Reception Dashboard"}</h1>
-         <p className="text-muted-foreground mt-1">
-           Housekeeping Operations Overview
-         </p>
-       </div>
-       <StatsCards stats={stats} />
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-         {/* ... Links Cards ... */}
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <Link to={`${basePath}/tasks`}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5" />
-                  Active Tasks
-                </CardTitle>
-                <CardDescription>
-                  View and manage ongoing housekeeping tasks
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.total}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {stats.inProgress} in progress
-                </p>
-                <Button className="mt-4 w-full" variant="outline">
-                  Go to Tasks
-                </Button>
-              </CardContent>
-            </Link>
-          </Card>
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-             <Link to={`${basePath}/archive`}>
-               <CardHeader>
-                 <CardTitle className="flex items-center gap-2">
-                   <Archive className="h-5 w-5" />
-                   Archived Tasks
-                 </CardTitle>
-                 <CardDescription>
-                   Review completed tasks and performance history
-                 </CardDescription>
-               </CardHeader>
-               <CardContent>
-                 <div className="text-2xl font-bold">{stats.done}</div>
-                 <p className="text-xs text-muted-foreground mt-1">
-                   Completed today
-                 </p>
-                 <Button className="mt-4 w-full" variant="outline">
-                   View Archive
-                 </Button>
-               </CardContent>
-             </Link>
-          </Card>
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-             <Link to={`${basePath}/issues`}>
-               <CardHeader>
-                 <CardTitle className="flex items-center gap-2">
-                   <AlertTriangle className="h-5 w-5" />
-                   Issues
-                 </CardTitle>
-                 <CardDescription>
-                   Track and resolve reported maintenance issues
-                 </CardDescription>
-               </CardHeader>
-               <CardContent>
-                 <div className="text-2xl font-bold">{stats.repair}</div>
-                 <p className="text-xs text-muted-foreground mt-1">
-                   Require attention
-                 </p>
-                 <Button className="mt-4 w-full" variant="outline">
-                   View Issues
-                 </Button>
-               </CardContent>
-             </Link>
-          </Card>
-       </div>
+      <div>
+        <h1 className="text-3xl font-bold">{basePath === "/admin" ? "Panel Administratora" : "Panel Recepcji"}</h1>
+        <p className="text-muted-foreground mt-1">
+          Przegląd Operacji Sprzątania
+        </p>
+      </div>
+      <StatsCards stats={stats} />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* ... Links Cards ... */}
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+          <Link to={`${basePath}/tasks`}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Aktywne Zadania
+              </CardTitle>
+              <CardDescription>
+                Przeglądaj i zarządzaj bieżącymi zadaniami sprzątania
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.inProgress} w trakcie
+              </p>
+              <Button className="mt-4 w-full" variant="outline">
+                Przejdź do Zadań
+              </Button>
+            </CardContent>
+          </Link>
+        </Card>
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+          <Link to={`${basePath}/archive`}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Archive className="h-5 w-5" />
+                Zarchiwizowane Zadania
+              </CardTitle>
+              <CardDescription>
+                Przeglądaj zakończone zadania i historię wydajności
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.done}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Ukończone dzisiaj
+              </p>
+              <Button className="mt-4 w-full" variant="outline">
+                Zobacz Archiwum
+              </Button>
+            </CardContent>
+          </Link>
+        </Card>
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+          <Link to={`${basePath}/issues`}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Problemy
+              </CardTitle>
+              <CardDescription>
+                Śledź i rozwiązuj zgłoszone problemy konserwacyjne
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.repair}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Wymagają uwagi
+              </p>
+              <Button className="mt-4 w-full" variant="outline">
+                Zobacz Problemy
+              </Button>
+            </CardContent>
+          </Link>
+        </Card>
+      </div>
 
       {/* Quick Actions Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
-            Quick Actions
+            Szybkie Akcje
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -140,13 +140,13 @@ export default function Dashboard({
             isSubmitting={isSubmittingTask}
             triggerButton={
               <Button variant="outline" className="h-20 w-full flex-col gap-1">
-                 <Plus className="h-5 w-5 mb-1" />
-                 <span>Add Task</span>
+                <Plus className="h-5 w-5 mb-1" />
+                <span>Dodaj Zadanie</span>
               </Button>
             }
           />
           <Button variant="outline" className="h-20 w-full flex-col gap-1" asChild>
-            <Link to={`${basePath}/tasks`}>Work Log</Link>
+            <Link to={`${basePath}/tasks`}>Dziennik Pracy</Link>
           </Button>
 
           {/* *** Replace Report Issue Link with Dialog Trigger *** */}
@@ -156,15 +156,15 @@ export default function Dashboard({
             isSubmitting={isSubmittingNewIssue}
             triggerButton={
               <Button variant="outline" className="h-20 w-full flex-col gap-1">
-                 <AlertTriangle className="h-5 w-5 mb-1 text-destructive" />
-                 <span className="text-destructive">Report Issue</span>
+                <AlertTriangle className="h-5 w-5 mb-1 text-destructive" />
+                <span className="text-destructive">Zgłoś Problem</span>
               </Button>
             }
           />
           {/* --- End Replacement --- */}
 
           <Button variant="outline" className="h-20 w-full flex-col gap-1" asChild>
-            <Link to={`${basePath}/archive`}>View Reports</Link>
+            <Link to={`${basePath}/archive`}>Zobacz Raporty</Link>
           </Button>
         </CardContent>
       </Card>

@@ -12,10 +12,10 @@ type RoomGroup = Database["public"]["Enums"]["room_group"];
 
 // Define statuses available in the archive filter dropdown (limited set)
 const archiveFilterableStatuses: Array<{ value: TaskStatus | 'all', label: string }> = [
-    { value: 'all', label: 'All Statuses' },
-    { value: 'todo', label: 'To Clean' },
-    { value: 'done', label: 'Done' },
-    { value: 'paused', label: 'Paused' },
+  { value: 'all', label: 'Wszystkie Statusy' },
+  { value: 'todo', label: 'Do Sprzątania' },
+  { value: 'done', label: 'Zrobione' },
+  { value: 'paused', label: 'Wstrzymane' },
 ];
 
 export type RoomGroupOption = { value: RoomGroup | 'all', label: string };
@@ -57,7 +57,7 @@ export const ArchiveTaskFilters = ({
 }: ArchiveTaskFiltersProps) => {
 
   const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      onDateChange(e.target.value || null);
+    onDateChange(e.target.value || null);
   };
 
   // Get today's date for max date restriction
@@ -67,7 +67,7 @@ export const ArchiveTaskFilters = ({
     <div className={`grid gap-4 md:grid-cols-2 ${showRoomGroupFilter ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} mb-4 items-end`}>
       {/* Date Filter - Only allows past dates */}
       <div className="space-y-1">
-        <Label htmlFor="date-filter">Date</Label>
+        <Label htmlFor="date-filter">Data</Label>
         <Input
           id="date-filter"
           type="date"
@@ -83,13 +83,13 @@ export const ArchiveTaskFilters = ({
         <Label htmlFor="status-filter">Status</Label>
         <Select value={status} onValueChange={onStatusChange}>
           <SelectTrigger id="status-filter" className="bg-card h-9 text-sm">
-            <SelectValue placeholder="Filter status..." />
+            <SelectValue placeholder="Filtruj status..." />
           </SelectTrigger>
           <SelectContent className="bg-card z-50">
             {archiveFilterableStatuses.map(s => (
-                <SelectItem key={s.value} value={s.value} className="text-sm">
-                    {s.label}
-                </SelectItem>
+              <SelectItem key={s.value} value={s.value} className="text-sm">
+                {s.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -97,36 +97,36 @@ export const ArchiveTaskFilters = ({
 
       {/* Staff Filter */}
       <div className="space-y-1">
-        <Label htmlFor="staff-filter">Staff</Label>
+        <Label htmlFor="staff-filter">Personel</Label>
         <Select value={staffId} onValueChange={onStaffChange}>
-           <SelectTrigger id="staff-filter" className="bg-card h-9 text-sm">
-             <SelectValue placeholder="Filter staff..." />
-           </SelectTrigger>
-           <SelectContent className="bg-card z-50">
-             <SelectItem value="all" className="text-sm">All Staff</SelectItem>
-             <SelectItem value="unassigned" className="text-sm">Unassigned</SelectItem>
-             {staff.map(s => (
-                 <SelectItem key={s.id} value={s.id} className="text-sm">
-                     {s.name}
-                 </SelectItem>
-             ))}
-           </SelectContent>
+          <SelectTrigger id="staff-filter" className="bg-card h-9 text-sm">
+            <SelectValue placeholder="Filtruj personel..." />
+          </SelectTrigger>
+          <SelectContent className="bg-card z-50">
+            <SelectItem value="all" className="text-sm">Cały Personel</SelectItem>
+            <SelectItem value="unassigned" className="text-sm">Nieprzypisane</SelectItem>
+            {staff.map(s => (
+              <SelectItem key={s.id} value={s.id} className="text-sm">
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </div>
 
       {/* Room Group Filter - Conditionally rendered */}
       {showRoomGroupFilter && (
         <div className="space-y-1">
-          <Label htmlFor="group-filter">Group</Label>
+          <Label htmlFor="group-filter">Grupa</Label>
           <Select value={roomGroup} onValueChange={onRoomGroupChange}>
             <SelectTrigger id="group-filter" className="bg-card h-9 text-sm">
-              <SelectValue placeholder="Filter group..." />
+              <SelectValue placeholder="Filtruj grupę..." />
             </SelectTrigger>
             <SelectContent className="bg-card z-50">
               {roomGroups.map(rg => (
-                  <SelectItem key={rg.value} value={rg.value} className="text-sm">
-                      {rg.label}
-                  </SelectItem>
+                <SelectItem key={rg.value} value={rg.value} className="text-sm">
+                  {rg.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -135,13 +135,13 @@ export const ArchiveTaskFilters = ({
 
       {/* Room Filter */}
       <div className="space-y-1">
-        <Label htmlFor="room-filter">Room</Label>
+        <Label htmlFor="room-filter">Pokój</Label>
         <Select value={roomId} onValueChange={onRoomChange}>
           <SelectTrigger id="room-filter" className="bg-card h-9 text-sm">
-            <SelectValue placeholder="Filter room..." />
+            <SelectValue placeholder="Filtruj pokój..." />
           </SelectTrigger>
           <SelectContent className="bg-card z-50">
-            <SelectItem value="all" className="text-sm">All Rooms</SelectItem>
+            <SelectItem value="all" className="text-sm">Wszystkie Pokoje</SelectItem>
             {availableRooms.map(room => (
               <SelectItem key={room.id} value={room.id} className="text-sm">
                 {room.name}
@@ -153,12 +153,12 @@ export const ArchiveTaskFilters = ({
 
       {/* Clear Button */}
       <Button
-          variant="outline"
-          onClick={onClearFilters}
-          className="w-full h-9 text-sm"
-        >
-          <X className="mr-1.5 h-4 w-4" />
-          Clear
+        variant="outline"
+        onClick={onClearFilters}
+        className="w-full h-9 text-sm"
+      >
+        <X className="mr-1.5 h-4 w-4" />
+        Wyczyść
       </Button>
     </div>
   );

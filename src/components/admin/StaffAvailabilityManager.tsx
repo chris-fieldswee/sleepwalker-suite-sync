@@ -57,13 +57,13 @@ export const StaffAvailabilityManager: React.FC = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      
+
       // Sort by date: oldest first, then future dates at bottom
       const sortedData = ((data || []) as unknown as StaffAvailability[]).sort((a, b) => {
         const today = new Date().toISOString().split('T')[0];
         const dateA = a.date;
         const dateB = b.date;
-        
+
         // If both are past or both are future, sort chronologically
         if ((dateA <= today && dateB <= today) || (dateA > today && dateB > today)) {
           return dateA.localeCompare(dateB);
@@ -73,13 +73,13 @@ export const StaffAvailabilityManager: React.FC = () => {
         if (dateA > today && dateB <= today) return 1;
         return 0;
       });
-      
+
       setAvailability(sortedData);
     } catch (error: any) {
       console.error('Error fetching availability:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch staff availability",
+        title: "Błąd",
+        description: "Nie udało się pobrać dostępności personelu",
         variant: "destructive",
       });
     } finally {
@@ -99,7 +99,7 @@ export const StaffAvailabilityManager: React.FC = () => {
   // Get unique staff members filtered by role
   const availableStaff = useMemo(() => {
     const staffMap = new Map<string, { id: string; name: string }>();
-    
+
     availability.forEach(item => {
       const matchesRole = roleFilter === 'all' || item.staff.role === roleFilter;
       if (matchesRole && !staffMap.has(item.staff.id)) {
@@ -112,7 +112,7 @@ export const StaffAvailabilityManager: React.FC = () => {
         });
       }
     });
-    
+
     return Array.from(staffMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [availability, roleFilter]);
 
@@ -120,7 +120,7 @@ export const StaffAvailabilityManager: React.FC = () => {
     return availability.filter(item => {
       const matchesStaff = selectedStaffId === 'all' || item.staff.id === selectedStaffId;
       const matchesRole = roleFilter === 'all' || item.staff.role === roleFilter;
-      
+
       return matchesStaff && matchesRole;
     });
   }, [availability, selectedStaffId, roleFilter]);
@@ -144,14 +144,14 @@ export const StaffAvailabilityManager: React.FC = () => {
       {/* Header with buttons */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Staff Availability</h2>
-          <p className="text-muted-foreground">Manage and view staff availability schedules</p>
+          <h2 className="text-2xl font-bold">Dostępność Personelu</h2>
+          <p className="text-muted-foreground">Zarządzaj i przeglądaj harmonogramy dostępności personelu</p>
         </div>
         <div className="flex items-center gap-2">
           <ImportAvailabilityDialog onImportComplete={handleRefresh} />
           <Button variant="outline" onClick={handleRefresh} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            Odśwież
           </Button>
         </div>
       </div>
@@ -159,18 +159,18 @@ export const StaffAvailabilityManager: React.FC = () => {
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <CardTitle>Filtry</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label htmlFor="staff">Staff</Label>
+              <Label htmlFor="staff">Personel</Label>
               <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="All staff" />
+                  <SelectValue placeholder="Cały personel" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Staff</SelectItem>
+                  <SelectItem value="all">Cały Personel</SelectItem>
                   {availableStaff.map((staff) => (
                     <SelectItem key={staff.id} value={staff.id}>
                       {staff.name}
@@ -179,9 +179,9 @@ export const StaffAvailabilityManager: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
-              <Label htmlFor="date">Date</Label>
+              <Label htmlFor="date">Data</Label>
               <Input
                 id="date"
                 type="date"
@@ -189,25 +189,25 @@ export const StaffAvailabilityManager: React.FC = () => {
                 onChange={(e) => setDateFilter(e.target.value)}
               />
             </div>
-            
+
             <div>
-              <Label htmlFor="role">Role</Label>
+              <Label htmlFor="role">Rola</Label>
               <Select value={roleFilter} onValueChange={setRoleFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="All roles" />
+                  <SelectValue placeholder="Wszystkie role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="housekeeping">Housekeeping</SelectItem>
-                  <SelectItem value="reception">Reception</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="all">Wszystkie Role</SelectItem>
+                  <SelectItem value="housekeeping">Sprzątanie</SelectItem>
+                  <SelectItem value="reception">Recepcja</SelectItem>
+                  <SelectItem value="admin">Administrator</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="flex items-end">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setSelectedStaffId('all');
                   setDateFilter('');
@@ -215,7 +215,7 @@ export const StaffAvailabilityManager: React.FC = () => {
                 }}
                 className="w-full"
               >
-                Clear Filters
+                Wyczyść Filtry
               </Button>
             </div>
           </div>
@@ -225,9 +225,9 @@ export const StaffAvailabilityManager: React.FC = () => {
       {/* Availability Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Availability Schedule</CardTitle>
+          <CardTitle>Harmonogram Dostępności</CardTitle>
           <CardDescription>
-            Showing {filteredAvailability.length} availability records
+            Wyświetlanie {filteredAvailability.length} rekordów dostępności
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -241,22 +241,22 @@ export const StaffAvailabilityManager: React.FC = () => {
                 <Table>
                   <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
-                      <TableHead>Staff Member</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Position</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Start Time</TableHead>
-                      <TableHead>End Time</TableHead>
-                      <TableHead>Total Hours</TableHead>
-                      <TableHead>Assigned Hours</TableHead>
-                      <TableHead>Available Hours</TableHead>
+                      <TableHead>Pracownik</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Stanowisko</TableHead>
+                      <TableHead>Lokalizacja</TableHead>
+                      <TableHead>Czas Rozpoczęcia</TableHead>
+                      <TableHead>Czas Zakończenia</TableHead>
+                      <TableHead>Suma Godzin</TableHead>
+                      <TableHead>Przydzielone Godziny</TableHead>
+                      <TableHead>Dostępne Godziny</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredAvailability.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">
-                          {item.staff.first_name && item.staff.last_name 
+                          {item.staff.first_name && item.staff.last_name
                             ? `${item.staff.first_name} ${item.staff.last_name}`
                             : item.staff.name
                           }
@@ -274,10 +274,10 @@ export const StaffAvailabilityManager: React.FC = () => {
                   </TableBody>
                 </Table>
               </div>
-              
+
               {filteredAvailability.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                  No availability records found
+                  Nie znaleziono rekordów dostępności
                 </div>
               )}
             </div>

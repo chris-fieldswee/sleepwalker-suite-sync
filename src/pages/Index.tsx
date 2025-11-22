@@ -47,8 +47,8 @@ const Index = () => {
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold">SleepWalker Boutique Suites</h1>
-          <p className="text-xl text-muted-foreground">Unable to load user profile. Please refresh or contact support.</p>
-          <Button onClick={() => window.location.reload()}>Refresh Page</Button>
+          <p className="text-xl text-muted-foreground">Nie udało się załadować profilu użytkownika. Odśwież stronę lub skontaktuj się z pomocą techniczną.</p>
+          <Button onClick={() => window.location.reload()}>Odśwież Stronę</Button>
         </div>
       </div>
     );
@@ -58,7 +58,7 @@ const Index = () => {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="text-center">
         <h1 className="mb-4 text-4xl font-bold">SleepWalker Boutique Suites</h1>
-        <p className="text-xl text-muted-foreground">Redirecting...</p>
+        <p className="text-xl text-muted-foreground">Przekierowywanie...</p>
       </div>
     </div>
   );

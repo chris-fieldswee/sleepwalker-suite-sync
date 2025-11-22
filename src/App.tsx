@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import Reception from "./pages/Reception";
 import Admin from "./pages/Admin";
 import Housekeeping from "./pages/Housekeeping";
+import TaskDetails from "./pages/housekeeping/TaskDetails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["housekeeping", "admin"]}>
                   <Housekeeping />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/housekeeping/task/:taskId"
+              element={
+                <ProtectedRoute allowedRoles={["housekeeping", "admin"]}>
+                  <TaskDetails />
                 </ProtectedRoute>
               }
             />

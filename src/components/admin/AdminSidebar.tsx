@@ -1,12 +1,12 @@
-import { 
-  LayoutDashboard, 
-  ClipboardList, 
-  Archive, 
-  AlertTriangle, 
-  Users, 
-  DoorOpen, 
+import {
+  LayoutDashboard,
+  ClipboardList,
+  Archive,
+  AlertTriangle,
+  Users,
+  DoorOpen,
   Calendar,
-  LogOut 
+  LogOut
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -28,16 +28,16 @@ interface AdminSidebarProps {
 }
 
 const receptionNavItems = [
-  { title: "Dashboard", url: "/admin", icon: LayoutDashboard, end: true },
-  { title: "Tasks", url: "/admin/tasks", icon: ClipboardList },
-  { title: "Archive", url: "/admin/archive", icon: Archive },
-  { title: "Issues", url: "/admin/issues", icon: AlertTriangle },
+  { title: "Panel", url: "/admin", icon: LayoutDashboard, end: true },
+  { title: "Zadania", url: "/admin/tasks", icon: ClipboardList },
+  { title: "Archiwum", url: "/admin/archive", icon: Archive },
+  { title: "Problemy", url: "/admin/issues", icon: AlertTriangle },
 ];
 
 const adminNavItems = [
-  { title: "Users", url: "/admin/users", icon: Users },
-  { title: "Rooms", url: "/admin/rooms", icon: DoorOpen },
-  { title: "Staff Availability", url: "/admin/availability", icon: Calendar },
+  { title: "Użytkownicy", url: "/admin/users", icon: Users },
+  { title: "Pokoje", url: "/admin/rooms", icon: DoorOpen },
+  { title: "Dostępność Personelu", url: "/admin/availability", icon: Calendar },
 ];
 
 export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
@@ -48,18 +48,18 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
       <SidebarContent>
         {/* Reception Features */}
         <SidebarGroup>
-          <SidebarGroupLabel>Reception</SidebarGroupLabel>
+          <SidebarGroupLabel>Recepcja</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {receptionNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
+                    <NavLink
+                      to={item.url}
                       end={item.end}
                       className={({ isActive }) =>
-                        isActive 
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+                        isActive
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                           : "hover:bg-sidebar-accent/50"
                       }
                     >
@@ -75,17 +75,17 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
 
         {/* Admin Features */}
         <SidebarGroup>
-          <SidebarGroupLabel>Admin</SidebarGroupLabel>
+          <SidebarGroupLabel>Administracja</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {adminNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
+                    <NavLink
+                      to={item.url}
                       className={({ isActive }) =>
-                        isActive 
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+                        isActive
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                           : "hover:bg-sidebar-accent/50"
                       }
                     >
@@ -99,13 +99,13 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      
+
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 className="w-full justify-start hover:bg-sidebar-accent/50"
                 onClick={async (e) => {
                   e.preventDefault();
@@ -113,7 +113,7 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
                 }}
               >
                 <LogOut className="h-4 w-4" />
-                {open && <span>Sign Out</span>}
+                {open && <span>Wyloguj</span>}
               </Button>
             </SidebarMenuButton>
           </SidebarMenuItem>

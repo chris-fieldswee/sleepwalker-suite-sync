@@ -57,8 +57,8 @@ export default function Users() {
     } catch (error: any) {
       console.error("Error fetching users:", error);
       toast({
-        title: "Error",
-        description: "Failed to fetch users",
+        title: "Błąd",
+        description: "Nie udało się pobrać użytkowników",
         variant: "destructive",
       });
     } finally {
@@ -124,8 +124,8 @@ export default function Users() {
     try {
       if (!supabaseAdmin) {
         toast({
-          title: "Error",
-          description: "Admin client not available. Please ensure VITE_SUPABASE_SERVICE_ROLE_KEY is set in .env.local",
+          title: "Błąd",
+          description: "Klient administratora niedostępny. Upewnij się, że VITE_SUPABASE_SERVICE_ROLE_KEY jest ustawiony w .env.local",
           variant: "destructive",
         });
         return;
@@ -165,7 +165,7 @@ export default function Users() {
       });
 
       if (authError) throw authError;
-      if (!authData.user) throw new Error("Failed to create auth user");
+      if (!authData.user) throw new Error("Nie udało się utworzyć użytkownika auth");
 
       // Step 2: Insert user into public.users table using admin client to bypass RLS
       const { error: userError } = await supabaseAdmin
@@ -207,8 +207,8 @@ export default function Users() {
       }
 
       toast({
-        title: "Success",
-        description: "User created successfully",
+        title: "Sukces",
+        description: "Użytkownik został utworzony pomyślnie",
       });
 
       setIsCreateDialogOpen(false);
@@ -227,8 +227,8 @@ export default function Users() {
     } catch (error: any) {
       console.error("Error creating user:", error);
       toast({
-        title: "Error",
-        description: `Failed to create user: ${error.message}`,
+        title: "Błąd",
+        description: `Nie udało się utworzyć użytkownika: ${error.message}`,
         variant: "destructive",
       });
     }
@@ -256,7 +256,7 @@ export default function Users() {
         // Provide a more helpful message when RLS blocks the update
         if (!supabaseAdmin && userError.code === "42501") {
           throw new Error(
-            "Update blocked by RLS. Sign in as an admin user or configure the service role key for elevated access."
+            "Aktualizacja zablokowana przez RLS. Zaloguj się jako administrator lub skonfiguruj klucz roli serwisowej dla podwyższonych uprawnień."
           );
         }
         throw userError;
@@ -276,14 +276,14 @@ export default function Users() {
           if (passwordError) {
             console.warn("Password update failed:", passwordError);
             toast({
-              title: "Password update failed",
+              title: "Aktualizacja hasła nie powiodła się",
               description: passwordError.message,
               variant: "destructive",
             });
           } else {
             toast({
-              title: "Success",
-              description: "Password updated successfully",
+              title: "Sukces",
+              description: "Hasło zostało zaktualizowane pomyślnie",
             });
           }
         } else if (supabaseAdmin) {
@@ -298,8 +298,8 @@ export default function Users() {
           }
         } else {
           toast({
-            title: "Password not updated",
-            description: "Reset passwords via Supabase dashboard or add VITE_SUPABASE_SERVICE_ROLE_KEY for direct updates.",
+            title: "Hasło nie zostało zaktualizowane",
+            description: "Zresetuj hasła przez panel Supabase lub dodaj VITE_SUPABASE_SERVICE_ROLE_KEY dla bezpośrednich aktualizacji.",
             variant: "destructive",
           });
         }
@@ -318,7 +318,7 @@ export default function Users() {
 
         if (deleteError) {
           console.warn("Failed to delete old roles:", deleteError);
-          throw new Error(`Failed to update user role: ${deleteError.message}`);
+          throw new Error(`Nie udało się zaktualizować roli użytkownika: ${deleteError.message}`);
         }
 
         // Insert new role (using upsert to be safe, though we just deleted all roles)
@@ -333,13 +333,13 @@ export default function Users() {
 
         if (roleError) {
           console.warn("Role update failed:", roleError);
-          throw new Error(`Failed to update user role: ${roleError.message}`);
+          throw new Error(`Nie udało się zaktualizować roli użytkownika: ${roleError.message}`);
         }
       }
 
       toast({
-        title: "Success",
-        description: "User updated successfully",
+        title: "Sukces",
+        description: "Użytkownik został zaktualizowany pomyślnie",
       });
 
       setIsEditDialogOpen(false);
@@ -350,8 +350,8 @@ export default function Users() {
     } catch (error: any) {
       console.error("Error updating user:", error);
       toast({
-        title: "Error",
-        description: `Failed to update user: ${error.message}`,
+        title: "Błąd",
+        description: `Nie udało się zaktualizować użytkownika: ${error.message}`,
         variant: "destructive",
       });
     }
@@ -361,8 +361,8 @@ export default function Users() {
     try {
       if (!supabaseAdmin) {
         toast({
-          title: "Error",
-          description: "Admin client not available. User deletion requires VITE_SUPABASE_SERVICE_ROLE_KEY",
+          title: "Błąd",
+          description: "Klient administratora niedostępny. Usuwanie użytkownika wymaga VITE_SUPABASE_SERVICE_ROLE_KEY",
           variant: "destructive",
         });
         return;
@@ -401,16 +401,16 @@ export default function Users() {
       }
 
       toast({
-        title: "Success",
-        description: "User deleted successfully",
+        title: "Sukces",
+        description: "Użytkownik został usunięty pomyślnie",
       });
 
       await fetchUsers();
     } catch (error: any) {
       console.error("Error deleting user:", error);
       toast({
-        title: "Error",
-        description: `Failed to delete user: ${error.message}`,
+        title: "Błąd",
+        description: `Nie udało się usunąć użytkownika: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -435,9 +435,9 @@ export default function Users() {
 
   const getRoleBadge = (role: UserRole) => {
     const config = {
-      admin: { label: "Admin", className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200" },
-      reception: { label: "Reception", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200" },
-      housekeeping: { label: "Housekeeping", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200" },
+      admin: { label: "Administrator", className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200" },
+      reception: { label: "Recepcja", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200" },
+      housekeeping: { label: "Personel Sprzątający", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200" },
     };
     const { label, className } = config[role] || { label: role, className: "" };
     return <Badge className={className}>{label}</Badge>;
@@ -445,9 +445,9 @@ export default function Users() {
 
   const getStatusBadge = (active: boolean) => {
     return active ? (
-      <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200">Active</Badge>
+      <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200">Aktywny</Badge>
     ) : (
-      <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">Inactive</Badge>
+      <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">Nieaktywny</Badge>
     );
   };
 
@@ -463,40 +463,40 @@ export default function Users() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">User Management</h2>
-          <p className="text-muted-foreground">Manage system users and their roles</p>
+          <h2 className="text-2xl font-bold">Zarządzanie Użytkownikami</h2>
+          <p className="text-muted-foreground">Zarządzaj użytkownikami systemu i ich uprawnieniami</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Create User
+                Dodaj Użytkownika
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
+                <DialogTitle>Utwórz Nowego Użytkownika</DialogTitle>
                 <DialogDescription>
-                  Add a new user to the system with appropriate role and permissions.
+                  Dodaj nowego użytkownika do systemu z odpowiednią rolą i uprawnieniami.
                 </DialogDescription>
                 {!adminClientAvailable && (
                   <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                    Creating new users requires the Supabase service role key. Configure
+                    Tworzenie nowych użytkowników wymaga klucza serwisowego Supabase. Skonfiguruj
                     <code className="mx-1 rounded bg-amber-100 px-1 py-0.5 text-[0.75rem]">VITE_SUPABASE_SERVICE_ROLE_KEY</code>
-                    or invite users through the Supabase dashboard.
+                    lub zaproś użytkowników przez panel Supabase.
                   </div>
                 )}
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Name *</Label>
+                    <Label htmlFor="name">Imię i Nazwisko *</Label>
                     <Input
                       id="name"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Full name"
+                      placeholder="Pełne imię i nazwisko"
                     />
                   </div>
                   <div className="space-y-2">
@@ -511,55 +511,55 @@ export default function Users() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password *</Label>
+                  <Label htmlFor="password">Hasło *</Label>
                   <Input
                     id="password"
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="Enter password"
+                    placeholder="Wpisz hasło"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="first_name">First Name</Label>
+                    <Label htmlFor="first_name">Imię</Label>
                     <Input
                       id="first_name"
                       value={formData.first_name}
                       onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                      placeholder="First name"
+                      placeholder="Imię"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="last_name">Last Name</Label>
+                    <Label htmlFor="last_name">Nazwisko</Label>
                     <Input
                       id="last_name"
                       value={formData.last_name}
                       onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                      placeholder="Last name"
+                      placeholder="Nazwisko"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role *</Label>
+                  <Label htmlFor="role">Rola *</Label>
                   <Select value={formData.role} onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="reception">Reception</SelectItem>
-                      <SelectItem value="housekeeping">Housekeeping</SelectItem>
+                      <SelectItem value="admin">Administrator</SelectItem>
+                      <SelectItem value="reception">Recepcja</SelectItem>
+                      <SelectItem value="housekeeping">Personel Sprzątający</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                  Cancel
+                  Anuluj
                 </Button>
                 <Button onClick={handleCreateUser} disabled={!adminClientAvailable}>
-                  {adminClientAvailable ? "Create User" : "Service role required"}
+                  {adminClientAvailable ? "Utwórz Użytkownika" : "Wymagana rola serwisowa"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -570,17 +570,17 @@ export default function Users() {
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <CardTitle>Filtry</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="search">Search</Label>
+              <Label htmlFor="search">Szukaj</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search"
-                  placeholder="Search by name..."
+                  placeholder="Szukaj po nazwie..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -588,16 +588,16 @@ export default function Users() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role-filter">Role</Label>
+              <Label htmlFor="role-filter">Rola</Label>
               <Select value={roleFilter} onValueChange={(value: UserRole | "all") => setRoleFilter(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="reception">Reception</SelectItem>
-                  <SelectItem value="housekeeping">Housekeeping</SelectItem>
+                  <SelectItem value="all">Wszystkie Role</SelectItem>
+                  <SelectItem value="admin">Administrator</SelectItem>
+                  <SelectItem value="reception">Recepcja</SelectItem>
+                  <SelectItem value="housekeeping">Personel Sprzątający</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -608,16 +608,16 @@ export default function Users() {
       {/* Users Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Users ({filteredUsers.length})</CardTitle>
+          <CardTitle>Użytkownicy ({filteredUsers.length})</CardTitle>
           <CardDescription>
-            Manage all system users and their permissions
+            Zarządzaj wszystkimi użytkownikami systemu i ich uprawnieniami
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>Użytkownik</TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
@@ -625,15 +625,15 @@ export default function Users() {
                     className="h-8 data-[state=open]:bg-accent"
                     onClick={handleRoleSort}
                   >
-                    Role
+                    Rola
                     {roleSortDirection === "asc" && <ArrowUp className="ml-2 h-4 w-4" />}
                     {roleSortDirection === "desc" && <ArrowDown className="ml-2 h-4 w-4" />}
                     {roleSortDirection === null && <ArrowUpDown className="ml-2 h-4 w-4" />}
                   </Button>
                 </TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>Utworzono</TableHead>
+                <TableHead className="text-right">Akcje</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -673,19 +673,19 @@ export default function Users() {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Delete User</AlertDialogTitle>
+                            <AlertDialogTitle>Usuń Użytkownika</AlertDialogTitle>
                             <AlertDialogDescription>
-                              This will permanently delete the user and all associated data. This action cannot be undone.
+                              To trwale usunie użytkownika i wszystkie powiązane dane. Tej operacji nie można cofnąć.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogCancel>Anuluj</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => handleDeleteUser(user.id, user.auth_id)}
                               disabled={isDeleting}
                               className="bg-red-600 hover:bg-red-700 text-white"
                             >
-                              {isDeleting ? "Deleting..." : "Delete"}
+                              {isDeleting ? "Usuwanie..." : "Usuń"}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
@@ -703,21 +703,27 @@ export default function Users() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
+            <DialogTitle>Edytuj Użytkownika</DialogTitle>
             <DialogDescription>
-              Update user information and permissions.
+              Zaktualizuj informacje o użytkowniku i uprawnienia.
             </DialogDescription>
             {!adminClientAvailable && (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                Profile and role updates work without the service role key. You can update your own password,
-                but resetting other users' passwords requires the service key or Supabase dashboard.
+                <p>Aktualizacje profilu i ról działają bez klucza serwisowego. Możesz zaktualizować własne hasło,
+                  ale resetowanie haseł innych użytkowników wymaga klucza serwisowego lub panelu Supabase.</p>
+                <div className="mt-2 text-xs font-mono bg-amber-100 p-2 rounded">
+                  Debug Info:<br />
+                  Mode: {import.meta.env.MODE}<br />
+                  Key Present: {import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ? 'Yes' : 'No'}<br />
+                  Admin Client: {isAdminClientAvailable() ? 'Available' : 'Unavailable'}
+                </div>
               </div>
             )}
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-name">Name *</Label>
+                <Label htmlFor="edit-name">Imię i Nazwisko *</Label>
                 <Input
                   id="edit-name"
                   value={formData.name}
@@ -727,7 +733,7 @@ export default function Users() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-first_name">First Name</Label>
+                <Label htmlFor="edit-first_name">Imię</Label>
                 <Input
                   id="edit-first_name"
                   value={formData.first_name}
@@ -735,7 +741,7 @@ export default function Users() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-last_name">Last Name</Label>
+                <Label htmlFor="edit-last_name">Nazwisko</Label>
                 <Input
                   id="edit-last_name"
                   value={formData.last_name}
@@ -744,36 +750,36 @@ export default function Users() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-password">New Password (leave blank to keep current)</Label>
+              <Label htmlFor="edit-password">Nowe Hasło (pozostaw puste, aby zachować obecne)</Label>
               <Input
                 id="edit-password"
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="Enter new password"
+                placeholder="Wpisz nowe hasło"
                 disabled={!adminClientAvailable && currentUserId !== selectedUser?.auth_id}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-role">Role *</Label>
+              <Label htmlFor="edit-role">Rola *</Label>
               <Select value={formData.role} onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="reception">Reception</SelectItem>
-                  <SelectItem value="housekeeping">Housekeeping</SelectItem>
+                  <SelectItem value="admin">Administrator</SelectItem>
+                  <SelectItem value="reception">Recepcja</SelectItem>
+                  <SelectItem value="housekeeping">Personel Sprzątający</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
+              Anuluj
             </Button>
             <Button onClick={handleEditUser}>
-              Save Changes
+              Zapisz Zmiany
             </Button>
           </DialogFooter>
         </DialogContent>
