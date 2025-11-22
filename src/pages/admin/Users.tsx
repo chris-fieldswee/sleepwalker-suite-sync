@@ -29,6 +29,7 @@ export default function Users() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [roleSortDirection, setRoleSortDirection] = useState<"asc" | "desc" | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Form state for create/edit
   const [formData, setFormData] = useState({
@@ -68,6 +69,11 @@ export default function Users() {
   // Helper function to fix admin user role using direct SQL
   useEffect(() => {
     fetchUsers();
+
+    // Get current user ID
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id || null);
+    });
   }, []);
 
   // Reset form data when create dialog opens
@@ -86,21 +92,21 @@ export default function Users() {
   }, [isCreateDialogOpen]);
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = 
+    const matchesSearch =
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.last_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
-    
+
     return matchesSearch && matchesRole;
   }).sort((a, b) => {
     if (roleSortDirection === null) return 0;
     const roleOrder = { admin: 0, reception: 1, housekeeping: 2 };
     const aOrder = roleOrder[a.role] ?? 999;
     const bOrder = roleOrder[b.role] ?? 999;
-    return roleSortDirection === "asc" 
-      ? aOrder - bOrder 
+    return roleSortDirection === "asc"
+      ? aOrder - bOrder
       : bOrder - aOrder;
   });
 
@@ -126,7 +132,7 @@ export default function Users() {
       }
 
       // Don't close dialog yet - wait until user is created successfully
-      
+
       // Clean up any existing partial data first (if creating duplicate user)
       if (formData.email) {
         const { data: existingUsers } = await supabaseAdmin
@@ -134,7 +140,7 @@ export default function Users() {
           .select("auth_id")
           .eq("name", formData.name)
           .limit(1);
-        
+
         if (existingUsers && existingUsers.length > 0) {
           const existingAuthId = existingUsers[0].auth_id;
           // Clean up existing partial data using admin client
@@ -145,7 +151,7 @@ export default function Users() {
           }
         }
       }
-      
+
       // Step 1: Create auth user using admin client
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: formData.email,
@@ -285,7 +291,7 @@ export default function Users() {
             selectedUser.auth_id,
             { password: formData.password }
           );
-          
+
           if (passwordError) {
             console.warn("Password update failed:", passwordError);
             // Don't throw error, just warn
@@ -297,7 +303,7 @@ export default function Users() {
             variant: "destructive",
           });
         }
-        
+
         // Clear password field after attempting update/reset
         setFormData((prev) => ({ ...prev, password: "" }));
       }
@@ -338,7 +344,7 @@ export default function Users() {
 
       setIsEditDialogOpen(false);
       setSelectedUser(null);
-      
+
       // Fetch fresh data from server to ensure consistency
       await fetchUsers();
     } catch (error: any) {
@@ -469,95 +475,95 @@ export default function Users() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
-              <DialogDescription>
-                Add a new user to the system with appropriate role and permissions.
-              </DialogDescription>
-              {!adminClientAvailable && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                  Creating new users requires the Supabase service role key. Configure
-                  <code className="mx-1 rounded bg-amber-100 px-1 py-0.5 text-[0.75rem]">VITE_SUPABASE_SERVICE_ROLE_KEY</code>
-                  or invite users through the Supabase dashboard.
-                </div>
-              )}
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Full name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="user@example.com"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="Enter password"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="first_name">First Name</Label>
-                  <Input
-                    id="first_name"
-                    value={formData.first_name}
-                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                    placeholder="First name"
-                  />
+              <DialogHeader>
+                <DialogTitle>Create New User</DialogTitle>
+                <DialogDescription>
+                  Add a new user to the system with appropriate role and permissions.
+                </DialogDescription>
+                {!adminClientAvailable && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    Creating new users requires the Supabase service role key. Configure
+                    <code className="mx-1 rounded bg-amber-100 px-1 py-0.5 text-[0.75rem]">VITE_SUPABASE_SERVICE_ROLE_KEY</code>
+                    or invite users through the Supabase dashboard.
+                  </div>
+                )}
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Full name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="user@example.com"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="last_name">Last Name</Label>
+                  <Label htmlFor="password">Password *</Label>
                   <Input
-                    id="last_name"
-                    value={formData.last_name}
-                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                    placeholder="Last name"
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="Enter password"
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="first_name">First Name</Label>
+                    <Input
+                      id="first_name"
+                      value={formData.first_name}
+                      onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                      placeholder="First name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="last_name">Last Name</Label>
+                    <Input
+                      id="last_name"
+                      value={formData.last_name}
+                      onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                      placeholder="Last name"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role *</Label>
+                  <Select value={formData.role} onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="reception">Reception</SelectItem>
+                      <SelectItem value="housekeeping">Housekeeping</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="role">Role *</Label>
-                <Select value={formData.role} onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="reception">Reception</SelectItem>
-                    <SelectItem value="housekeeping">Housekeeping</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateUser} disabled={!adminClientAvailable}>
-                {adminClientAvailable ? "Create User" : "Service role required"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateUser} disabled={!adminClientAvailable}>
+                  {adminClientAvailable ? "Create User" : "Service role required"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -636,7 +642,7 @@ export default function Users() {
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
-                      {user.first_name && user.last_name 
+                      {user.first_name && user.last_name
                         ? `${user.first_name} ${user.last_name}`
                         : user.name
                       }
@@ -703,8 +709,8 @@ export default function Users() {
             </DialogDescription>
             {!adminClientAvailable && (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                Profile and role updates work without the service role key. Reset passwords via the Supabase dashboard
-                or add the service key locally to enable direct password changes.
+                Profile and role updates work without the service role key. You can update your own password,
+                but resetting other users' passwords requires the service key or Supabase dashboard.
               </div>
             )}
           </DialogHeader>
@@ -745,7 +751,7 @@ export default function Users() {
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="Enter new password"
-                disabled={!adminClientAvailable}
+                disabled={!adminClientAvailable && currentUserId !== selectedUser?.auth_id}
               />
             </div>
             <div className="space-y-2">

@@ -24,8 +24,8 @@ if (!SUPABASE_SERVICE_ROLE_KEY) {
 // SECURITY: Never initialize admin client in production builds
 export const supabaseAdmin = (!IS_PROD && SUPABASE_SERVICE_ROLE_KEY)
   ? createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    })
+    auth: { autoRefreshToken: false, persistSession: false }
+  })
   : null;
 
 // Helper function to check if admin client is available
