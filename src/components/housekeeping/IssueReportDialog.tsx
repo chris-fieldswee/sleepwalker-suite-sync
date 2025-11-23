@@ -111,7 +111,7 @@ export function IssueReportDialog({ task, onReport, onClose }: IssueReportDialog
           </div>
         )}
       </div>
-      <DialogFooter>
+      <DialogFooter className="gap-2">
         <DialogClose asChild><Button type="button" variant="secondary" disabled={isReporting}>Anuluj</Button></DialogClose>
         <Button type="button" variant="destructive" onClick={handleReportClick} disabled={isReporting || !issueDescription.trim()}>
           {isReporting ? "Zgłaszanie..." : "Zgłoś Problem"}

@@ -18,7 +18,6 @@ export function useHousekeepingTasks() {
     if (!userId) return setLoading(false);
 
     setLoading(true);
-    const currentISODate = new Date().toISOString().split("T")[0];
 
     const { data, error } = await supabase
       .from("tasks")
@@ -30,7 +29,7 @@ export function useHousekeepingTasks() {
         user:users(id, name)
       `)
       .eq("user_id", userId)
-      .eq("date", currentISODate)
+      .order("date", { ascending: true })
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -66,7 +65,6 @@ export function useHousekeepingTasks() {
     // Avoid double subscriptions
     if (channelRef.current) return;
 
-    const currentISODate = new Date().toISOString().split("T")[0];
     const channel = supabase
       .channel(`my-tasks-channel-${userId}`)
       .on<Task>(
@@ -75,7 +73,7 @@ export function useHousekeepingTasks() {
           event: "*",
           schema: "public",
           table: "tasks",
-          filter: `user_id=eq.${userId}&date=eq.${currentISODate}`,
+          filter: `user_id=eq.${userId}`,
         },
         (payload) => {
           console.log("Realtime update:", payload);

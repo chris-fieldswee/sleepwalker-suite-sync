@@ -22,7 +22,7 @@ export function SecondaryTaskActions({ task, onSaveNote, onReportIssue }: Second
       {/* Note Dialog */}
       <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:bg-accent px-2">
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:bg-accent px-2" onClick={(e) => e.stopPropagation()}>
             <MessageSquare className="mr-1 h-4 w-4" /> Notatka
           </Button>
         </DialogTrigger>
@@ -41,7 +41,7 @@ export function SecondaryTaskActions({ task, onSaveNote, onReportIssue }: Second
       {!task.issue_flag && (
         <Dialog open={isIssueDialogOpen} onOpenChange={setIsIssueDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 px-2">
+            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 px-2" onClick={(e) => e.stopPropagation()}>
               <AlertTriangle className="mr-1 h-4 w-4" /> Zgłoś Problem
             </Button>
           </DialogTrigger>

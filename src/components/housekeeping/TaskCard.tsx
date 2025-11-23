@@ -70,10 +70,9 @@ export function TaskCard({
     <Card
       key={task.id}
       className={cn(
-        "overflow-hidden border-l-4 transition-shadow duration-300 cursor-pointer",
+        "overflow-hidden transition-shadow duration-300 cursor-pointer",
         isActive ? `ring-2 ring-offset-2 ring-[hsl(var(--status-${task.status}))] shadow-lg` : 'shadow-sm hover:shadow-md',
       )}
-      style={{ borderLeftColor: task.room?.color || 'hsl(var(--border))' }}
       onClick={() => navigate(`/housekeeping/task/${task.id}`)}
     >
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 pt-3 px-4">
@@ -84,7 +83,7 @@ export function TaskCard({
           </p>
         </div>
         {/* Apply status color utility */}
-        <Badge className={cn(getStatusColor(task.status), "text-xs ml-2 flex-shrink-0")}>
+        <Badge className={cn(getStatusColor(task.status), "text-xs ml-2 flex-shrink-0 text-white")}>
           {getStatusLabel(task.status)}
         </Badge>
       </CardHeader>
@@ -107,7 +106,7 @@ export function TaskCard({
               <span className="font-semibold flex items-center"><Info className="h-3 w-3 mr-1 inline" /> Notatka z Recepcji:</span>
               {/* Show Acknowledge button conditionally */}
               {showAcknowledge && (
-                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-blue-700 hover:bg-blue-100 dark:text-blue-200 dark:hover:bg-blue-800" onClick={() => onAcknowledgeNote(task.id)}>
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-blue-700 hover:bg-blue-100 dark:text-blue-200 dark:hover:bg-blue-800" onClick={(e) => { e.stopPropagation(); onAcknowledgeNote(task.id); }}>
                   <Check className="h-3 w-3 mr-1" /> Potwierdź
                 </Button>
               )}
@@ -125,7 +124,7 @@ export function TaskCard({
             <p className="font-semibold flex items-center mb-1"><AlertTriangle className="h-3 w-3 mr-1 inline" /> Problem Konserwacyjny</p>
             {task.issue_description && <p className="mb-1">"{task.issue_description}"</p>}
             {task.issue_photo && (
-              <a href={task.issue_photo} target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80">
+              <a href={task.issue_photo} target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80" onClick={(e) => e.stopPropagation()}>
                 <img src={task.issue_photo} alt="Issue photo" className="h-10 w-10 object-cover rounded border" /> <span className="sr-only">Zobacz zdjęcie problemu</span>
               </a>
             )}
@@ -135,23 +134,35 @@ export function TaskCard({
 
       {/* Footer with Actions */}
       <CardFooter className="flex flex-wrap gap-2 pt-2 pb-3 px-4 justify-between items-center bg-muted/30 border-t dark:bg-muted/10">
-        {/* Primary actions (Start/Pause/Resume/Stop) */}
-        <TaskActions
-          task={task}
-          activeTaskId={activeTaskId}
-          onStart={onStart}
-          onPause={onPause}
-          onResume={onResume}
-          onStop={onStop}
-        />
-        {/* Secondary actions (Note/Report Issue), hide if task is done */}
-        {task.status !== 'done' && (
-          <SecondaryTaskActions
+        {/* Primary actions */}
+        {(task.status === 'todo' || task.status === 'repair_needed') ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/housekeeping/task/${task.id}`);
+            }}
+          >
+            Zobacz szczegóły
+          </Button>
+        ) : (
+          <TaskActions
             task={task}
-            onSaveNote={onSaveNote}
-            onReportIssue={onReportIssue}
+            activeTaskId={activeTaskId}
+            onStart={onStart}
+            onPause={onPause}
+            onResume={onResume}
+            onStop={onStop}
           />
         )}
+
+        {/* Secondary actions (Note/Report Issue) */}
+        <SecondaryTaskActions
+          task={task}
+          onSaveNote={onSaveNote}
+          onReportIssue={onReportIssue}
+        />
       </CardFooter>
     </Card>
   );

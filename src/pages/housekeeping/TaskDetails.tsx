@@ -5,12 +5,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, LogOut, Play, Pause, Square } from "lucide-react";
+import { ArrowLeft, LogOut, Play, Pause, Square, AlertTriangle } from "lucide-react";
 import { useHousekeepingTasks } from "@/hooks/useHousekeepingTasks";
 import { useTaskActions } from "@/hooks/useTaskActions";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { TaskTimerDisplay, useTaskTimer } from "@/pages/Housekeeping";
+import { SecondaryTaskActions } from "@/components/housekeeping/SecondaryTaskActions";
 import type { Task } from "@/pages/Housekeeping";
 
 // Utility functions
@@ -79,7 +80,7 @@ export default function TaskDetails() {
     }
 
     const isActive = activeTaskId === task.id;
-    const canStart = task.status === 'todo' && !activeTaskId;
+    const canStart = (task.status === 'todo' || task.status === 'repair_needed') && !activeTaskId;
     const canPause = task.status === 'in_progress' && isActive;
     const canResume = task.status === 'paused' && !activeTaskId;
     const canStop = (task.status === 'in_progress' || task.status === 'paused') && isActive;
@@ -130,7 +131,7 @@ export default function TaskDetails() {
                                     })}
                                 </p>
                             </div>
-                            <Badge className={cn(getStatusColor(task.status))}>
+                            <Badge className={cn(getStatusColor(task.status), "text-white")}>
                                 {getStatusLabel(task.status)}
                             </Badge>
                         </div>
@@ -160,12 +161,45 @@ export default function TaskDetails() {
                             </div>
                         )}
 
+                        {task.housekeeping_notes && (
+                            <div className="pt-4 border-t">
+                                <p className="text-sm text-muted-foreground mb-1">Twoja notatka</p>
+                                <p className="text-sm italic">{task.housekeeping_notes}</p>
+                            </div>
+                        )}
+
+                        {task.issue_flag && (
+                            <div className="pt-4 border-t">
+                                <div className="p-3 rounded-md border border-red-200 bg-red-50 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-200">
+                                    <p className="font-semibold flex items-center mb-2">
+                                        <AlertTriangle className="h-4 w-4 mr-2" />
+                                        Problem Konserwacyjny
+                                    </p>
+                                    {task.issue_description && <p className="text-sm mb-2">"{task.issue_description}"</p>}
+                                    {task.issue_photo && (
+                                        <a href={task.issue_photo} target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80">
+                                            <img src={task.issue_photo} alt="Zdjęcie problemu" className="h-24 w-24 object-cover rounded border" />
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Timer Display */}
                         {task.start_time && (
                             <div className="pt-4 border-t">
                                 <TaskTimerDisplay task={task} />
                             </div>
                         )}
+
+                        {/* Secondary Actions */}
+                        <div className="pt-4 border-t flex justify-end">
+                            <SecondaryTaskActions
+                                task={task}
+                                onSaveNote={taskActions.handleSaveNote}
+                                onReportIssue={taskActions.handleReportIssue}
+                            />
+                        </div>
                     </CardContent>
                 </Card>
 

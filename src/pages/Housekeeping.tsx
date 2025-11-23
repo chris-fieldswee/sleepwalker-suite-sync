@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, Play, Pause, Square, AlertTriangle, MessageSquare, Camera, Check, Info } from "lucide-react";
+import { LogOut, Play, Pause, Square, AlertTriangle, MessageSquare, Camera, Check, Info, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
@@ -246,17 +246,32 @@ export default function Housekeeping() {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'current' | 'archive')} className="space-y-4">
-            {/* Sign Out Button */}
-            <div className="flex justify-end mb-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 rounded-full"
-                onClick={signOut}
-              >
-                <LogOut className="h-5 w-5" />
-                <span className="sr-only">Wyloguj</span>
-              </Button>
+            {/* Header: Email & Actions */}
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-muted-foreground pl-1">
+                {useAuth().user?.email}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full"
+                  onClick={fetchTasks}
+                  title="Odśwież zadania"
+                >
+                  <RefreshCw className="h-5 w-5" />
+                  <span className="sr-only">Odśwież</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full"
+                  onClick={signOut}
+                >
+                  <LogOut className="h-5 w-5" />
+                  <span className="sr-only">Wyloguj</span>
+                </Button>
+              </div>
             </div>
 
             {/* Centered Tabs List */}

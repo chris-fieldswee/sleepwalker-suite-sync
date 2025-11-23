@@ -44,7 +44,7 @@ export function NoteDialog({ task, initialNote, onSave, onClose }: NoteDialogPro
           disabled={isSaving}
         />
       </div>
-      <DialogFooter>
+      <DialogFooter className="gap-2">
         <DialogClose asChild><Button type="button" variant="secondary" disabled={isSaving}>Anuluj</Button></DialogClose>
         <Button type="button" onClick={handleSaveClick} disabled={isSaving}>
           {isSaving ? "Zapisywanie..." : "Zapisz Notatkę"}
