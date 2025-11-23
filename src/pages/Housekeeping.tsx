@@ -298,9 +298,9 @@ export default function Housekeeping() {
             <TabsContent value="current" className="space-y-4 mt-4">
               {/* Filters for Current Tasks */}
               <Card className="p-4">
-                <div className="flex flex-wrap gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   {/* Date Filter */}
-                  <div className="flex-1 min-w-[200px]">
+                  <div className="w-full">
                     <Label htmlFor="current-date-filter" className="text-sm mb-2 block">
                       Data
                     </Label>
@@ -309,7 +309,7 @@ export default function Housekeeping() {
                         <Button
                           id="current-date-filter"
                           variant="outline"
-                          className={`w - full justify - start text - left font - normal h - 9 ${!dateFilter && "text-muted-foreground"
+                          className={`w-full justify-start text-left font-normal h-9 ${!dateFilter && "text-muted-foreground"
                             } `}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
@@ -342,7 +342,7 @@ export default function Housekeeping() {
                   </div>
 
                   {/* Status Filter */}
-                  <div className="flex-1 min-w-[200px]">
+                  <div className="w-full">
                     <Label htmlFor="current-status-filter" className="text-sm mb-2 block">
                       Status
                     </Label>
@@ -362,7 +362,7 @@ export default function Housekeeping() {
 
                   {/* Clear Filters Button */}
                   {(dateFilter || statusFilter !== 'all') && (
-                    <div className="flex items-end">
+                    <div className="col-span-2 flex justify-end">
                       <Button
                         variant="outline"
                         size="sm"
@@ -497,7 +497,7 @@ export default function Housekeeping() {
 
       {/* Fixed Bottom Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-lg z-40">
-        <div className="container mx-auto px-4 py-3">
+        <div className="container mx-auto px-4 pt-3 pb-8">
           {/* Progress Bar */}
           <div className="mb-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
