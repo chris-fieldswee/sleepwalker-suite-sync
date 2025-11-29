@@ -131,32 +131,26 @@ export default function Users() {
         return;
       }
 
-      // Don't close dialog yet - wait until user is created successfully
+      // 1. Check if user already exists in public.users (by name) or auth.users (by email)
+      // This prevents partial failures later
+      const { data: existingPublicUsers } = await supabaseAdmin
+        .from("users")
+        .select("id, auth_id")
+        .eq("name", formData.name)
+        .maybeSingle();
 
-      // Clean up any existing partial data first (if creating duplicate user)
-      if (formData.email) {
-        const { data: existingUsers } = await supabaseAdmin
-          .from("users")
-          .select("auth_id")
-          .eq("name", formData.name)
-          .limit(1);
-
-        if (existingUsers && existingUsers.length > 0) {
-          const existingAuthId = existingUsers[0].auth_id;
-          // Clean up existing partial data using admin client
-          await supabaseAdmin.from("user_roles").delete().eq("user_id", existingAuthId);
-          await supabaseAdmin.from("users").delete().eq("auth_id", existingAuthId);
-          if (existingAuthId) {
-            await supabaseAdmin.auth.admin.deleteUser(existingAuthId);
-          }
-        }
+      if (existingPublicUsers) {
+        throw new Error(`Użytkownik o nazwie "${formData.name}" już istnieje.`);
       }
 
-      // Step 1: Create auth user using admin client
+      // Note: We can't easily check auth.users by email without admin privileges, 
+      // but createUser will fail if email exists, which is fine.
+
+      // 2. Create auth user
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: formData.email,
         password: formData.password,
-        email_confirm: true, // Auto-confirm email
+        email_confirm: true,
         user_metadata: {
           name: formData.name,
           first_name: formData.first_name,
@@ -167,63 +161,63 @@ export default function Users() {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Nie udało się utworzyć użytkownika auth");
 
-      // Step 2: Insert user into public.users table using admin client to bypass RLS
-      const { error: userError } = await supabaseAdmin
-        .from("users")
-        .insert([
-          {
-            auth_id: authData.user.id,
-            name: formData.name,
-            first_name: formData.first_name,
-            last_name: formData.last_name,
-            role: formData.role,
-            active: formData.active,
-          },
-        ]);
+      const newAuthId = authData.user.id;
 
-      if (userError) {
-        // Cleanup: delete the auth user if database insert fails
-        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-        throw userError;
-      }
+      try {
+        // 3. Insert into public.users
+        const { error: userError } = await supabaseAdmin
+          .from("users")
+          .insert([
+            {
+              auth_id: newAuthId,
+              name: formData.name,
+              first_name: formData.first_name,
+              last_name: formData.last_name,
+              role: formData.role,
+              active: formData.active,
+            },
+          ]);
 
-      // Step 3: Insert role into user_roles table for RLS using admin client
-      const { error: roleError } = await supabaseAdmin
-        .from("user_roles")
-        .upsert([
-          {
-            user_id: authData.user.id,
-            role: formData.role as Database["public"]["Enums"]["app_role"],
-          },
-        ], {
-          onConflict: 'user_id,role'
+        if (userError) throw userError;
+
+        // 4. Insert into user_roles
+        const { error: roleError } = await supabaseAdmin
+          .from("user_roles")
+          .upsert([
+            {
+              user_id: newAuthId,
+              role: formData.role as Database["public"]["Enums"]["app_role"],
+            },
+          ], {
+            onConflict: 'user_id,role'
+          });
+
+        if (roleError) throw roleError;
+
+        toast({
+          title: "Sukces",
+          description: "Użytkownik został utworzony pomyślnie",
         });
 
-      if (roleError) {
-        // Cleanup if role insert fails
-        await supabaseAdmin.from("users").delete().eq("auth_id", authData.user.id);
-        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-        throw roleError;
+        setIsCreateDialogOpen(false);
+        setFormData({
+          name: "",
+          email: "",
+          password: "",
+          first_name: "",
+          last_name: "",
+          role: "housekeeping" as UserRole,
+          active: true,
+        });
+        await fetchUsers();
+
+      } catch (innerError: any) {
+        // ROLLBACK: Delete the auth user if public table inserts fail
+        console.error("Transaction failed, rolling back auth user:", innerError);
+        await supabaseAdmin.auth.admin.deleteUser(newAuthId);
+        throw innerError;
       }
 
-      toast({
-        title: "Sukces",
-        description: "Użytkownik został utworzony pomyślnie",
-      });
-
-      setIsCreateDialogOpen(false);
-      // Reset form data
-      setFormData({
-        name: "",
-        email: "",
-        password: "",
-        first_name: "",
-        last_name: "",
-        role: "housekeeping" as UserRole,
-        active: true,
-      });
-      // Refresh users list
-      await fetchUsers();
     } catch (error: any) {
       console.error("Error creating user:", error);
       toast({
@@ -240,7 +234,7 @@ export default function Users() {
     try {
       const client = supabaseAdmin ?? supabase;
 
-      // Update user in users table (falls back to standard client when admin client missing)
+      // 1. Update public.users
       const { error: userError } = await client
         .from("users")
         .update({
@@ -253,88 +247,63 @@ export default function Users() {
         .eq("id", selectedUser.id);
 
       if (userError) {
-        // Provide a more helpful message when RLS blocks the update
         if (!supabaseAdmin && userError.code === "42501") {
           throw new Error(
-            "Aktualizacja zablokowana przez RLS. Zaloguj się jako administrator lub skonfiguruj klucz roli serwisowej dla podwyższonych uprawnień."
+            "Aktualizacja zablokowana przez RLS. Zaloguj się jako administrator lub skonfiguruj klucz roli serwisowej."
           );
         }
         throw userError;
       }
 
-      // Update password if provided
+      // 2. Update password (if provided)
       if (formData.password && selectedUser.auth_id) {
-        // Check if updating own password
         const { data: { user: currentUser } } = await supabase.auth.getUser();
-        const isSelfUpdate = currentUser?.id === selectedUser.auth_id;
 
-        if (isSelfUpdate) {
+        if (currentUser?.id === selectedUser.auth_id) {
+          // Self-update
           const { error: passwordError } = await supabase.auth.updateUser({
             password: formData.password
           });
-
-          if (passwordError) {
-            console.warn("Password update failed:", passwordError);
-            toast({
-              title: "Aktualizacja hasła nie powiodła się",
-              description: passwordError.message,
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Sukces",
-              description: "Hasło zostało zaktualizowane pomyślnie",
-            });
-          }
+          if (passwordError) throw passwordError;
+          toast({ title: "Sukces", description: "Hasło zostało zaktualizowane" });
         } else if (supabaseAdmin) {
+          // Admin update
           const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
             selectedUser.auth_id,
             { password: formData.password }
           );
-
-          if (passwordError) {
-            console.warn("Password update failed:", passwordError);
-            // Don't throw error, just warn
-          }
+          if (passwordError) throw passwordError;
+          toast({ title: "Sukces", description: "Hasło użytkownika zostało zaktualizowane" });
         } else {
           toast({
-            title: "Hasło nie zostało zaktualizowane",
-            description: "Zresetuj hasła przez panel Supabase lub dodaj VITE_SUPABASE_SERVICE_ROLE_KEY dla bezpośrednich aktualizacji.",
+            title: "Ostrzeżenie",
+            description: "Nie można zmienić hasła innego użytkownika bez uprawnień administratora (service role).",
             variant: "destructive",
           });
         }
-
-        // Clear password field after attempting update/reset
         setFormData((prev) => ({ ...prev, password: "" }));
       }
 
-      // Update role in user_roles table if changed
+      // 3. Update user_roles (if role changed)
       if (selectedUser.auth_id && formData.role !== selectedUser.role) {
-        // Delete ALL existing roles for this user first (to avoid duplicate key errors)
+        // Use a transaction-like approach: delete old, insert new
+        // Note: In a real PG function this would be atomic. Here we do best effort.
+
         const { error: deleteError } = await client
           .from("user_roles")
           .delete()
           .eq("user_id", selectedUser.auth_id);
 
-        if (deleteError) {
-          console.warn("Failed to delete old roles:", deleteError);
-          throw new Error(`Nie udało się zaktualizować roli użytkownika: ${deleteError.message}`);
-        }
+        if (deleteError) console.warn("Warning: Failed to clear old roles", deleteError);
 
-        // Insert new role (using upsert to be safe, though we just deleted all roles)
         const { error: roleError } = await client
           .from("user_roles")
-          .upsert([{
+          .insert([{
             user_id: selectedUser.auth_id,
             role: formData.role as Database["public"]["Enums"]["app_role"],
-          }], {
-            onConflict: 'user_id,role'
-          });
+          }]);
 
-        if (roleError) {
-          console.warn("Role update failed:", roleError);
-          throw new Error(`Nie udało się zaktualizować roli użytkownika: ${roleError.message}`);
-        }
+        if (roleError) throw new Error(`Nie udało się zaktualizować roli: ${roleError.message}`);
       }
 
       toast({
@@ -344,9 +313,8 @@ export default function Users() {
 
       setIsEditDialogOpen(false);
       setSelectedUser(null);
-
-      // Fetch fresh data from server to ensure consistency
       await fetchUsers();
+
     } catch (error: any) {
       console.error("Error updating user:", error);
       toast({
@@ -370,20 +338,15 @@ export default function Users() {
 
       setIsDeleting(true);
 
-      // Step 1: Delete from user_roles table
-      if (authId) {
-        const { error: roleError } = await supabaseAdmin
-          .from("user_roles")
-          .delete()
-          .eq("user_id", authId);
+      // Best effort cleanup: try to delete from all tables.
+      // We don't stop on error for auxiliary tables, but we do for the main user record.
 
-        if (roleError) {
-          console.warn("Failed to delete user roles:", roleError);
-          // Continue with deletion anyway
-        }
+      if (authId) {
+        // 1. Delete user roles
+        await supabaseAdmin.from("user_roles").delete().eq("user_id", authId);
       }
 
-      // Step 2: Delete from users table
+      // 2. Delete from public.users
       const { error: userError } = await supabaseAdmin
         .from("users")
         .delete()
@@ -391,12 +354,11 @@ export default function Users() {
 
       if (userError) throw userError;
 
-      // Step 3: Delete from auth.users
+      // 3. Delete from auth.users
       if (authId) {
         const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(authId);
         if (authError) {
-          console.warn("Failed to delete auth user:", authError);
-          // Continue anyway - user is already deleted from our tables
+          console.warn("Failed to delete auth user (might already be gone):", authError);
         }
       }
 
