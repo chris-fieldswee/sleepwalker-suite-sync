@@ -30,7 +30,7 @@ export function NoteDialog({ task, initialNote, onSave, onClose }: NoteDialogPro
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>Notatka dla Pokoju {task.room?.name || 'Nieznany'}</DialogTitle>
+        <DialogTitle>Notatka dla pokoju {task.room?.name || 'Nieznany'}</DialogTitle>
         <DialogDescription>Dodaj lub zaktualizuj notatki sprzątania (np. rzeczy znalezione, uwagi).</DialogDescription>
       </DialogHeader>
       <div className="py-4">

@@ -30,10 +30,10 @@ const getStatusColor = (status: Task['status'] | null | undefined): string => {
 const getStatusLabel = (status: Task['status'] | null | undefined): string => {
     if (!status) return "Nieznany";
     const labels: Record<string, string> = {
-        todo: "Do Sprzątania", in_progress: "W Trakcie", paused: "Wstrzymane",
+        todo: "Do sprzątania", in_progress: "W trakcie", paused: "Wstrzymane",
         done: "Zrobione", repair_needed: "Naprawa",
     };
-    return labels[status] || status.charAt(0).toUpperCase() + status.slice(1);
+    return labels[status] || (status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' '));
 };
 
 const getCleaningTypeLabel = (type: string): string => {
@@ -100,7 +100,7 @@ export default function TaskDetails() {
                         <span className="sr-only">Wróć</span>
                     </Button>
 
-                    <h1 className="text-lg font-semibold">Szczegóły Zadania</h1>
+                    <h1 className="text-lg font-semibold">Szczegóły zadania</h1>
 
                     <Button
                         variant="ghost"
@@ -173,7 +173,7 @@ export default function TaskDetails() {
                                 <div className="p-3 rounded-md border border-red-200 bg-red-50 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-200">
                                     <p className="font-semibold flex items-center mb-2">
                                         <AlertTriangle className="h-4 w-4 mr-2" />
-                                        Problem Konserwacyjny
+                                        Problem konserwacyjny
                                     </p>
                                     {task.issue_description && <p className="text-sm mb-2">"{task.issue_description}"</p>}
                                     {task.issue_photo && (

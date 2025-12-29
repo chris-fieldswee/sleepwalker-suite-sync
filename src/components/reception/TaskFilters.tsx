@@ -1,4 +1,5 @@
 // src/components/reception/TaskFilters.tsx
+import { useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,11 +13,11 @@ type RoomGroup = Database["public"]["Enums"]["room_group"];
 
 // Define statuses available in the filter dropdown
 const filterableStatuses: Array<{ value: TaskStatus | 'all', label: string }> = [
-  { value: 'all', label: 'Wszystkie Aktywne' },
-  { value: 'todo', label: 'Do Sprzątania' },
-  { value: 'in_progress', label: 'W Trakcie' },
+  { value: 'all', label: 'Wszystkie aktywne' },
+  { value: 'todo', label: 'Do sprzątania' },
+  { value: 'in_progress', label: 'W trakcie' },
   { value: 'paused', label: 'Wstrzymane' },
-  { value: 'repair_needed', label: 'Wymaga Naprawy' },
+  { value: 'repair_needed', label: 'Wymaga naprawy' },
 ];
 
 // *** MODIFICATION START: Define room group options type ***
@@ -63,9 +64,38 @@ export const TaskFilters = ({
   onClearFilters,
   showRoomGroupFilter = true,
 }: TaskFiltersProps) => {
+  // Filter available rooms based on selected room group
+  const filteredRooms = useMemo(() => {
+    if (roomGroup === 'all') {
+      return availableRooms;
+    }
+    return availableRooms.filter(room => room.group_type === roomGroup);
+  }, [availableRooms, roomGroup]);
 
   const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onDateChange(e.target.value || null);
+  };
+
+  const handleRoomGroupChange = (value: RoomGroup | 'all') => {
+    onRoomGroupChange(value);
+    // If a specific room is selected and it doesn't belong to the new group, reset room selection
+    if (value !== 'all' && roomId !== 'all') {
+      const selectedRoom = availableRooms.find(r => r.id === roomId);
+      if (selectedRoom && selectedRoom.group_type !== value) {
+        onRoomChange('all');
+      }
+    }
+  };
+
+  const handleRoomChange = (value: string) => {
+    onRoomChange(value);
+    // If a specific room is selected, automatically set the room group to match
+    if (value !== 'all') {
+      const selectedRoom = availableRooms.find(r => r.id === value);
+      if (selectedRoom && roomGroup !== selectedRoom.group_type) {
+        onRoomGroupChange(selectedRoom.group_type);
+      }
+    }
   };
 
   return (
@@ -108,7 +138,7 @@ export const TaskFilters = ({
             <SelectValue placeholder="Filtruj personel..." />
           </SelectTrigger>
           <SelectContent className="bg-card z-50">
-            <SelectItem value="all" className="text-sm">Cały Personel</SelectItem>
+            <SelectItem value="all" className="text-sm">Cały personel</SelectItem>
             <SelectItem value="unassigned" className="text-sm">Nieprzypisane</SelectItem>
             {staff.map(s => (
               <SelectItem key={s.id} value={s.id} className="text-sm">
@@ -123,7 +153,7 @@ export const TaskFilters = ({
       {showRoomGroupFilter && (
         <div className="space-y-1">
           <Label htmlFor="group-filter">Grupa</Label>
-          <Select value={roomGroup} onValueChange={onRoomGroupChange}>
+          <Select value={roomGroup} onValueChange={handleRoomGroupChange}>
             <SelectTrigger id="group-filter" className="bg-card h-9 text-sm">
               <SelectValue placeholder="Filtruj grupę..." />
             </SelectTrigger>
@@ -143,13 +173,13 @@ export const TaskFilters = ({
       {/* Room Filter */}
       <div className="space-y-1">
         <Label htmlFor="room-filter">Pokój</Label>
-        <Select value={roomId} onValueChange={onRoomChange}>
+        <Select value={roomId} onValueChange={handleRoomChange}>
           <SelectTrigger id="room-filter" className="bg-card h-9 text-sm">
             <SelectValue placeholder="Filtruj pokój..." />
           </SelectTrigger>
           <SelectContent className="bg-card z-50">
-            <SelectItem value="all" className="text-sm">Wszystkie Pokoje</SelectItem>
-            {availableRooms.map(room => (
+            <SelectItem value="all" className="text-sm">Wszystkie pokoje</SelectItem>
+            {filteredRooms.map(room => (
               <SelectItem key={room.id} value={room.id} className="text-sm">
                 {room.name}
               </SelectItem>

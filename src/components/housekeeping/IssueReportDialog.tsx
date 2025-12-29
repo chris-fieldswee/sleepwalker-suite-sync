@@ -78,7 +78,7 @@ export function IssueReportDialog({ task, onReport, onClose }: IssueReportDialog
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>Zgłoś Problem dla Pokoju {task.room?.name || 'Nieznany'}</DialogTitle>
+        <DialogTitle>Zgłoś problem dla pokoju {task.room?.name || 'Nieznany'}</DialogTitle>
         <DialogDescription>Opisz problem konserwacyjny i opcjonalnie dodaj zdjęcie. Oznaczy to zadanie jako wymagające naprawy.</DialogDescription>
       </DialogHeader>
       <div className="grid gap-4 py-4">

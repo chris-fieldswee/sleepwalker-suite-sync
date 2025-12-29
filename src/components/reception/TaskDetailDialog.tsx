@@ -15,6 +15,8 @@ import type { Room, Staff } from '@/hooks/useReceptionData';
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { renderCapacityIconPattern } from "@/lib/capacity-utils";
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
@@ -69,27 +71,6 @@ const parseCapacityConfigurations = (room: Room | null): Array<{
     }
 };
 
-// Render icons for capacity label
-const renderIcons = (config: string): React.ReactNode => {
-    const parts = config.split('+').map(p => parseInt(p.trim()));
-
-    return (
-        <div className="flex items-center gap-1">
-            {parts.map((count, partIndex) => {
-                const icons = [];
-                for (let i = 0; i < count; i++) {
-                    icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
-                }
-                return (
-                    <div key={partIndex} className="flex items-center gap-0.5">
-                        {icons}
-                        {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
-                    </div>
-                );
-            })}
-        </div>
-    );
-};
 
 // Guest count options based on room's capacity_configurations
 type GuestOption = {
@@ -108,7 +89,7 @@ const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
         return configs.map(config => ({
             value: config.capacity,
             label: config.capacity_label,
-            display: renderIcons(config.capacity_label)
+            display: renderCapacityIconPattern(config.capacity_label)
         }));
     }
 
@@ -117,41 +98,41 @@ const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
 
     switch (roomGroup) {
         case 'P1':
-            return [{ value: 1, label: '1', display: renderIcons('1') }];
+            return [{ value: 1, label: '1', display: renderCapacityIconPattern('1') }];
 
         case 'P2':
             return [
-                { value: 1, label: '1', display: renderIcons('1') },
-                { value: 2, label: '2', display: renderIcons('2') },
-                { value: 2, label: '1+1', display: renderIcons('1+1') },
+                { value: 1, label: '1', display: renderCapacityIconPattern('1') },
+                { value: 2, label: '2', display: renderCapacityIconPattern('2') },
+                { value: 2, label: '1+1', display: renderCapacityIconPattern('1+1') },
             ];
 
         case 'A1S':
             return [
-                { value: 1, label: '1', display: renderIcons('1') },
-                { value: 2, label: '2', display: renderIcons('2') },
-                { value: 2, label: '1+1', display: renderIcons('1+1') },
-                { value: 3, label: '2+1', display: renderIcons('2+1') },
-                { value: 4, label: '2+2', display: renderIcons('2+2') },
+                { value: 1, label: '1', display: renderCapacityIconPattern('1') },
+                { value: 2, label: '2', display: renderCapacityIconPattern('2') },
+                { value: 2, label: '1+1', display: renderCapacityIconPattern('1+1') },
+                { value: 3, label: '2+1', display: renderCapacityIconPattern('2+1') },
+                { value: 4, label: '2+2', display: renderCapacityIconPattern('2+2') },
             ];
 
         case 'A2S':
             return [
-                { value: 1, label: '1', display: renderIcons('1') },
-                { value: 2, label: '2', display: renderIcons('2') },
-                { value: 2, label: '1+1', display: renderIcons('1+1') },
-                { value: 3, label: '2+1', display: renderIcons('2+1') },
-                { value: 4, label: '2+2', display: renderIcons('2+2') },
-                { value: 3, label: '1+1+1', display: renderIcons('1+1+1') },
-                { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
-                { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
+                { value: 1, label: '1', display: renderCapacityIconPattern('1') },
+                { value: 2, label: '2', display: renderCapacityIconPattern('2') },
+                { value: 2, label: '1+1', display: renderCapacityIconPattern('1+1') },
+                { value: 3, label: '2+1', display: renderCapacityIconPattern('2+1') },
+                { value: 4, label: '2+2', display: renderCapacityIconPattern('2+2') },
+                { value: 3, label: '1+1+1', display: renderCapacityIconPattern('1+1+1') },
+                { value: 5, label: '2+2+1', display: renderCapacityIconPattern('2+2+1') },
+                { value: 6, label: '2+2+2', display: renderCapacityIconPattern('2+2+2') },
             ];
 
         case 'OTHER':
             return Array.from({ length: 10 }, (_, i) => ({
                 value: i + 1,
                 label: String(i + 1),
-                display: renderIcons(String(i + 1)),
+                display: renderCapacityIconPattern(String(i + 1)),
             }));
 
         default:
@@ -235,6 +216,7 @@ interface EditableTaskState {
     notes: string;
     date: string;
     timeLimit: number | null;
+    status: string;
 }
 
 interface TaskDetailDialogProps {
@@ -257,6 +239,7 @@ export function TaskDetailDialog({
     isUpdating
 }: TaskDetailDialogProps) {
     const { toast } = useToast();
+    const { userRole } = useAuth();
     const [editableState, setEditableState] = useState<EditableTaskState | null>(null);
     const [selectedGroup, setSelectedGroup] = useState<RoomGroup | null>(null);
     const [isEditMode, setIsEditMode] = useState(false);
@@ -304,6 +287,7 @@ export function TaskDetailDialog({
                 notes: task.reception_notes || '',
                 date: task.date,
                 timeLimit: task.time_limit,
+                status: task.status,
             });
             setSelectedGroup((selectedRoom?.group_type ?? task.room.group_type) as RoomGroup);
             setIsEditMode(false);
@@ -440,6 +424,7 @@ export function TaskDetailDialog({
             notes: task.reception_notes || '',
             date: task.date,
             timeLimit: task.time_limit,
+            status: task.status,
         });
         setSelectedGroup((selectedRoom?.group_type ?? task.room.group_type) as RoomGroup);
         setIsEditMode(false);
@@ -476,6 +461,7 @@ export function TaskDetailDialog({
         if (editableState.notes !== (task.reception_notes || '')) { updates.notes = editableState.notes; changed = true; }
         if (editableState.date !== task.date) { updates.date = editableState.date; changed = true; }
         if (editableState.timeLimit !== task.time_limit) { updates.timeLimit = editableState.timeLimit; changed = true; }
+        if (editableState.status !== task.status) { updates.status = editableState.status; changed = true; }
 
         if (!changed) {
             toast({ title: "Brak Zmian", description: "Żadne szczegóły nie zostały zmienione." });
@@ -491,6 +477,7 @@ export function TaskDetailDialog({
                     .select(`
                         id,
                         date,
+                        status,
                         cleaning_type,
                         guest_count,
                         time_limit,
@@ -519,6 +506,7 @@ export function TaskDetailDialog({
                         task.time_limit = refreshedTask.time_limit;
                         task.reception_notes = refreshedTask.reception_notes;
                         task.date = refreshedTask.date;
+                        task.status = refreshedTask.status;
                         task.user = updatedUser
                             ? {
                                 id: updatedUser.id,
@@ -537,6 +525,7 @@ export function TaskDetailDialog({
                         notes: refreshedTask.reception_notes ?? '',
                         date: refreshedTask.date,
                         timeLimit: refreshedTask.time_limit,
+                        status: refreshedTask.status,
                     });
                     setSelectedGroup((updatedRoom?.group_type ?? task.room.group_type) as RoomGroup);
                     if (updatedRoom?.group_type === 'OTHER') {
@@ -611,7 +600,7 @@ export function TaskDetailDialog({
                 <span className="text-sm text-muted-foreground italic">Pojemność nie jest śledzona dla innych lokalizacji</span>
             ) : (
                 <div className="flex items-center gap-2">
-                    {renderIcons(capacityLabel)}
+                    {renderCapacityIconPattern(capacityLabel)}
                     <span className="text-xs text-muted-foreground">{capacityLabel}</span>
                 </div>
             )
@@ -632,13 +621,13 @@ export function TaskDetailDialog({
     const getStatusLabel = (status: string) => {
         // ... (keep existing getStatusLabel) ...
         const labels: Record<string, string> = {
-            todo: "Do Sprzątania",
-            in_progress: "W Trakcie",
+            todo: "Do sprzątania",
+            in_progress: "W trakcie",
             paused: "Wstrzymane",
             done: "Gotowe",
             repair_needed: "Naprawa"
         };
-        return labels[status] || status;
+        return labels[status] || (status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' '));
     };
 
     const getStatusColor = (status: string) => {
@@ -669,8 +658,27 @@ export function TaskDetailDialog({
                                 {isEditMode ? 'Zmodyfikuj informacje o zadaniu poniżej.' : 'Szczegóły i informacje o zadaniu.'}
                             </DialogDescription>
                             <div className="mt-2 flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">Obecny status:</span>
-                                <Badge className={cn(getStatusColor(task.status))}>{getStatusLabel(task.status)}</Badge>
+                                <span className="text-sm text-muted-foreground">Status:</span>
+                                {isEditMode && (userRole === 'admin' || userRole === 'reception') ? (
+                                    <Select
+                                        value={editableState?.status || task.status}
+                                        onValueChange={(value) => handleFieldChange('status', value)}
+                                        disabled={isUpdating}
+                                    >
+                                        <SelectTrigger className="w-[180px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="todo">Do sprzątania</SelectItem>
+                                            <SelectItem value="in_progress">W trakcie</SelectItem>
+                                            <SelectItem value="paused">Wstrzymane</SelectItem>
+                                            <SelectItem value="done">Gotowe</SelectItem>
+                                            <SelectItem value="repair_needed">Naprawa</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                ) : (
+                                    <Badge className={cn(getStatusColor(task.status))}>{getStatusLabel(task.status)}</Badge>
+                                )}
                             </div>
                         </div>
                         {task.issue_flag && (

@@ -44,7 +44,7 @@ export const IssueTableRow = ({ issue, onViewDetails, onDelete, isDeleting }: Is
   const getStatusBadge = (status: string) => {
     const config: Record<string, { label: string; className: string }> = {
       open: { label: 'Otwarte', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
-      in_progress: { label: 'W Trakcie', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
+      in_progress: { label: 'W trakcie', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
       resolved: { label: 'Rozwiązane', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
       closed: { label: 'Zamknięte', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200' },
     };

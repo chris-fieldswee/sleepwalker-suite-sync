@@ -26,10 +26,10 @@ const getStatusColor = (status: Task['status'] | null | undefined): string => {
 const getStatusLabel = (status: Task['status'] | null | undefined): string => {
   if (!status) return "Nieznany";
   const labels: Record<string, string> = {
-    todo: "Do Sprzątania", in_progress: "W Trakcie", paused: "Wstrzymane",
+    todo: "Do sprzątania", in_progress: "W trakcie", paused: "Wstrzymane",
     done: "Zrobione", repair_needed: "Naprawa",
   };
-  return labels[status] || status.charAt(0).toUpperCase() + status.slice(1);
+  return labels[status] || (status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' '));
 };
 // --- END Utility Functions ---
 

@@ -26,3 +26,14 @@ export const workLogSchema = z.object({
 
 // Partial schema for updates
 export const taskUpdateSchema = taskInputSchema.partial();
+
+// User creation validation schema
+export const userCreationSchema = z.object({
+  name: z.string().min(1, "Imię i nazwisko jest wymagane"),
+  email: z.string().email("Nieprawidłowy format email"),
+  password: z.string().min(8, "Hasło musi mieć co najmniej 8 znaków"),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  role: z.enum(['admin', 'reception', 'housekeeping']),
+  active: z.boolean().default(true),
+});

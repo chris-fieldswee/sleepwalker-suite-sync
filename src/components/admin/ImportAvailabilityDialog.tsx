@@ -121,8 +121,16 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
       // Process each record
       const availabilityRecords = [];
       const unmatchedNames = [];
+      const pastDateRecords = [];
+      const today = new Date().toISOString().split('T')[0];
 
       for (const record of records) {
+        // Skip records with past dates
+        if (record.date < today) {
+          pastDateRecords.push(`${record.name} - ${record.date}`);
+          continue;
+        }
+
         const userId = nameToUserId.get(record.name.toLowerCase());
 
         console.log(`Looking for user: "${record.name}" (${record.name.toLowerCase()})`);
@@ -144,7 +152,10 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
       }
 
       if (availabilityRecords.length === 0) {
-        throw new Error('Nie znaleziono pasujących użytkowników. Sprawdź nazwiska w pliku CSV.');
+        const errorMsg = pastDateRecords.length > 0
+          ? 'Wszystkie rekordy mają daty z przeszłości. Tylko dzisiejsze i przyszłe daty są dozwolone.'
+          : 'Nie znaleziono pasujących użytkowników. Sprawdź nazwiska w pliku CSV.';
+        throw new Error(errorMsg);
       }
 
       // Insert availability records using upsert to handle duplicates
@@ -158,8 +169,13 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
       if (insertError) throw insertError;
 
       // Show results
-      const message = `Pomyślnie zaimportowano ${availabilityRecords.length} rekordów dostępności.` +
-        (unmatchedNames.length > 0 ? ` ${unmatchedNames.length} nazwiska nie mogły zostać dopasowane: ${unmatchedNames.join(', ')}` : '');
+      let message = `Pomyślnie zaimportowano ${availabilityRecords.length} rekordów dostępności.`;
+      if (pastDateRecords.length > 0) {
+        message += ` Pominięto ${pastDateRecords.length} rekordów z datami z przeszłości.`;
+      }
+      if (unmatchedNames.length > 0) {
+        message += ` ${unmatchedNames.length} nazwiska nie mogły zostać dopasowane: ${unmatchedNames.join(', ')}`;
+      }
 
       toast({
         title: "Import Zakończony Pomyślnie",
@@ -192,7 +208,7 @@ export const ImportAvailabilityDialog: React.FC<ImportAvailabilityDialogProps> =
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Importuj Dostępność Personelu</DialogTitle>
+          <DialogTitle>Importuj dostępność personelu</DialogTitle>
           <DialogDescription>
             Prześlij plik CSV z danymi o dostępności personelu. Oczekiwany format: Data, Pracownik, Stanowisko, Lokalizacja, Start, Koniec, Suma Godzin
           </DialogDescription>

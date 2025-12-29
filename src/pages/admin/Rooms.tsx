@@ -42,8 +42,8 @@ export default function Rooms() {
     } catch (error: any) {
       console.error("Error fetching rooms:", error);
       toast({
-        title: "Error",
-        description: "Failed to fetch rooms",
+        title: "Błąd",
+        description: "Nie udało się pobrać pokoi",
         variant: "destructive",
       });
     } finally {
@@ -273,8 +273,8 @@ export default function Rooms() {
             setSelectedRoom(null);
             await fetchRooms();
             toast({
-              title: "Success",
-              description: wasUpdate ? "Room updated successfully" : "Room created successfully",
+              title: "Sukces",
+              description: wasUpdate ? "Pokój został zaktualizowany pomyślnie" : "Pokój został utworzony pomyślnie",
             });
             setIsSaving(false);
             return;
@@ -324,8 +324,8 @@ export default function Rooms() {
           await fetchRooms();
           
           toast({
-            title: "Success",
-            description: selectedRoom ? "Room updated successfully" : "Room created successfully",
+            title: "Sukces",
+            description: selectedRoom ? "Pokój został zaktualizowany pomyślnie" : "Pokój został utworzony pomyślnie",
           });
           setIsSaving(false);
           return;
@@ -428,8 +428,8 @@ export default function Rooms() {
                 // Refresh rooms list
                 await fetchRooms();
                 toast({
-                  title: "Room saved (partial)",
-                  description: "Room created successfully, but capacity configurations couldn't be saved yet. Please wait 2-3 minutes for schema cache refresh, then edit the room to add capacity configurations.",
+                  title: "Pokój zapisany (częściowo)",
+                  description: "Pokój został utworzony pomyślnie, ale konfiguracje pojemności nie mogły zostać jeszcze zapisane. Poczekaj 2-3 minuty na odświeżenie cache schematu, a następnie edytuj pokój, aby dodać konfiguracje pojemności.",
                   variant: "default",
                 });
                 setIsSaving(false);
@@ -450,8 +450,8 @@ export default function Rooms() {
             await fetchRooms();
             
             toast({
-              title: "Success",
-              description: wasUpdate ? "Room updated successfully" : "Room created successfully",
+              title: "Sukces",
+              description: wasUpdate ? "Pokój został zaktualizowany pomyślnie" : "Pokój został utworzony pomyślnie",
             });
             setIsSaving(false);
             return;
@@ -489,8 +489,8 @@ export default function Rooms() {
                       // Refresh rooms list
                       await fetchRooms();
                       toast({
-                        title: "Success",
-                        description: "Room updated successfully",
+                        title: "Sukces",
+                        description: "Pokój został zaktualizowany pomyślnie",
                       });
                       setIsSaving(false);
                       return;
@@ -517,8 +517,8 @@ export default function Rooms() {
                       // Refresh rooms list
                       await fetchRooms();
                       toast({
-                        title: "Success",
-                        description: "Room created successfully",
+                        title: "Sukces",
+                        description: "Pokój został utworzony pomyślnie",
                       });
                       setIsSaving(false);
                       return;
@@ -564,8 +564,8 @@ export default function Rooms() {
                 // Refresh rooms list
                 await fetchRooms();
                 toast({
-                  title: "Success",
-                  description: selectedRoom ? "Room updated successfully" : "Room created successfully",
+                  title: "Sukces",
+                  description: selectedRoom ? "Pokój został zaktualizowany pomyślnie" : "Pokój został utworzony pomyślnie",
                 });
                 setIsSaving(false);
                 return;
@@ -660,16 +660,16 @@ export default function Rooms() {
       await fetchRooms();
 
       toast({
-        title: "Success",
-        description: wasUpdate ? "Room updated successfully" : "Room created successfully",
+        title: "Sukces",
+        description: wasUpdate ? "Pokój został zaktualizowany pomyślnie" : "Pokój został utworzony pomyślnie",
       });
     } catch (error: any) {
       console.error("Error saving room - full error:", error);
       console.error("Error message:", error?.message);
       console.error("Error details:", error?.details);
       toast({
-        title: "Error",
-        description: `Failed to ${selectedRoom ? "update" : "create"} room: ${error?.message || error?.details || "Unknown error"}`,
+        title: "Błąd",
+        description: `Nie udało się ${selectedRoom ? "zaktualizować" : "utworzyć"} pokoju: ${error?.message || error?.details || "Nieznany błąd"}`,
         variant: "destructive",
       });
     } finally {
@@ -742,15 +742,15 @@ export default function Rooms() {
       await fetchRooms();
 
       toast({
-        title: "Success",
-        description: "Room deleted successfully",
+        title: "Sukces",
+        description: "Pokój został usunięty pomyślnie",
       });
     } catch (error: any) {
       console.error("Error deleting room:", error);
-      const errorMessage = error?.message || error?.details || "Unknown error";
+      const errorMessage = error?.message || error?.details || "Nieznany błąd";
       toast({
-        title: "Error",
-        description: `Failed to delete room: ${errorMessage}. ${error?.hint || ''}`,
+        title: "Błąd",
+        description: `Nie udało się usunąć pokoju: ${errorMessage}. ${error?.hint || ''}`,
         variant: "destructive",
       });
     } finally {
@@ -808,35 +808,35 @@ export default function Rooms() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Room Management</h2>
-          <p className="text-muted-foreground">Manage hotel rooms and other locations</p>
+          <h2 className="text-2xl font-bold">Zarządzanie pokojami</h2>
+          <p className="text-muted-foreground">Zarządzaj pokojami hotelowymi i innymi lokalizacjami</p>
         </div>
         <Button onClick={() => setIsCreateDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Create Room
+          Utwórz Pokój
         </Button>
       </div>
 
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <CardTitle>Filtry</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-1 max-w-xs">
             <div className="space-y-2">
-              <Label htmlFor="group-filter">Group Type</Label>
+              <Label htmlFor="group-filter">Typ Grupy</Label>
               <Select value={groupFilter} onValueChange={(value: RoomGroup | "all") => setGroupFilter(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="all">Wszystkie Typy</SelectItem>
                   <SelectItem value="P1">P1</SelectItem>
                   <SelectItem value="P2">P2</SelectItem>
                   <SelectItem value="A1S">A1S</SelectItem>
                   <SelectItem value="A2S">A2S</SelectItem>
-                  <SelectItem value="OTHER">Other Locations</SelectItem>
+                  <SelectItem value="OTHER">Inne Lokalizacje</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -847,101 +847,103 @@ export default function Rooms() {
       {/* Rooms Table - Simplified */}
       <Card>
         <CardHeader>
-          <CardTitle>Rooms ({filteredRooms.length})</CardTitle>
+          <CardTitle>Pokoje ({filteredRooms.length})</CardTitle>
           <CardDescription>
-            Click edit to configure capacity options and cleaning types for each room
+            Kliknij edytuj, aby skonfigurować opcje pojemności i typy sprzątania dla każdego pokoju
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Room</TableHead>
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 data-[state=open]:bg-accent"
-                    onClick={toggleTypeSort}
-                  >
-                    Type
-                    {typeSortDirection === "asc" && <ArrowUp className="ml-2 h-4 w-4" />}
-                    {typeSortDirection === "desc" && <ArrowDown className="ml-2 h-4 w-4" />}
-                    {typeSortDirection === null && <ArrowUpDown className="ml-2 h-4 w-4" />}
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 data-[state=open]:bg-accent"
-                    onClick={toggleCreatedSort}
-                  >
-                    Created
-                    {createdSortDirection === "asc" && <ArrowUp className="ml-2 h-4 w-4" />}
-                    {createdSortDirection === "desc" && <ArrowDown className="ml-2 h-4 w-4" />}
-                    {createdSortDirection === null && <ArrowUpDown className="ml-2 h-4 w-4" />}
-                  </Button>
-                </TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {displayedRooms.map((room) => (
-                <TableRow key={room.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <DoorOpen className="h-4 w-4 text-muted-foreground" />
-                      {room.name}
-                    </div>
-                  </TableCell>
-                  <TableCell>{getGroupBadge(room.group_type)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      {new Date(room.created_at || new Date()).toLocaleDateString()}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex gap-2 justify-end">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(room)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Room</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete this room? This action cannot be undone and will permanently remove the room from the system.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteRoom(room.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              disabled={isDeleting}
-                            >
-                              {isDeleting ? "Deleting..." : "Delete"}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto max-h-[calc(8*3.5rem)] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50 sticky top-0 z-10">
+                  <TableHead>Pokój</TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 data-[state=open]:bg-accent"
+                      onClick={toggleTypeSort}
+                    >
+                      Typ
+                      {typeSortDirection === "asc" && <ArrowUp className="ml-2 h-4 w-4" />}
+                      {typeSortDirection === "desc" && <ArrowDown className="ml-2 h-4 w-4" />}
+                      {typeSortDirection === null && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 data-[state=open]:bg-accent"
+                      onClick={toggleCreatedSort}
+                    >
+                      Utworzono
+                      {createdSortDirection === "asc" && <ArrowUp className="ml-2 h-4 w-4" />}
+                      {createdSortDirection === "desc" && <ArrowDown className="ml-2 h-4 w-4" />}
+                      {createdSortDirection === null && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-right">Akcje</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {displayedRooms.map((room) => (
+                  <TableRow key={room.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <DoorOpen className="h-4 w-4 text-muted-foreground" />
+                        {room.name}
+                      </div>
+                    </TableCell>
+                    <TableCell>{getGroupBadge(room.group_type)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        {new Date(room.created_at || new Date()).toLocaleDateString()}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(room)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Usuń pokój</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Czy na pewno chcesz usunąć ten pokój? Ta akcja nie może zostać cofnięta i trwale usunie pokój z systemu.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteRoom(room.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                disabled={isDeleting}
+                              >
+                                {isDeleting ? "Usuwanie..." : "Usuń"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 

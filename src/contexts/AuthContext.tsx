@@ -9,6 +9,7 @@ interface AuthContextType {
   userRole: "admin" | "reception" | "housekeeping" | null;
   userId: string | null;
   loading: boolean;
+  requiresPasswordChange: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -22,6 +23,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userRole, setUserRole] = useState<"admin" | "reception" | "housekeeping" | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -143,11 +145,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
 
+        // Check if password change is required
+        if (session?.user?.user_metadata?.requires_password_change === true) {
+          setRequiresPasswordChange(true);
+        } else {
+          setRequiresPasswordChange(false);
+        }
+
         if (session?.user) {
           await fetchUserProfile(session.user.id);
         } else {
           setUserRole(null);
           setUserId(null);
+          setRequiresPasswordChange(false);
           setLoading(false);
         }
       }
@@ -168,9 +178,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
 
+        // Check if password change is required
+        if (session?.user?.user_metadata?.requires_password_change === true) {
+          setRequiresPasswordChange(true);
+        } else {
+          setRequiresPasswordChange(false);
+        }
+
         if (session?.user) {
           await fetchUserProfile(session.user.id);
         } else {
+          setRequiresPasswordChange(false);
           if (timeoutId) clearTimeout(timeoutId);
           setLoading(false);
         }
@@ -179,6 +197,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error("Failed to get session:", error);
         if (mounted) {
           if (timeoutId) clearTimeout(timeoutId);
+          setRequiresPasswordChange(false);
           setLoading(false);
         }
       });
@@ -241,6 +260,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(null);
       setUserRole(null);
       setUserId(null);
+      setRequiresPasswordChange(false);
       // Navigate to auth page
       navigate("/auth", { replace: true });
     } catch (error) {
@@ -250,6 +270,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(null);
       setUserRole(null);
       setUserId(null);
+      setRequiresPasswordChange(false);
       navigate("/auth", { replace: true });
     }
   };
@@ -262,6 +283,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         userRole,
         userId,
         loading,
+        requiresPasswordChange,
         signIn,
         signUp,
         signOut,

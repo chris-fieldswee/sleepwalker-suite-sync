@@ -68,10 +68,10 @@ export interface Task { // Export if used by other components/hooks
 const getStatusLabel = (status: Task['status'] | null | undefined): string => {
   if (!status) return "Nieznany";
   const labels: Record<string, string> = {
-    todo: "Do Sprzątania", in_progress: "W Trakcie", paused: "Wstrzymane",
+    todo: "Do sprzątania", in_progress: "W trakcie", paused: "Wstrzymane",
     done: "Zrobione", repair_needed: "Naprawa",
   };
-  return labels[status] || status.charAt(0).toUpperCase() + status.slice(1);
+  return labels[status] || (status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' '));
 };
 // --- END Utility Functions ---
 
@@ -277,7 +277,7 @@ export default function Housekeeping() {
             {/* Centered Tabs List */}
             <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
               <TabsTrigger value="current" className="relative">
-                Zadania Bieżące
+                Zadania bieżące
                 {currentTasks.length > 0 && (
                   <Badge variant="secondary" className="ml-2 h-5 min-w-5 px-1 text-xs">
                     {currentTasks.filter(t => t.status !== 'done').length}
@@ -384,7 +384,7 @@ export default function Housekeeping() {
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Card className="p-6 border-dashed">
                     <CardTitle className="text-lg mb-2">
-                      {statusFilter === 'all' ? '🎉 Brak Aktywnych Zadań' : `Brak zadań pasujących do filtra: ${getStatusLabel(statusFilter as Task['status'])
+                      {statusFilter === 'all' ? '🎉 Brak aktywnych zadań' : `Brak zadań pasujących do filtra: ${getStatusLabel(statusFilter as Task['status'])
                         }`}
                     </CardTitle>
                     <CardDescription>
@@ -466,7 +466,7 @@ export default function Housekeeping() {
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Card className="p-6 border-dashed">
                     <CardTitle className="text-lg mb-2">
-                      📦 Brak Archiwalnych Zadań
+                      📦 Brak archiwalnych zadań
                     </CardTitle>
                     <CardDescription>
                       {statusFilter === 'all' ? 'Brak zadań z poprzednich dat.' : `Brak archiwalnych zadań pasujących do filtra: ${getStatusLabel(statusFilter as Task['status'])}`}
@@ -509,7 +509,7 @@ export default function Housekeeping() {
 
           {/* Time Information */}
           <div className="flex items-center justify-between text-xs">
-            {(() => {
+              {(() => {
               const totalTimeLimit = currentTasks.reduce((sum, task) => sum + (task.time_limit || 0), 0);
 
               if (activeTask) {
@@ -522,7 +522,7 @@ export default function Housekeeping() {
                   <>
                     <div className="flex items-center gap-2">
                       <Badge variant={activeTask.status === 'in_progress' ? 'default' : 'secondary'} className="text-xs">
-                        {activeTask.status === 'in_progress' ? 'W Trakcie' : 'Wstrzymane'}
+                        {activeTask.status === 'in_progress' ? 'W trakcie' : 'Wstrzymane'}
                       </Badge>
                       <span className="text-muted-foreground truncate">{activeTask.room.name}</span>
                     </div>

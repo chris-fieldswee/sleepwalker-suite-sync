@@ -9,7 +9,6 @@ import { useReceptionActions } from "@/hooks/useReceptionActions";
 // Import view components
 import Dashboard from "./reception/Dashboard";
 import Tasks from "./reception/Tasks";
-import Archive from "./reception/Archive";
 import Issues from "./reception/Issues";
 
 export default function Reception() {
@@ -26,7 +25,7 @@ export default function Reception() {
     filterSetters,
     actions: dataActions,
     stats,
-    fetchWorkLogs // Keep fetchWorkLogs if needed elsewhere, Archive doesn't directly use it
+    fetchWorkLogs
   } = useReceptionData();
 
   const {
@@ -39,10 +38,10 @@ export default function Reception() {
     isSubmittingNewIssue,
     handleUpdateIssue,
     isUpdatingIssue,
-    handleUpdateTask, // Needed for Tasks and Archive
-    isUpdatingTask,   // Needed for Tasks and Archive
-    handleDeleteTask, // Needed for Tasks and Archive
-    isDeletingTask,   // Needed for Tasks and Archive
+    handleUpdateTask, // Needed for Tasks
+    isUpdatingTask,   // Needed for Tasks
+    handleDeleteTask, // Needed for Tasks
+    isDeletingTask,   // Needed for Tasks
   } = useReceptionActions(
     availableRooms,
     dataActions.refresh, // onTaskAdded
@@ -61,7 +60,7 @@ export default function Reception() {
         <main className="flex-1 overflow-auto">
           <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-2">
             <SidebarTrigger />
-            <h2 className="text-lg font-semibold">Panel Recepcji</h2>
+            <h2 className="text-lg font-semibold">Panel recepcji</h2>
           </div>
 
           <div className="container mx-auto p-4 md:p-6">
@@ -104,28 +103,14 @@ export default function Reception() {
                     initialNewTaskState={initialNewTaskState}
                     isSubmittingTask={isSubmittingTask}
                     isSavingLog={isSavingLog}
-                    onUpdateTask={handleUpdateTask} // Pass update handler
-                    onDeleteTask={handleDeleteTask} // Pass delete handler
-                    isUpdatingTask={isUpdatingTask} // Pass updating state
-                    isDeletingTask={isDeletingTask} // Pass deleting state
-                  />
-                }
-              />
-              {/* *** MODIFICATION START: Pass props to Archive route *** */}
-              <Route
-                path="archive"
-                element={
-                  <Archive
-                    allStaff={allStaff}
-                    availableRooms={availableRooms}
                     onUpdateTask={handleUpdateTask}
                     onDeleteTask={handleDeleteTask}
                     isUpdatingTask={isUpdatingTask}
                     isDeletingTask={isDeletingTask}
+                    onSetFetchAllTasks={filterSetters.setFetchAllTasks}
                   />
                 }
               />
-              {/* *** MODIFICATION END *** */}
               <Route
                 path="issues"
                 element={

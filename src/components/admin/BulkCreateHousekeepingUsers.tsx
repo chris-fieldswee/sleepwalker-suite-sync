@@ -88,21 +88,50 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
         if (authError) throw authError;
         if (!authData.user) throw new Error("Nie udało się utworzyć użytkownika autoryzacji");
 
-        // Step 2: Insert user into public.users table
-        const { data: userData, error: userError } = await supabase
+        // Step 2: Upsert user into public.users table (handle case where trigger already created entry)
+        // The handle_new_user() trigger may have already created a user entry
+        // Check if user already exists
+        const { data: existingUser } = await supabase
           .from("users")
-          .insert([
-            {
+          .select("id")
+          .eq("auth_id", authData.user.id)
+          .maybeSingle();
+
+        let userData;
+        let userError;
+        if (existingUser) {
+          // Update existing user
+          const { data, error } = await supabase
+            .from("users")
+            .update({
+              name: user.name,
+              first_name: user.firstName,
+              last_name: user.lastName,
+              role: "housekeeping",
+              active: true,
+            })
+            .eq("auth_id", authData.user.id)
+            .select()
+            .single();
+          userData = data;
+          userError = error;
+        } else {
+          // Insert new user
+          const { data, error } = await supabase
+            .from("users")
+            .insert({
               auth_id: authData.user.id,
               name: user.name,
               first_name: user.firstName,
               last_name: user.lastName,
               role: "housekeeping",
               active: true,
-            },
-          ])
-          .select()
-          .single();
+            })
+            .select()
+            .single();
+          userData = data;
+          userError = error;
+        }
 
         if (userError) {
           // Cleanup: delete the auth user if database insert fails
@@ -161,7 +190,7 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Utwórz Użytkowników Sprzątających</CardTitle>
+        <CardTitle>Utwórz użytkowników sprzątających</CardTitle>
         <CardDescription>
           Utwórz użytkowników sprzątających potrzebnych do mapowania dostępności personelu.
           Ci użytkownicy będą pasować do nazw "Pracownik" w imporcie CSV.

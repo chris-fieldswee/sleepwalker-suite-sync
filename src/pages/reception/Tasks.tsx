@@ -1,5 +1,5 @@
 // src/pages/reception/Tasks.tsx
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableHeader, TableRow, TableHead } from "@/components/ui/table";
@@ -8,7 +8,6 @@ import { RefreshCw } from "lucide-react";
 import { TaskFilters, type RoomGroupOption } from "@/components/reception/TaskFilters";
 import { TaskTableRow } from "@/components/reception/TaskTableRow";
 import { AddTaskDialog } from "@/components/reception/AddTaskDialog";
-import { WorkLogDialog } from "@/components/reception/WorkLogDialog";
 import { TaskDetailDialog } from "@/components/reception/TaskDetailDialog";
 import { TaskSummaryFooter } from "@/components/reception/TaskSummaryFooter"; // Import the footer
 import type { Database } from "@/integrations/supabase/types";
@@ -70,7 +69,7 @@ export interface WorkLog {
 const getTodayDateString = () => new Date().toISOString().split("T")[0];
 
 const getDisplayDate = (dateStr: string | null) => {
-  if (!dateStr) return "Nadchodzące Zadania";
+  if (!dateStr) return "Nadchodzące zadania";
   try {
     return new Date(dateStr + 'T00:00:00Z').toLocaleDateString(undefined, {
       year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
@@ -81,7 +80,7 @@ const getDisplayDate = (dateStr: string | null) => {
 };
 
 const allRoomGroups: RoomGroupOption[] = [
-  { value: 'all', label: 'Wszystkie Grupy' },
+  { value: 'all', label: 'Wszystkie grupy' },
   { value: 'P1', label: 'P1' },
   { value: 'P2', label: 'P2' },
   { value: 'A1S', label: 'A1S' },
@@ -119,6 +118,7 @@ interface TasksProps {
   onDeleteTask: (taskId: string) => Promise<boolean>; // Changed return type to Promise<boolean> based on useReceptionActions
   isUpdatingTask: boolean;
   isDeletingTask: boolean;
+  onSetFetchAllTasks: (fetchAll: boolean) => void; // New prop to control fetching all tasks
 }
 
 export default function Tasks({
@@ -145,10 +145,20 @@ export default function Tasks({
   onDeleteTask,
   isUpdatingTask,
   isDeletingTask,
+  onSetFetchAllTasks,
 }: TasksProps) {
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"regular" | "other" | "all">("all");
+  const [activeTab, setActiveTab] = useState<"open" | "all">("open");
+
+  // Always fetch all tasks when on tasks page, filter client-side
+  useEffect(() => {
+    onSetFetchAllTasks(true);
+    // Cleanup: reset to false when component unmounts (optional, but good practice)
+    return () => {
+      onSetFetchAllTasks(false);
+    };
+  }, [onSetFetchAllTasks]);
 
   const handleViewDetails = (task: Task) => {
     setSelectedTaskForDetail(task);
@@ -165,18 +175,35 @@ export default function Tasks({
     }
   };
 
-  // Split tasks and rooms
-  const regularTasks = useMemo(() => tasks.filter(task => task.room.group_type !== 'OTHER'), [tasks]);
-  const otherTasks = useMemo(() => tasks.filter(task => task.room.group_type === 'OTHER'), [tasks]);
-  const allTasks = useMemo(() => tasks, [tasks]); // All tasks combined
-  const regularRooms = useMemo(() => availableRooms.filter(room => room.group_type !== 'OTHER'), [availableRooms]);
-  const otherRooms = useMemo(() => availableRooms.filter(room => room.group_type === 'OTHER'), [availableRooms]);
-  const regularRoomGroups: RoomGroupOption[] = allRoomGroups.filter(rg => rg.value !== 'OTHER');
-  const otherRoomGroups: RoomGroupOption[] = allRoomGroups.filter(rg => rg.value === 'all' || rg.value === 'OTHER');
+  // Get today's date for filtering
+  const todayDate = useMemo(() => getTodayDateString(), []);
 
-  // Calculate totals based on the active tab
+  // Filter tasks based on active tab
+  // Note: tasks prop is already filtered by status, staff, room group, and room ID from useReceptionData
+  // We need to apply the tab-specific date filter here
+  const filteredTasks = useMemo(() => {
+    if (activeTab === 'open') {
+      // For "open" tab, show all tasks from current and future dates regardless of status
+      return tasks.filter(task => task.date >= todayDate);
+    } else {
+      // For "all" tab, show all tasks (they're already filtered by other criteria from useReceptionData)
+      return tasks;
+    }
+  }, [activeTab, tasks, todayDate]);
+
+  // Calculate counts for tab labels - use all tasks regardless of current filter
+  const openTasksCount = useMemo(() => {
+    return tasks.filter(task => task.date >= todayDate).length;
+  }, [tasks, todayDate]);
+
+  // Calculate all tasks count - this should always show the total
+  const allTasksCount = useMemo(() => {
+    return tasks.length;
+  }, [tasks]);
+
+  // Calculate totals based on the filtered tasks
   const taskTotals = useMemo(() => {
-    const tasksToSum = activeTab === "regular" ? regularTasks : activeTab === "other" ? otherTasks : allTasks;
+    const tasksToSum = filteredTasks;
     let totalLimit: number | null = 0;
     let totalActual: number | null = 0;
     let limitIsNull = true;
@@ -202,7 +229,7 @@ export default function Tasks({
       totalActual: actualIsNull ? null : totalActual,
       visibleTaskCount: tasksToSum.length
     };
-  }, [activeTab, regularTasks, otherTasks, allTasks]);
+  }, [filteredTasks]);
 
   const renderTaskTable = (taskList: Task[], emptyMessage: string) => (
     loading && !refreshing ? (
@@ -263,13 +290,6 @@ export default function Tasks({
             <RefreshCw className={`mr-2 h-4 w-4 ${(refreshing || loading) ? "animate-spin" : ""}`} />
             Odśwież
           </Button>
-          <WorkLogDialog
-            filterDate={filters.date || getTodayDateString()}
-            workLogs={workLogs}
-            allStaff={allStaff}
-            onSave={onSaveWorkLog}
-            isSaving={isSavingLog}
-          />
           <AddTaskDialog
             availableRooms={availableRooms}
             allStaff={allStaff}
@@ -280,12 +300,52 @@ export default function Tasks({
         </div>
       </div>
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={(value) => setActiveTab(value as "regular" | "other" | "all")} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">Wszystkie Lokalizacje ({allTasks.length})</TabsTrigger>
-          <TabsTrigger value="regular">Pokoje Hotelowe ({regularTasks.length})</TabsTrigger>
-          <TabsTrigger value="other">Inne Lokalizacje ({otherTasks.length})</TabsTrigger>
+      <Tabs defaultValue="open" value={activeTab} onValueChange={(value) => setActiveTab(value as "open" | "all")} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="open">Zadania otwarte ({openTasksCount})</TabsTrigger>
+          <TabsTrigger value="all">Wszystkie zadania ({allTasksCount})</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="open" className="space-y-4">
+          <Card>
+            <CardHeader className="py-4">
+              <CardTitle className="text-lg">Filtry</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <TaskFilters
+                date={filters.date}
+                status={filters.status}
+                staffId={filters.staffId}
+                roomGroup={filters.roomGroup}
+                roomId={filters.roomId}
+                staff={allStaff}
+                availableRooms={availableRooms}
+                roomGroups={allRoomGroups}
+                onDateChange={onDateChange}
+                onStatusChange={onStatusChange}
+                onStaffChange={onStaffChange}
+                onRoomGroupChange={onRoomGroupChange}
+                onRoomChange={onRoomChange}
+                onClearFilters={onClearFilters}
+                showRoomGroupFilter={true}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Zadania otwarte dla {getDisplayDate(filters.date)}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {renderTaskTable(
+                filteredTasks,
+                filters.date
+                  ? `Nie znaleziono otwartych zadań dla ${getDisplayDate(filters.date)} z obecnymi filtrami`
+                  : "Nie znaleziono otwartych zadań z obecnymi filtrami"
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="all" className="space-y-4">
           <Card>
@@ -300,8 +360,8 @@ export default function Tasks({
                 roomGroup={filters.roomGroup}
                 roomId={filters.roomId}
                 staff={allStaff}
-                availableRooms={availableRooms} // All rooms for all locations
-                roomGroups={allRoomGroups} // All room groups
+                availableRooms={availableRooms}
+                roomGroups={allRoomGroups}
                 onDateChange={onDateChange}
                 onStatusChange={onStatusChange}
                 onStaffChange={onStaffChange}
@@ -315,96 +375,14 @@ export default function Tasks({
 
           <Card>
             <CardHeader>
-              <CardTitle>Wszystkie Zadania dla {getDisplayDate(filters.date)}</CardTitle>
+              <CardTitle>Wszystkie zadania dla {getDisplayDate(filters.date)}</CardTitle>
             </CardHeader>
-            <CardContent className="p-0"> {/* Removed padding */}
+            <CardContent className="p-0">
               {renderTaskTable(
-                allTasks,
+                filteredTasks,
                 filters.date
                   ? `Nie znaleziono zadań dla ${getDisplayDate(filters.date)} z obecnymi filtrami`
-                  : "Nie znaleziono nadchodzących zadań z obecnymi filtrami"
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="regular" className="space-y-4">
-          <Card>
-            <CardHeader className="py-4">
-              <CardTitle className="text-lg">Filtry</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0 pb-4">
-              <TaskFilters
-                date={filters.date}
-                status={filters.status}
-                staffId={filters.staffId}
-                roomGroup={filters.roomGroup}
-                roomId={filters.roomId}
-                staff={allStaff}
-                availableRooms={regularRooms}
-                roomGroups={regularRoomGroups}
-                onDateChange={onDateChange}
-                onStatusChange={onStatusChange}
-                onStaffChange={onStaffChange}
-                onRoomGroupChange={onRoomGroupChange}
-                onRoomChange={onRoomChange}
-                onClearFilters={onClearFilters}
-                showRoomGroupFilter={true}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Zadania w Pokojach dla {getDisplayDate(filters.date)}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0"> {/* Removed padding */}
-              {renderTaskTable(
-                regularTasks,
-                filters.date
-                  ? `Nie znaleziono zadań w pokojach dla ${getDisplayDate(filters.date)} z obecnymi filtrami`
-                  : "Nie znaleziono nadchodzących zadań w pokojach z obecnymi filtrami"
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="other" className="space-y-4">
-          <Card>
-            <CardHeader className="py-4">
-              <CardTitle className="text-lg">Filtry</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0 pb-4">
-              <TaskFilters
-                date={filters.date}
-                status={filters.status}
-                staffId={filters.staffId}
-                roomGroup="OTHER" // Keep specific group filter if needed
-                roomId={filters.roomId}
-                staff={allStaff}
-                availableRooms={otherRooms}
-                roomGroups={otherRoomGroups} // Pass appropriate groups
-                onDateChange={onDateChange}
-                onStatusChange={onStatusChange}
-                onStaffChange={onStaffChange}
-                onRoomGroupChange={onRoomGroupChange} // This might be unused if showRoomGroupFilter=false
-                onRoomChange={onRoomChange}
-                onClearFilters={onClearFilters}
-                showRoomGroupFilter={false} // Hide group filter here
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Zadania w Innych Lokalizacjach dla {getDisplayDate(filters.date)}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0"> {/* Removed padding */}
-              {renderTaskTable(
-                otherTasks,
-                filters.date
-                  ? `Nie znaleziono zadań w innych lokalizacjach dla ${getDisplayDate(filters.date)} z obecnymi filtrami`
-                  : "Nie znaleziono nadchodzących zadań w innych lokalizacjach z obecnymi filtrami"
+                  : "Nie znaleziono zadań z obecnymi filtrami"
               )}
             </CardContent>
           </Card>

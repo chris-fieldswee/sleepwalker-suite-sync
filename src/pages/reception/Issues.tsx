@@ -1,5 +1,5 @@
 // src/pages/reception/Issues.tsx
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,6 +40,7 @@ export default function Issues({
 }: IssuesProps) {
   const { toast } = useToast();
   const [issues, setIssues] = useState<ExpandedIssue[]>([]);
+  const [allIssues, setAllIssues] = useState<ExpandedIssue[]>([]); // Store all issues for filter options
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filterStatus, setFilterStatus] = useState<IssueStatus | 'all'>('all');
@@ -49,6 +50,51 @@ export default function Issues({
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Fetch all issues for filter options (no filters applied)
+  const fetchAllIssues = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('issues')
+        .select(`
+          *,
+          room:rooms(id, name, color),
+          assigned_to:users!assigned_to_user_id(id, name, first_name, last_name),
+          reported_by:users!reported_by_user_id(id, name, first_name, last_name),
+          resolved_by:users!resolved_by_user_id(id, name, first_name, last_name),
+          task:tasks(id, date)
+        `)
+        .order('reported_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedIssues = (data || []).map((issue: any) => ({
+        ...issue,
+        assigned_to: issue.assigned_to ? {
+          ...issue.assigned_to,
+          name: issue.assigned_to.first_name && issue.assigned_to.last_name
+            ? `${issue.assigned_to.first_name} ${issue.assigned_to.last_name}`
+            : issue.assigned_to.name
+        } : null,
+        reported_by: issue.reported_by ? {
+          ...issue.reported_by,
+          name: issue.reported_by.first_name && issue.reported_by.last_name
+            ? `${issue.reported_by.first_name} ${issue.reported_by.last_name}`
+            : issue.reported_by.name
+        } : null,
+        resolved_by: issue.resolved_by ? {
+          ...issue.resolved_by,
+          name: issue.resolved_by.first_name && issue.resolved_by.last_name
+            ? `${issue.resolved_by.first_name} ${issue.resolved_by.last_name}`
+            : issue.resolved_by.name
+        } : null,
+      }));
+
+      setAllIssues(formattedIssues);
+    } catch (error: any) {
+      console.error("Error fetching all issues:", error);
+    }
+  }, []);
+
   const fetchIssues = useCallback(async () => {
     setLoading(true);
     try {
@@ -56,7 +102,7 @@ export default function Issues({
         .from('issues')
         .select(`
           *,
-          room:rooms!inner(id, name, color),
+          room:rooms(id, name, color),
           assigned_to:users!assigned_to_user_id(id, name, first_name, last_name),
           reported_by:users!reported_by_user_id(id, name, first_name, last_name),
           resolved_by:users!resolved_by_user_id(id, name, first_name, last_name),
@@ -118,6 +164,9 @@ export default function Issues({
   }, [filterStatus, filterRoom, filterPriority, toast]);
 
   useEffect(() => {
+    // Fetch all issues for filter options
+    fetchAllIssues();
+    // Fetch filtered issues for display
     fetchIssues();
 
     // Set up realtime subscription
@@ -126,14 +175,17 @@ export default function Issues({
       .on<ExpandedIssue>(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'issues' },
-        () => fetchIssues()
+        () => {
+          fetchAllIssues();
+          fetchIssues();
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchIssues]);
+  }, [fetchIssues, fetchAllIssues]);
 
   const handleDelete = async (issueId: string) => {
     if (!confirm('Czy na pewno chcesz usunąć ten problem?')) return;
@@ -152,6 +204,7 @@ export default function Issues({
         description: "Problem usunięty pomyślnie",
       });
 
+      fetchAllIssues();
       fetchIssues();
     } catch (error: any) {
       console.error("Error deleting issue:", error);
@@ -179,6 +232,7 @@ export default function Issues({
         description: "Problem oznaczony jako rozwiązany",
       });
 
+      fetchAllIssues();
       fetchIssues();
     } catch (error: any) {
       console.error("Error updating issue:", error);
@@ -206,12 +260,12 @@ export default function Issues({
         const filePath = `issue_photos/${fileName}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('task_issues')
+          .from('issue-photos')
           .upload(filePath, photo);
 
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage.from('task_issues').getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage.from('issue-photos').getPublicUrl(filePath);
         photoUrl = urlData?.publicUrl || null;
       }
 
@@ -234,6 +288,7 @@ export default function Issues({
         description: "Problem utworzony pomyślnie",
       });
 
+      fetchAllIssues();
       fetchIssues();
       return true;
     } catch (error: any) {
@@ -250,7 +305,7 @@ export default function Issues({
   const getStatusBadge = (status: IssueStatus) => {
     const config = {
       open: { label: 'Otwarte', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
-      in_progress: { label: 'W Trakcie', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
+      in_progress: { label: 'W trakcie', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
       resolved: { label: 'Rozwiązane', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
       closed: { label: 'Zamknięte', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200' },
     };
@@ -294,8 +349,43 @@ export default function Issues({
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchIssues().finally(() => setRefreshing(false));
+    Promise.all([fetchAllIssues(), fetchIssues()]).finally(() => setRefreshing(false));
   };
+
+  // Extract unique values from all issues for filter options
+  const availableFilterRooms = useMemo(() => {
+    const roomIds = new Set(allIssues.map(issue => issue.room_id).filter(Boolean));
+    return availableRooms.filter(room => roomIds.has(room.id));
+  }, [allIssues, availableRooms]);
+
+  const availableFilterStatuses = useMemo(() => {
+    const statuses = new Set(allIssues.map(issue => issue.status).filter(Boolean));
+    return Array.from(statuses) as IssueStatus[];
+  }, [allIssues]);
+
+  const availableFilterPriorities = useMemo(() => {
+    const priorities = new Set(allIssues.map(issue => issue.priority).filter(Boolean));
+    return Array.from(priorities) as IssuePriority[];
+  }, [allIssues]);
+
+  // Reset filters if selected value is no longer available
+  useEffect(() => {
+    if (filterRoom !== 'all' && !availableFilterRooms.find(room => room.id === filterRoom)) {
+      setFilterRoom('all');
+    }
+  }, [filterRoom, availableFilterRooms]);
+
+  useEffect(() => {
+    if (filterStatus !== 'all' && !availableFilterStatuses.includes(filterStatus)) {
+      setFilterStatus('all');
+    }
+  }, [filterStatus, availableFilterStatuses]);
+
+  useEffect(() => {
+    if (filterPriority !== 'all' && !availableFilterPriorities.includes(filterPriority)) {
+      setFilterPriority('all');
+    }
+  }, [filterPriority, availableFilterPriorities]);
 
   return (
     <div className="space-y-4 pb-20">
@@ -339,11 +429,20 @@ export default function Issues({
                   <SelectValue placeholder="Filtruj status..." />
                 </SelectTrigger>
                 <SelectContent className="bg-card z-50">
-                  <SelectItem value="all" className="text-sm">Wszystkie Statusy</SelectItem>
-                  <SelectItem value="open" className="text-sm">Otwarte</SelectItem>
-                  <SelectItem value="in_progress" className="text-sm">W Trakcie</SelectItem>
-                  <SelectItem value="resolved" className="text-sm">Rozwiązane</SelectItem>
-                  <SelectItem value="closed" className="text-sm">Zamknięte</SelectItem>
+                  <SelectItem value="all" className="text-sm">Wszystkie statusy</SelectItem>
+                  {availableFilterStatuses.map(status => {
+                    const labels: Record<IssueStatus, string> = {
+                      open: 'Otwarte',
+                      in_progress: 'W trakcie',
+                      resolved: 'Rozwiązane',
+                      closed: 'Zamknięte',
+                    };
+                    return (
+                      <SelectItem key={status} value={status} className="text-sm">
+                        {labels[status]}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -356,8 +455,8 @@ export default function Issues({
                   <SelectValue placeholder="Filtruj pokój..." />
                 </SelectTrigger>
                 <SelectContent className="bg-card z-50">
-                  <SelectItem value="all" className="text-sm">Wszystkie Pokoje</SelectItem>
-                  {availableRooms.map(room => (
+                  <SelectItem value="all" className="text-sm">Wszystkie pokoje</SelectItem>
+                  {availableFilterRooms.map(room => (
                     <SelectItem key={room.id} value={room.id} className="text-sm">
                       {room.name}
                     </SelectItem>
@@ -374,11 +473,20 @@ export default function Issues({
                   <SelectValue placeholder="Filtruj priorytet..." />
                 </SelectTrigger>
                 <SelectContent className="bg-card z-50">
-                  <SelectItem value="all" className="text-sm">Wszystkie Priorytety</SelectItem>
-                  <SelectItem value="low" className="text-sm">Niski</SelectItem>
-                  <SelectItem value="medium" className="text-sm">Średni</SelectItem>
-                  <SelectItem value="high" className="text-sm">Wysoki</SelectItem>
-                  <SelectItem value="urgent" className="text-sm">Pilny</SelectItem>
+                  <SelectItem value="all" className="text-sm">Wszystkie priorytety</SelectItem>
+                  {availableFilterPriorities.map(priority => {
+                    const labels: Record<IssuePriority, string> = {
+                      low: 'Niski',
+                      medium: 'Średni',
+                      high: 'Wysoki',
+                      urgent: 'Pilny',
+                    };
+                    return (
+                      <SelectItem key={priority} value={priority} className="text-sm">
+                        {labels[priority]}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -451,7 +559,10 @@ export default function Issues({
         allStaff={allStaff}
         isOpen={isDetailDialogOpen}
         onOpenChange={setIsDetailDialogOpen}
-        onUpdate={fetchIssues}
+        onUpdate={() => {
+          fetchAllIssues();
+          fetchIssues();
+        }}
       />
     </div>
   );

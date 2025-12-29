@@ -12,7 +12,7 @@ import type { Room, Staff } from '@/hooks/useReceptionData';
 import type { NewTaskState } from '@/hooks/useReceptionActions';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
-import { getCapacitySortKey, normalizeCapacityLabel } from "@/lib/capacity-utils";
+import { getCapacitySortKey, normalizeCapacityLabel, renderCapacityIconPattern } from "@/lib/capacity-utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -77,39 +77,6 @@ const parseCapacityConfigurations = (room: Room | null): Array<{
 };
 
 // Render icons for capacity label
-const renderIcons = (config: string): React.ReactNode => {
-    const normalized = normalizeCapacityLabel(config);
-    const rawParts = normalized.includes("+") ? normalized.split("+") : [normalized];
-    const parts = rawParts
-        .map((part) => parseInt(part.trim(), 10))
-        .filter((count) => !Number.isNaN(count) && count > 0);
-
-    if (parts.length === 0) {
-        const fallback = parseInt(normalized, 10);
-        if (!Number.isNaN(fallback) && fallback > 0) {
-            parts.push(fallback);
-        } else {
-            parts.push(1);
-        }
-    }
-
-    return (
-        <div className="flex items-center gap-1">
-            {parts.map((count, partIndex) => {
-                const icons = [];
-                for (let i = 0; i < count; i++) {
-                    icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
-                }
-                return (
-                    <div key={partIndex} className="flex items-center gap-0.5">
-                        {icons}
-                        {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
-                    </div>
-                );
-            })}
-        </div>
-    );
-};
 
 const prepareGuestOptions = (options: GuestOption[]): GuestOption[] => {
     const uniqueByLabel = new Map<string, GuestOption>();
@@ -121,7 +88,7 @@ const prepareGuestOptions = (options: GuestOption[]): GuestOption[] => {
             uniqueByLabel.set(normalizedLabel, {
                 value: option.value,
                 label: normalizedLabel,
-                display: option.display ?? renderIcons(normalizedLabel),
+                display: option.display ?? renderCapacityIconPattern(normalizedLabel),
             });
         }
     });
@@ -155,7 +122,7 @@ const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
             return {
                 value: config.capacity,
                 label: normalizedLabel,
-                display: renderIcons(normalizedLabel)
+                display: renderCapacityIconPattern(normalizedLabel)
             };
         });
 
@@ -167,34 +134,34 @@ const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
 
     switch (roomGroup) {
         case 'P1':
-            return prepareGuestOptions([{ value: 1, label: '1', display: renderIcons('1') }]);
+            return prepareGuestOptions([{ value: 1, label: '1', display: renderCapacityIconPattern('1') }]);
 
         case 'P2':
             return prepareGuestOptions([
-                { value: 1, label: '1', display: renderIcons('1') },
-                { value: 2, label: '2', display: renderIcons('2') },
-                { value: 2, label: '1+1', display: renderIcons('1+1') },
+                { value: 1, label: '1', display: renderCapacityIconPattern('1') },
+                { value: 2, label: '2', display: renderCapacityIconPattern('2') },
+                { value: 2, label: '1+1', display: renderCapacityIconPattern('1+1') },
             ]);
 
         case 'A1S':
             return prepareGuestOptions([
-                { value: 1, label: '1', display: renderIcons('1') },
-                { value: 2, label: '2', display: renderIcons('2') },
-                { value: 2, label: '1+1', display: renderIcons('1+1') },
-                { value: 3, label: '2+1', display: renderIcons('2+1') },
-                { value: 4, label: '2+2', display: renderIcons('2+2') },
+                { value: 1, label: '1', display: renderCapacityIconPattern('1') },
+                { value: 2, label: '2', display: renderCapacityIconPattern('2') },
+                { value: 2, label: '1+1', display: renderCapacityIconPattern('1+1') },
+                { value: 3, label: '2+1', display: renderCapacityIconPattern('2+1') },
+                { value: 4, label: '2+2', display: renderCapacityIconPattern('2+2') },
             ]);
 
         case 'A2S':
             return prepareGuestOptions([
-                { value: 1, label: '1', display: renderIcons('1') },
-                { value: 2, label: '2', display: renderIcons('2') },
-                { value: 2, label: '1+1', display: renderIcons('1+1') },
-                { value: 3, label: '2+1', display: renderIcons('2+1') },
-                { value: 4, label: '2+2', display: renderIcons('2+2') },
-                { value: 3, label: '1+1+1', display: renderIcons('1+1+1') },
-                { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
-                { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
+                { value: 1, label: '1', display: renderCapacityIconPattern('1') },
+                { value: 2, label: '2', display: renderCapacityIconPattern('2') },
+                { value: 2, label: '1+1', display: renderCapacityIconPattern('1+1') },
+                { value: 3, label: '2+1', display: renderCapacityIconPattern('2+1') },
+                { value: 4, label: '2+2', display: renderCapacityIconPattern('2+2') },
+                { value: 3, label: '1+1+1', display: renderCapacityIconPattern('1+1+1') },
+                { value: 5, label: '2+2+1', display: renderCapacityIconPattern('2+2+1') },
+                { value: 6, label: '2+2+2', display: renderCapacityIconPattern('2+2+2') },
             ]);
 
         case 'OTHER':
@@ -204,7 +171,7 @@ const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
                     return {
                         value: i + 1,
                         label,
-                        display: renderIcons(label),
+                        display: renderCapacityIconPattern(label),
                     };
                 })
             );

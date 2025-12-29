@@ -26,9 +26,9 @@ export function ReceptionHeader({
         <header className="border-b bg-card sticky top-0 z-20 shadow-sm">
             <div className="container mx-auto flex items-center justify-between px-4 py-4">
                 <div>
-                    <h1 className="text-2xl font-bold">Panel Recepcji</h1>
+                    <h1 className="text-2xl font-bold">Panel recepcji</h1>
                     <p className="text-sm text-muted-foreground">
-                        Zarządzanie Operacjami Sprzątania
+                        Zarządzanie operacjami sprzątania
                     </p>
                 </div>
                 <div className="flex gap-2">

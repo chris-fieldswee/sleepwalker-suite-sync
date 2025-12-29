@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   ClipboardList,
-  Archive,
   AlertTriangle,
   Users,
   DoorOpen,
@@ -20,6 +19,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -30,14 +30,13 @@ interface AdminSidebarProps {
 const receptionNavItems = [
   { title: "Panel", url: "/admin", icon: LayoutDashboard, end: true },
   { title: "Zadania", url: "/admin/tasks", icon: ClipboardList },
-  { title: "Archiwum", url: "/admin/archive", icon: Archive },
   { title: "Problemy", url: "/admin/issues", icon: AlertTriangle },
 ];
 
 const adminNavItems = [
   { title: "Użytkownicy", url: "/admin/users", icon: Users },
   { title: "Pokoje", url: "/admin/rooms", icon: DoorOpen },
-  { title: "Dostępność Personelu", url: "/admin/availability", icon: Calendar },
+  { title: "Dostępność personelu", url: "/admin/availability", icon: Calendar },
 ];
 
 export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
@@ -45,10 +44,19 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
 
   return (
     <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <div className="flex items-center justify-center p-4">
+          <img 
+            src="/hotel-logo.svg" 
+            alt="Hotel Logo" 
+            className={`transition-all duration-200 ${open ? 'h-16 w-auto' : 'h-8 w-8'}`}
+          />
+        </div>
+      </SidebarHeader>
       <SidebarContent>
         {/* Reception Features */}
         <SidebarGroup>
-          <SidebarGroupLabel>Recepcja</SidebarGroupLabel>
+          <SidebarGroupLabel>Zarządzanie</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {receptionNavItems.map((item) => (

@@ -1,4 +1,4 @@
-import { LayoutDashboard, ClipboardList, Archive, AlertTriangle, LogOut } from "lucide-react";
+import { LayoutDashboard, ClipboardList, AlertTriangle, LogOut } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -19,9 +20,8 @@ interface ReceptionSidebarProps {
 }
 
 const navItems = [
-  { title: "Panel Główny", url: "/reception", icon: LayoutDashboard, end: true },
+  { title: "Panel główny", url: "/reception", icon: LayoutDashboard, end: true },
   { title: "Zadania", url: "/reception/tasks", icon: ClipboardList },
-  { title: "Archiwum", url: "/reception/archive", icon: Archive },
   { title: "Problemy", url: "/reception/issues", icon: AlertTriangle },
 ];
 
@@ -30,9 +30,18 @@ export function ReceptionSidebar({ onSignOut }: ReceptionSidebarProps) {
 
   return (
     <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <div className="flex items-center justify-center p-4">
+          <img 
+            src="/hotel-logo.svg" 
+            alt="Hotel Logo" 
+            className={`transition-all duration-200 ${open ? 'h-16 w-auto' : 'h-8 w-8'}`}
+          />
+        </div>
+      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Recepcja</SidebarGroupLabel>
+          <SidebarGroupLabel>Operacje</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (

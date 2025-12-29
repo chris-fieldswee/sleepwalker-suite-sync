@@ -143,37 +143,152 @@ export function useTaskActions(
     issueDescription: string,
     issuePhoto: File | null
   ) => {
-    // Validation remains the same...
-    if (!issueDescription.trim()) { /* ... validation ... */ return false; }
-    if (issueDescription.length > 5000) { /* ... validation ... */ return false; }
+    // Validation
+    if (!issueDescription.trim()) {
+      toast({ 
+        title: "Brak Opisu", 
+        description: "Proszę opisać problem.", 
+        variant: "destructive" 
+      });
+      return false;
+    }
+    if (issueDescription.length > 5000) {
+      toast({ 
+        title: "Opis Zbyt Długi", 
+        description: "Opis musi mieć mniej niż 5000 znaków.", 
+        variant: "destructive" 
+      });
+      return false;
+    }
 
+    // Get the task to find room_id
+    const task = tasks.find(t => t.id === issueTaskId);
+    if (!task) {
+      toast({ 
+        title: "Błąd", 
+        description: "Nie znaleziono zadania.", 
+        variant: "destructive" 
+      });
+      return false;
+    }
+
+    // Get current user's id from users table (not just auth_id)
+    let currentUserId: string | null = null;
+    if (userId) {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_id', userId)
+        .maybeSingle();
+      
+      if (userError) {
+        console.error("Error fetching user:", userError);
+        toast({ 
+          title: "Błąd", 
+          description: "Nie udało się pobrać danych użytkownika.", 
+          variant: "destructive" 
+        });
+        return false;
+      }
+      currentUserId = userData?.id || null;
+    }
+
+    // Upload photo if provided
     let photoUrl: string | null = null;
     if (issuePhoto && userId) {
-      // Photo upload logic remains the same...
       const fileExt = issuePhoto.name.split('.').pop();
       const fileName = `${userId}_${issueTaskId}_${Date.now()}.${fileExt}`;
       const filePath = `issue_photos/${fileName}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage.from('task_issues').upload(filePath, issuePhoto);
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('issue-photos')
+        .upload(filePath, issuePhoto);
 
-      if (uploadError) { /* ... error handling ... */ return false; }
+      if (uploadError) {
+        console.error("Error uploading photo:", uploadError);
+        toast({ 
+          title: "Błąd", 
+          description: `Nie udało się przesłać zdjęcia: ${uploadError.message}`, 
+          variant: "destructive" 
+        });
+        return false;
+      }
+      
       if (uploadData) {
-        const { data: urlData } = supabase.storage.from('task_issues').getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage
+          .from('issue-photos')
+          .getPublicUrl(filePath);
         photoUrl = urlData?.publicUrl || null;
-      } else { /* ... error handling ... */ return false; }
+      }
     }
 
-    const { error: updateError } = await supabase.from("tasks").update({
-      issue_flag: true, issue_description: issueDescription, issue_photo: photoUrl,
-      // Status remains unchanged as per new requirement
-    }).eq("id", issueTaskId);
+    // Update task with issue flag (keep existing behavior)
+    const { error: updateError } = await supabase
+      .from("tasks")
+      .update({
+        issue_flag: true, 
+        issue_description: issueDescription, 
+        issue_photo: photoUrl,
+      })
+      .eq("id", issueTaskId);
 
-    if (updateError) { /* ... error handling ... */ return false; }
-    else {
-      toast({ title: "Maintenance issue reported" });
-      await fetchTasks(); // Refresh data after reporting issue
+    if (updateError) {
+      console.error("Error updating task:", updateError);
+      toast({ 
+        title: "Błąd", 
+        description: `Nie udało się zaktualizować zadania: ${updateError.message}`, 
+        variant: "destructive" 
+      });
+      return false;
+    }
+
+    // Create issue in issues table
+    const issueToInsert = {
+      room_id: task.room.id,
+      task_id: issueTaskId,
+      reported_by_user_id: currentUserId,
+      title: issueDescription.substring(0, 100),
+      description: issueDescription,
+      photo_url: photoUrl,
+      status: 'open' as const,
+      priority: 'medium' as const,
+    };
+
+    const { data: insertedIssue, error: insertError } = await supabase
+      .from('issues')
+      .insert(issueToInsert)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Error creating issue:", insertError);
+      console.error("Issue data attempted:", issueToInsert);
+      console.error("Error details:", {
+        message: insertError.message,
+        code: insertError.code,
+        details: insertError.details,
+        hint: insertError.hint
+      });
+      // Don't fail completely - task was already updated
+      // Just show a warning that issue wasn't created in issues table
+      toast({ 
+        title: "Ostrzeżenie", 
+        description: `Problem został zgłoszony, ale nie udało się utworzyć rekordu w tabeli problemów: ${insertError.message}`, 
+        variant: "destructive" 
+      });
+      // Still return true since task was updated
+      await fetchTasks();
       return true;
     }
-  }, [toast, userId, fetchTasks]); // Add fetchTasks dependency
+
+    console.log("Issue created successfully:", insertedIssue);
+
+    toast({ 
+      title: "Sukces", 
+      description: "Problem został zgłoszony pomyślnie" 
+    });
+    await fetchTasks(); // Refresh data after reporting issue
+    return true;
+  }, [toast, userId, tasks, fetchTasks]);
 
   const handleAcknowledgeNote = useCallback(async (taskId: string) => {
     // --- SCHEMA CHANGE REQUIRED ---

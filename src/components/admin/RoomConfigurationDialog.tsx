@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, User } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
-import { getCapacitySortKey, normalizeCapacityLabel } from "@/lib/capacity-utils";
+import { getCapacitySortKey, normalizeCapacityLabel, renderCapacityIconPattern } from "@/lib/capacity-utils";
 
 type RoomGroup = Database["public"]["Enums"]["room_group"];
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
@@ -66,84 +66,30 @@ const availableCleaningTypes: Record<RoomGroup, CleaningType[]> = {
   OTHER: ['S', 'G']
 };
 
-const renderIcons = (config: string): React.ReactNode => {
-  const normalized = normalizeCapacityLabel(config);
-  const rawParts = normalized.includes("+") ? normalized.split("+") : [normalized];
-  const parts = rawParts
-    .map((part) => parseInt(part.trim(), 10))
-    .filter((count) => !Number.isNaN(count) && count > 0);
-
-  if (parts.length === 0) {
-    const fallback = parseInt(normalized, 10);
-    if (!Number.isNaN(fallback) && fallback > 0) {
-      parts.push(fallback);
-    } else {
-      parts.push(1);
-    }
-  }
-  return (
-    <div className="flex items-center gap-1">
-      {parts.map((count, partIndex) => {
-        const icons = [];
-        for (let i = 0; i < count; i++) {
-          icons.push(<User key={`${partIndex}-${i}`} className="h-4 w-4 text-muted-foreground" />);
-        }
-        return (
-          <div key={partIndex} className="flex items-center gap-0.5">
-            {icons}
-            {partIndex < parts.length - 1 && <span className="mx-0.5 text-muted-foreground">+</span>}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
 
 // Get ALL available capacity options (not filtered by group type)
+// Each option is a distinct icon arrangement, independent of numerical calculations
 // Admin can select any capacity option for any room
-const getAllCapacityOptions = (): Array<{ value: number; label: string; display: React.ReactNode }> => {
-  const allOptions = new Map<string, { value: number; label: string; display: React.ReactNode }>();
-
-  const options = [
-    // P1 options
-    { value: 1, label: '1', display: renderIcons('1') },
-
-    // P2 options
-    { value: 1, label: '1', display: renderIcons('1') },
-    { value: 2, label: '2', display: renderIcons('2') },
-    { value: 2, label: '1+1', display: renderIcons('1+1') },
-
-    // A1S options
-    { value: 1, label: '1', display: renderIcons('1') },
-    { value: 2, label: '2', display: renderIcons('2') },
-    { value: 2, label: '1+1', display: renderIcons('1+1') },
-    { value: 3, label: '2+1', display: renderIcons('2+1') },
-    { value: 4, label: '2+2', display: renderIcons('2+2') },
-
-    // A2S options
-    { value: 1, label: '1', display: renderIcons('1') },
-    { value: 2, label: '2', display: renderIcons('2') },
-    { value: 2, label: '1+1', display: renderIcons('1+1') },
-    { value: 3, label: '2+1', display: renderIcons('2+1') },
-    { value: 4, label: '2+2', display: renderIcons('2+2') },
-    { value: 3, label: '1+1+1', display: renderIcons('1+1+1') },
-    { value: 5, label: '2+2+1', display: renderIcons('2+2+1') },
-    { value: 6, label: '2+2+2', display: renderIcons('2+2+2') },
+const getAllCapacityOptions = (): Array<{ value: number; label: string; display: React.ReactNode; patternId: string }> => {
+  // Define all 8 distinct icon arrangements as separate options
+  // Each has a unique patternId that maps to a specific visual arrangement
+  const distinctOptions: Array<{ value: number; label: string; patternId: string }> = [
+    { value: 1, label: '1', patternId: '1' },
+    { value: 2, label: '1+1', patternId: '1+1' },
+    { value: 3, label: '1+1+1', patternId: '1+1+1' },
+    { value: 2, label: '2', patternId: '2' },
+    { value: 3, label: '2+1', patternId: '2+1' },
+    { value: 4, label: '2+2', patternId: '2+2' },
+    { value: 5, label: '2+2+1', patternId: '2+2+1' },
+    { value: 6, label: '2+2+2', patternId: '2+2+2' },
   ];
 
-  options.forEach(option => {
-    const normalizedLabel = normalizeCapacityLabel(option.label);
-
-    if (!allOptions.has(normalizedLabel)) {
-      allOptions.set(normalizedLabel, {
-        value: option.value,
-        label: normalizedLabel,
-        display: option.display ?? renderIcons(normalizedLabel)
-      });
-    }
-  });
-
-  return Array.from(allOptions.values()).sort((a, b) => {
+  return distinctOptions.map(option => ({
+    value: option.value,
+    label: option.label,
+    patternId: option.patternId,
+    display: renderCapacityIconPattern(option.patternId)
+  })).sort((a, b) => {
     return getCapacitySortKey(a.label) - getCapacitySortKey(b.label);
   });
 };

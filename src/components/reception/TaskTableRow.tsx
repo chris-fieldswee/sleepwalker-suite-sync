@@ -73,13 +73,13 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
 
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
-      todo: "Do Sprzątania",
-      in_progress: "W Trakcie",
+      todo: "Do sprzątania",
+      in_progress: "W trakcie",
       paused: "Wstrzymane",
       done: "Gotowe",
       repair_needed: "Naprawa",
     };
-    return labels[status] || status;
+    return labels[status] || (status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' '));
   };
 
   const cleaningTypeLabels: Record<string, string> = {

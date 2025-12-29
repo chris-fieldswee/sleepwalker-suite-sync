@@ -30,12 +30,10 @@ interface IssueDetailDialogProps {
     onUpdate: () => void;
 }
 
-// Filter staff to only show reception and admin users
+// Filter staff to show all staff (admin, reception, and housekeeping)
+// Admin can assign issues to any staff member for fixing
 const getFilteredStaff = (allStaff: Staff[]) => {
-    return allStaff.filter(staff => {
-        const role = staff.role?.toLowerCase();
-        return role === 'reception' || role === 'admin';
-    });
+    return allStaff; // Return all staff - admin can assign to anyone
 };
 
 export function IssueDetailDialog({
@@ -182,7 +180,7 @@ export function IssueDetailDialog({
     const getStatusBadge = (status: string) => {
         const config: Record<string, { label: string; className: string }> = {
             open: { label: 'Otwarte', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
-            in_progress: { label: 'W Trakcie', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
+            in_progress: { label: 'W trakcie', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
             resolved: { label: 'Rozwiązane', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
             closed: { label: 'Zamknięte', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200' },
         };
@@ -203,11 +201,11 @@ export function IssueDetailDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col p-0 gap-0">
+                <DialogHeader className="px-6 pt-8 pb-4 border-b">
                     <div className="flex justify-between items-start">
                         <div>
-                            <DialogTitle>Szczegóły Problemu - {issue.room.name}</DialogTitle>
+                            <DialogTitle>Szczegóły problemu - {issue.room.name}</DialogTitle>
                             <DialogDescription>
                                 {formatDate(issue.reported_at)} · {issue.title}
                             </DialogDescription>
@@ -240,7 +238,7 @@ export function IssueDetailDialog({
                         </div>
                     </div>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-4 px-6 py-4 overflow-y-auto flex-1 min-h-0">
                     {/* Description */}
                     <div className="space-y-1">
                         <Label className="text-muted-foreground">Opis</Label>
@@ -304,7 +302,7 @@ export function IssueDetailDialog({
                         </Label>
                         {!isEditMode ? (
                             <p className="text-sm border p-2 rounded bg-muted/30">
-                                {issue.status === 'open' ? 'Otwarte' : issue.status === 'in_progress' ? 'W Trakcie' : issue.status === 'resolved' ? 'Rozwiązane' : 'Zamknięte'}
+                                {issue.status === 'open' ? 'Otwarte' : issue.status === 'in_progress' ? 'W trakcie' : issue.status === 'resolved' ? 'Rozwiązane' : 'Zamknięte'}
                             </p>
                         ) : (
                             <Select value={status} onValueChange={setStatus} disabled={isSaving || !isEditMode}>
@@ -313,7 +311,7 @@ export function IssueDetailDialog({
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="open">Otwarte</SelectItem>
-                                    <SelectItem value="in_progress">W Trakcie</SelectItem>
+                                    <SelectItem value="in_progress">W trakcie</SelectItem>
                                     <SelectItem value="resolved">Rozwiązane</SelectItem>
                                     <SelectItem value="closed">Zamknięte</SelectItem>
                                 </SelectContent>
@@ -412,7 +410,7 @@ export function IssueDetailDialog({
                         </div>
                     )}
                 </div>
-                <DialogFooter>
+                <DialogFooter className="px-6 py-4 border-t mt-auto">
                     {!isEditMode ? (
                         <DialogClose asChild>
                             <Button type="button" variant="secondary">

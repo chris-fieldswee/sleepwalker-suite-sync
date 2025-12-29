@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { ImportAvailabilityDialog } from './ImportAvailabilityDialog';
+import { AddAvailabilityDialog } from './AddAvailabilityDialog';
 
 type StaffAvailability = {
   id: string;
@@ -44,12 +45,14 @@ export const StaffAvailabilityManager: React.FC = () => {
   const fetchAvailability = async () => {
     try {
       setLoading(true);
+      const today = new Date().toISOString().split('T')[0];
       let query = supabase
         .from('staff_availability' as any)
         .select(`
           *,
           staff:users(id, name, first_name, last_name, role)
-        `);
+        `)
+        .gte('date', today); // Only fetch current and future dates
 
       if (dateFilter) {
         query = query.eq('date', dateFilter);
@@ -58,20 +61,9 @@ export const StaffAvailabilityManager: React.FC = () => {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Sort by date: oldest first, then future dates at bottom
+      // Sort by date chronologically (ascending)
       const sortedData = ((data || []) as unknown as StaffAvailability[]).sort((a, b) => {
-        const today = new Date().toISOString().split('T')[0];
-        const dateA = a.date;
-        const dateB = b.date;
-
-        // If both are past or both are future, sort chronologically
-        if ((dateA <= today && dateB <= today) || (dateA > today && dateB > today)) {
-          return dateA.localeCompare(dateB);
-        }
-        // Past dates come first
-        if (dateA <= today && dateB > today) return -1;
-        if (dateA > today && dateB <= today) return 1;
-        return 0;
+        return a.date.localeCompare(b.date);
       });
 
       setAvailability(sortedData);
@@ -144,10 +136,11 @@ export const StaffAvailabilityManager: React.FC = () => {
       {/* Header with buttons */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Dostępność Personelu</h2>
+          <h2 className="text-2xl font-bold">Dostępność personelu</h2>
           <p className="text-muted-foreground">Zarządzaj i przeglądaj harmonogramy dostępności personelu</p>
         </div>
         <div className="flex items-center gap-2">
+          <AddAvailabilityDialog onAddComplete={handleRefresh} />
           <ImportAvailabilityDialog onImportComplete={handleRefresh} />
           <Button variant="outline" onClick={handleRefresh} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
@@ -225,7 +218,7 @@ export const StaffAvailabilityManager: React.FC = () => {
       {/* Availability Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Harmonogram Dostępności</CardTitle>
+          <CardTitle>Harmonogram dostępności</CardTitle>
           <CardDescription>
             Wyświetlanie {filteredAvailability.length} rekordów dostępności
           </CardDescription>

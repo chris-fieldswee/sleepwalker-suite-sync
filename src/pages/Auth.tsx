@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { ForcePasswordChange } from "@/components/ForcePasswordChange";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,23 +16,51 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
 
-  const { signIn, signUp, user, userRole, loading } = useAuth();
+  const { signIn, signUp, user, userRole, loading, requiresPasswordChange } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Redirect if user is already authenticated
+  // Handle password change completion
+  const handlePasswordChanged = async () => {
+    // Refresh the session to get updated user metadata
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      setPasswordChanged(true);
+      // The auth state change will handle redirect
+    }
+  };
+
+  // Redirect if user is already authenticated and password change is not required
   useEffect(() => {
-    if (!loading && user && userRole) {
-      if (userRole === "admin") {
-        navigate("/admin", { replace: true });
-      } else if (userRole === "reception") {
-        navigate("/reception", { replace: true });
-      } else if (userRole === "housekeeping") {
-        navigate("/housekeeping", { replace: true });
+    if (!loading && user && userRole && !requiresPasswordChange) {
+      if (passwordChanged) {
+        // After password change, redirect based on role
+        if (userRole === "admin") {
+          navigate("/admin", { replace: true });
+        } else if (userRole === "reception") {
+          navigate("/reception", { replace: true });
+        } else if (userRole === "housekeeping") {
+          navigate("/housekeeping", { replace: true });
+        }
+      } else {
+        // Normal redirect for already authenticated users
+        if (userRole === "admin") {
+          navigate("/admin", { replace: true });
+        } else if (userRole === "reception") {
+          navigate("/reception", { replace: true });
+        } else if (userRole === "housekeeping") {
+          navigate("/housekeeping", { replace: true });
+        }
       }
     }
-  }, [user, userRole, loading, navigate]);
+  }, [user, userRole, loading, requiresPasswordChange, passwordChanged, navigate]);
+
+  // Show password change screen if required (after all hooks)
+  if (!loading && user && requiresPasswordChange) {
+    return <ForcePasswordChange onPasswordChanged={handlePasswordChanged} />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,7 +129,7 @@ export default function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">
-            {isLogin ? "Zaloguj" : "Utwórz Konto"}
+            {isLogin ? "Zaloguj" : "Utwórz konto"}
           </CardTitle>
           <CardDescription>
             {isLogin

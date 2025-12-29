@@ -22,11 +22,33 @@ if (!SUPABASE_SERVICE_ROLE_KEY) {
 // Admin client with service role key for admin operations
 // Only create if service role key is available
 // SECURITY: Never initialize admin client in production builds
-export const supabaseAdmin = (!IS_PROD && SUPABASE_SERVICE_ROLE_KEY)
-  ? createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
-  : null;
+// Use singleton pattern to avoid multiple GoTrueClient instances
+const getSingletonAdminClient = () => {
+  if (IS_PROD || !SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+  
+  const g = globalThis as unknown as { __supabaseAdminClient?: ReturnType<typeof createClient<Database>> };
+  if (!g.__supabaseAdminClient) {
+    g.__supabaseAdminClient = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { 
+        autoRefreshToken: false, 
+        persistSession: false,
+        // Use a different storage key to avoid conflicts with regular client
+        storageKey: 'sb-admin-auth',
+        // Use memory storage instead of localStorage to avoid conflicts
+        storage: {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        }
+      }
+    });
+  }
+  return g.__supabaseAdminClient;
+};
+
+export const supabaseAdmin = getSingletonAdminClient();
 
 // Helper function to check if admin client is available
 export const isAdminClientAvailable = () => !!supabaseAdmin;

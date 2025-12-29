@@ -9,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 // Import reception pages
 import Dashboard from "./reception/Dashboard";
 import Tasks from "./reception/Tasks";
-import Archive from "./reception/Archive";
 import Issues from "./reception/Issues";
 
 // Import admin pages
@@ -41,7 +40,7 @@ export default function Admin() {
         <main className="flex-1 overflow-auto">
           <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-2">
             <SidebarTrigger />
-            <h2 className="text-lg font-semibold">Panel Administratora</h2>
+            <h2 className="text-lg font-semibold">Panel administratora</h2>
           </div>
 
           <div className="container mx-auto p-4 md:p-6">
@@ -90,19 +89,7 @@ export default function Admin() {
                     onDeleteTask={receptionActions.handleDeleteTask}
                     isUpdatingTask={receptionActions.isUpdatingTask}
                     isDeletingTask={receptionActions.isDeletingTask}
-                  />
-                }
-              />
-              <Route
-                path="archive"
-                element={
-                  <Archive
-                    allStaff={receptionData.allStaff}
-                    availableRooms={receptionData.availableRooms}
-                    onUpdateTask={receptionActions.handleUpdateTask}
-                    onDeleteTask={receptionActions.handleDeleteTask}
-                    isUpdatingTask={receptionActions.isUpdatingTask}
-                    isDeletingTask={receptionActions.isDeletingTask}
+                    onSetFetchAllTasks={receptionData.filterSetters.setFetchAllTasks}
                   />
                 }
               />

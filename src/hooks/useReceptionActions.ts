@@ -31,6 +31,7 @@ export interface EditableTaskState {
     notes: string;
     date: string;
     timeLimit: number | null;
+    status?: string;
 }
 
 const getTodayDateString = () => new Date().toISOString().split("T")[0];
@@ -553,6 +554,7 @@ export function useReceptionActions(
           }
           if (updates.notes !== undefined) { dbUpdates.reception_notes = updates.notes || null; }
           if (updates.date !== undefined) { dbUpdates.date = updates.date; }
+          if (updates.status !== undefined) { dbUpdates.status = updates.status as Database["public"]["Enums"]["task_status"]; }
           
           if (updates.timeLimit !== undefined) {
              dbUpdates.time_limit = updates.timeLimit;

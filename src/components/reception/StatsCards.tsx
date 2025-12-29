@@ -15,15 +15,15 @@ export function StatsCards({ stats }: StatsCardsProps) {
     return (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
             <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Wszystkie Zadania</CardTitle></CardHeader>
+                <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Wszystkie zadania</CardTitle></CardHeader>
                 <CardContent><div className="text-2xl font-bold">{stats.total}</div></CardContent>
             </Card>
             <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Do Sprzątania</CardTitle></CardHeader>
+                <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Do sprzątania</CardTitle></CardHeader>
                 <CardContent><div className="text-2xl font-bold text-status-todo">{stats.todo}</div></CardContent>
             </Card>
             <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">W Trakcie</CardTitle></CardHeader>
+                <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">W trakcie</CardTitle></CardHeader>
                 <CardContent><div className="text-2xl font-bold text-status-in-progress">{stats.inProgress}</div></CardContent>
             </Card>
             <Card>

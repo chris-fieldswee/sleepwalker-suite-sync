@@ -8,11 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Search, Edit, Trash2, User, Calendar, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Search, Edit, Trash2, User, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Eye, EyeOff, KeyRound, Copy, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseAdmin, isAdminClientAvailable } from "@/integrations/supabase/admin-client";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
+import { userCreationSchema } from "@/lib/validation";
+import { generatePassword } from "@/lib/passwordGenerator";
+import { PasswordStrengthIndicator } from "@/components/admin/PasswordStrengthIndicator";
+import { CredentialShareDialog } from "@/components/admin/CredentialShareDialog";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
 
@@ -30,6 +34,13 @@ export default function Users() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [roleSortDirection, setRoleSortDirection] = useState<"asc" | "desc" | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [isCreating, setIsCreating] = useState(false);
+  const [showCredentialDialog, setShowCredentialDialog] = useState(false);
+  const [createdUserCredentials, setCreatedUserCredentials] = useState<{ email: string; password: string; userName: string } | null>(null);
+  const [emailExists, setEmailExists] = useState(false);
+  const [passwordCopied, setPasswordCopied] = useState(false);
 
   // Form state for create/edit
   const [formData, setFormData] = useState({
@@ -88,8 +99,45 @@ export default function Users() {
         role: "housekeeping" as UserRole,
         active: true,
       });
+      setValidationErrors({});
+      setShowPassword(false);
+      setEmailExists(false);
+      setPasswordCopied(false);
     }
   }, [isCreateDialogOpen]);
+
+  // Check for duplicate email
+  useEffect(() => {
+    const checkEmail = async () => {
+      if (!formData.email || !supabaseAdmin) {
+        setEmailExists(false);
+        return;
+      }
+
+      // Validate email format first
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setEmailExists(false);
+        return;
+      }
+
+      try {
+        // Try to create user to check if email exists
+        // We'll use a different approach - check via admin API
+        const { data, error } = await supabaseAdmin.auth.admin.listUsers();
+        if (!error && data) {
+          const exists = data.users.some(user => user.email === formData.email);
+          setEmailExists(exists);
+        }
+      } catch (error) {
+        // If check fails, don't show error - let createUser handle it
+        setEmailExists(false);
+      }
+    };
+
+    const timeoutId = setTimeout(checkEmail, 500);
+    return () => clearTimeout(timeoutId);
+  }, [formData.email]);
 
   const filteredUsers = users.filter(user => {
     const matchesSearch =
@@ -120,7 +168,79 @@ export default function Users() {
     }
   };
 
+  const handleGeneratePassword = () => {
+    const newPassword = generatePassword({
+      length: 16,
+      includeSpecialChars: true,
+      includeNumbers: true,
+      includeUppercase: true,
+      includeLowercase: true,
+    });
+    setFormData({ ...formData, password: newPassword });
+    setPasswordCopied(true);
+    setTimeout(() => setPasswordCopied(false), 2000);
+  };
+
+  const handleCopyPassword = async () => {
+    if (formData.password) {
+      try {
+        await navigator.clipboard.writeText(formData.password);
+        setPasswordCopied(true);
+        toast({
+          title: "Skopiowano",
+          description: "Hasło zostało skopiowane do schowka",
+        });
+        setTimeout(() => setPasswordCopied(false), 2000);
+      } catch (error) {
+        toast({
+          title: "Błąd",
+          description: "Nie udało się skopiować hasła",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const validateForm = (): boolean => {
+    try {
+      userCreationSchema.parse(formData);
+      setValidationErrors({});
+      return true;
+    } catch (error: any) {
+      const errors: Record<string, string> = {};
+      if (error.errors) {
+        error.errors.forEach((err: any) => {
+          if (err.path && err.path.length > 0) {
+            errors[err.path[0]] = err.message;
+          }
+        });
+      }
+      setValidationErrors(errors);
+      return false;
+    }
+  };
+
   const handleCreateUser = async () => {
+    // Validate form
+    if (!validateForm()) {
+      toast({
+        title: "Błąd walidacji",
+        description: "Proszę poprawić błędy w formularzu",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (emailExists) {
+      toast({
+        title: "Błąd",
+        description: "Użytkownik o tym adresie email już istnieje",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreating(true);
     try {
       if (!supabaseAdmin) {
         toast({
@@ -131,8 +251,7 @@ export default function Users() {
         return;
       }
 
-      // 1. Check if user already exists in public.users (by name) or auth.users (by email)
-      // This prevents partial failures later
+      // 1. Check if user already exists in public.users (by name)
       const { data: existingPublicUsers } = await supabaseAdmin
         .from("users")
         .select("id, auth_id")
@@ -143,10 +262,7 @@ export default function Users() {
         throw new Error(`Użytkownik o nazwie "${formData.name}" już istnieje.`);
       }
 
-      // Note: We can't easily check auth.users by email without admin privileges, 
-      // but createUser will fail if email exists, which is fine.
-
-      // 2. Create auth user
+      // 2. Create auth user with requires_password_change flag
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: formData.email,
         password: formData.password,
@@ -155,6 +271,7 @@ export default function Users() {
           name: formData.name,
           first_name: formData.first_name,
           last_name: formData.last_name,
+          requires_password_change: true,
         },
       });
 
@@ -164,19 +281,43 @@ export default function Users() {
       const newAuthId = authData.user.id;
 
       try {
-        // 3. Insert into public.users
-        const { error: userError } = await supabaseAdmin
+        // 3. Upsert into public.users (handle case where trigger already created entry)
+        // The handle_new_user() trigger may have already created a user entry
+        // Check if user already exists
+        const { data: existingUser } = await supabaseAdmin
           .from("users")
-          .insert([
-            {
+          .select("id")
+          .eq("auth_id", newAuthId)
+          .maybeSingle();
+
+        let userError;
+        if (existingUser) {
+          // Update existing user
+          const { error } = await supabaseAdmin
+            .from("users")
+            .update({
+              name: formData.name,
+              first_name: formData.first_name,
+              last_name: formData.last_name,
+              role: formData.role,
+              active: formData.active,
+            })
+            .eq("auth_id", newAuthId);
+          userError = error;
+        } else {
+          // Insert new user
+          const { error } = await supabaseAdmin
+            .from("users")
+            .insert({
               auth_id: newAuthId,
               name: formData.name,
               first_name: formData.first_name,
               last_name: formData.last_name,
               role: formData.role,
               active: formData.active,
-            },
-          ]);
+            });
+          userError = error;
+        }
 
         if (userError) throw userError;
 
@@ -194,12 +335,18 @@ export default function Users() {
 
         if (roleError) throw roleError;
 
-        toast({
-          title: "Sukces",
-          description: "Użytkownik został utworzony pomyślnie",
+        // Store credentials for sharing dialog
+        setCreatedUserCredentials({
+          email: formData.email,
+          password: formData.password,
+          userName: formData.name,
         });
 
+        // Close create dialog and show credential dialog
         setIsCreateDialogOpen(false);
+        setShowCredentialDialog(true);
+
+        // Reset form
         setFormData({
           name: "",
           email: "",
@@ -209,6 +356,7 @@ export default function Users() {
           role: "housekeeping" as UserRole,
           active: true,
         });
+        setValidationErrors({});
         await fetchUsers();
 
       } catch (innerError: any) {
@@ -225,6 +373,8 @@ export default function Users() {
         description: `Nie udało się utworzyć użytkownika: ${error.message}`,
         variant: "destructive",
       });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -425,7 +575,7 @@ export default function Users() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Zarządzanie Użytkownikami</h2>
+          <h2 className="text-2xl font-bold">Zarządzanie użytkownikami</h2>
           <p className="text-muted-foreground">Zarządzaj użytkownikami systemu i ich uprawnieniami</p>
         </div>
         <div className="flex gap-2">
@@ -438,7 +588,7 @@ export default function Users() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Utwórz Nowego Użytkownika</DialogTitle>
+                <DialogTitle>Utwórz nowego użytkownika</DialogTitle>
                 <DialogDescription>
                   Dodaj nowego użytkownika do systemu z odpowiednią rolą i uprawnieniami.
                 </DialogDescription>
@@ -453,13 +603,22 @@ export default function Users() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Imię i Nazwisko *</Label>
+                    <Label htmlFor="name">Nazwa użytkownika *</Label>
                     <Input
                       id="name"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, name: e.target.value });
+                        if (validationErrors.name) {
+                          setValidationErrors({ ...validationErrors, name: "" });
+                        }
+                      }}
                       placeholder="Pełne imię i nazwisko"
+                      className={validationErrors.name ? "border-red-500" : ""}
                     />
+                    {validationErrors.name && (
+                      <p className="text-sm text-red-500">{validationErrors.name}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email *</Label>
@@ -467,20 +626,94 @@ export default function Users() {
                       id="email"
                       type="email"
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, email: e.target.value });
+                        if (validationErrors.email) {
+                          setValidationErrors({ ...validationErrors, email: "" });
+                        }
+                      }}
                       placeholder="user@example.com"
+                      className={validationErrors.email || emailExists ? "border-red-500" : ""}
                     />
+                    {validationErrors.email && (
+                      <p className="text-sm text-red-500">{validationErrors.email}</p>
+                    )}
+                    {emailExists && !validationErrors.email && (
+                      <p className="text-sm text-red-500">Użytkownik o tym adresie email już istnieje</p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Hasło *</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="Wpisz hasło"
-                  />
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Hasło *</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleGeneratePassword}
+                        className="h-8 text-xs"
+                      >
+                        <KeyRound className="h-3 w-3 mr-1" />
+                        Generuj
+                      </Button>
+                      {formData.password && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleCopyPassword}
+                          className="h-8 text-xs"
+                        >
+                          {passwordCopied ? (
+                            <>
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Skopiowano
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3 mr-1" />
+                              Kopiuj
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password}
+                      onChange={(e) => {
+                        setFormData({ ...formData, password: e.target.value });
+                        if (validationErrors.password) {
+                          setValidationErrors({ ...validationErrors, password: "" });
+                        }
+                      }}
+                      placeholder="Wpisz hasło (min. 8 znaków)"
+                      className={validationErrors.password ? "border-red-500 pr-10" : "pr-10"}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                  {validationErrors.password && (
+                    <p className="text-sm text-red-500">{validationErrors.password}</p>
+                  )}
+                  {formData.password && (
+                    <PasswordStrengthIndicator password={formData.password} minLength={8} />
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -517,17 +750,34 @@ export default function Users() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isCreating}>
                   Anuluj
                 </Button>
-                <Button onClick={handleCreateUser} disabled={!adminClientAvailable}>
-                  {adminClientAvailable ? "Utwórz Użytkownika" : "Wymagana rola serwisowa"}
+                <Button onClick={handleCreateUser} disabled={!adminClientAvailable || isCreating}>
+                  {isCreating ? "Tworzenie..." : adminClientAvailable ? "Utwórz Użytkownika" : "Wymagana rola serwisowa"}
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
       </div>
+
+      {/* Credential Share Dialog */}
+      {createdUserCredentials && (
+        <CredentialShareDialog
+          open={showCredentialDialog}
+          onOpenChange={(open) => {
+            setShowCredentialDialog(open);
+            if (!open) {
+              // Clear credentials after dialog is closed
+              setCreatedUserCredentials(null);
+            }
+          }}
+          email={createdUserCredentials.email}
+          password={createdUserCredentials.password}
+          userName={createdUserCredentials.userName}
+        />
+      )}
 
       {/* Filters */}
       <Card>
@@ -575,89 +825,91 @@ export default function Users() {
             Zarządzaj wszystkimi użytkownikami systemu i ich uprawnieniami
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Użytkownik</TableHead>
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 data-[state=open]:bg-accent"
-                    onClick={handleRoleSort}
-                  >
-                    Rola
-                    {roleSortDirection === "asc" && <ArrowUp className="ml-2 h-4 w-4" />}
-                    {roleSortDirection === "desc" && <ArrowDown className="ml-2 h-4 w-4" />}
-                    {roleSortDirection === null && <ArrowUpDown className="ml-2 h-4 w-4" />}
-                  </Button>
-                </TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Utworzono</TableHead>
-                <TableHead className="text-right">Akcje</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      {user.first_name && user.last_name
-                        ? `${user.first_name} ${user.last_name}`
-                        : user.name
-                      }
-                    </div>
-                  </TableCell>
-                  <TableCell>{getRoleBadge(user.role)}</TableCell>
-                  <TableCell>{getStatusBadge(user.active)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex gap-2 justify-end">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(user)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Usuń Użytkownika</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              To trwale usunie użytkownika i wszystkie powiązane dane. Tej operacji nie można cofnąć.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Anuluj</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteUser(user.id, user.auth_id)}
-                              disabled={isDeleting}
-                              className="bg-red-600 hover:bg-red-700 text-white"
-                            >
-                              {isDeleting ? "Usuwanie..." : "Usuń"}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto max-h-[calc(8*3.5rem)] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50 sticky top-0 z-10">
+                  <TableHead>Użytkownik</TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 data-[state=open]:bg-accent"
+                      onClick={handleRoleSort}
+                    >
+                      Rola
+                      {roleSortDirection === "asc" && <ArrowUp className="ml-2 h-4 w-4" />}
+                      {roleSortDirection === "desc" && <ArrowDown className="ml-2 h-4 w-4" />}
+                      {roleSortDirection === null && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                    </Button>
+                  </TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Utworzono</TableHead>
+                  <TableHead className="text-right">Akcje</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        {user.first_name && user.last_name
+                          ? `${user.first_name} ${user.last_name}`
+                          : user.name
+                        }
+                      </div>
+                    </TableCell>
+                    <TableCell>{getRoleBadge(user.role)}</TableCell>
+                    <TableCell>{getStatusBadge(user.active)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(user)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Usuń użytkownika</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                To trwale usunie użytkownika i wszystkie powiązane dane. Tej operacji nie można cofnąć.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteUser(user.id, user.auth_id)}
+                                disabled={isDeleting}
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                              >
+                                {isDeleting ? "Usuwanie..." : "Usuń"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -665,7 +917,7 @@ export default function Users() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edytuj Użytkownika</DialogTitle>
+            <DialogTitle>Edytuj użytkownika</DialogTitle>
             <DialogDescription>
               Zaktualizuj informacje o użytkowniku i uprawnienia.
             </DialogDescription>
