@@ -1,9 +1,14 @@
 import { z } from 'zod';
 
+// Valid capacity_id values (a, b, c, d, e, f, g, h, and 'other' for OTHER rooms)
+const capacityIdSchema = z.string().regex(/^[a-h]|other$/, {
+  message: "Capacity ID must be a valid letter identifier (a-h) or 'other'"
+});
+
 // Task input validation schemas
 export const taskInputSchema = z.object({
   cleaning_type: z.enum(['W', 'P', 'T', 'O', 'G', 'S']),
-  guest_count: z.number().int().min(1).max(20),
+  guest_count: capacityIdSchema, // Now stores capacity_id (a, b, c, d, etc.) instead of numeric value
   reception_notes: z.string().max(2000).optional().or(z.literal('')),
   housekeeping_notes: z.string().max(2000).optional().or(z.literal('')),
   issue_description: z.string().max(5000).optional().or(z.literal('')),
