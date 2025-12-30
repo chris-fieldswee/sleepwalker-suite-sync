@@ -23,7 +23,7 @@ export interface Task {
   room: { id: string; name: string; group_type: string; color: string | null };
   user: { id: string; name: string } | null;
   cleaning_type: Database["public"]["Enums"]["cleaning_type"];
-  guest_count: number;
+  guest_count: string; // Now stores capacity_id (a, b, c, d, etc.) instead of numeric value
   time_limit: number | null;
   actual_time: number | null;
   difference: number | null;

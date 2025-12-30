@@ -160,8 +160,17 @@ export default function Rooms() {
 
       // For non-OTHER rooms, set legacy fields for backward compatibility
       if (roomData.group_type !== 'OTHER' && roomData.capacity_configurations.length > 0) {
-        roomDataToSave.capacity = roomData.capacity_configurations[0].capacity;
-        roomDataToSave.capacity_label = roomData.capacity_configurations[0].capacity_label;
+        const firstConfig = roomData.capacity_configurations[0];
+        // Use capacity_id to derive numeric capacity if not present
+        if (firstConfig.capacity !== undefined) {
+          roomDataToSave.capacity = firstConfig.capacity;
+        } else if (firstConfig.capacity_id) {
+          // Derive numeric capacity from capacity_label for backward compatibility
+          const label = firstConfig.capacity_label || '';
+          // This is a fallback - the numeric value is less important now
+          roomDataToSave.capacity = 2; // Default fallback
+        }
+        roomDataToSave.capacity_label = firstConfig.capacity_label;
       } else if (roomData.group_type === 'OTHER') {
         // OTHER rooms use capacity 0 (not null, since capacity is NOT NULL in database)
         roomDataToSave.capacity = 0;

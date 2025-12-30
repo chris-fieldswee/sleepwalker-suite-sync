@@ -41,7 +41,7 @@ export interface Task { // Export if used by other components/hooks
   status: Database["public"]["Enums"]["task_status"];
   room: Room;
   cleaning_type: Database["public"]["Enums"]["cleaning_type"];
-  guest_count: number;
+  guest_count: string; // Now stores capacity_id (a, b, c, d, etc.) instead of numeric value
   time_limit: number | null;
   start_time: string | null;
   pause_start: string | null;

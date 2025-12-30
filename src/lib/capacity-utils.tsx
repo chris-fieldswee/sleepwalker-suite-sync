@@ -12,6 +12,30 @@ export const CAPACITY_LABEL_ORDER = [
   "2+2+2",
 ];
 
+// Capacity identifier mapping: letter identifiers to labels
+export const CAPACITY_ID_TO_LABEL: Record<string, string> = {
+  'a': '1',
+  'b': '1+1',
+  'c': '1+1+1',
+  'd': '2',
+  'e': '2+1',
+  'f': '2+2',
+  'g': '2+2+1',
+  'h': '2+2+2',
+};
+
+// Reverse mapping: labels to letter identifiers
+export const LABEL_TO_CAPACITY_ID: Record<string, string> = {
+  '1': 'a',
+  '1+1': 'b',
+  '1+1+1': 'c',
+  '2': 'd',
+  '2+1': 'e',
+  '2+2': 'f',
+  '2+2+1': 'g',
+  '2+2+2': 'h',
+};
+
 export const normalizeCapacityLabel = (label: string): string => {
   if (!label) {
     return "";
@@ -32,7 +56,7 @@ export const normalizeCapacityLabel = (label: string): string => {
   return normalized || trimmed;
 };
 
-const getLabelGuestTotal = (label: string): number => {
+export const getLabelGuestTotal = (label: string): number => {
   if (!label) {
     return 0;
   }

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, Search, Edit, Trash2, User, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Eye, EyeOff, KeyRound, Copy, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { supabaseAdmin, isAdminClientAvailable } from "@/integrations/supabase/admin-client";
+import { adminApi } from "@/lib/admin-api";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 import { userCreationSchema } from "@/lib/validation";
@@ -53,18 +53,13 @@ export default function Users() {
     active: true,
   });
 
-  const adminClientAvailable = isAdminClientAvailable();
+  const adminClientAvailable = adminApi.isAvailable();
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setUsers(data || []);
+      const data = await adminApi.fetchUsers();
+      setUsers(data);
     } catch (error: any) {
       console.error("Error fetching users:", error);
       toast({
@@ -109,7 +104,7 @@ export default function Users() {
   // Check for duplicate email
   useEffect(() => {
     const checkEmail = async () => {
-      if (!formData.email || !supabaseAdmin) {
+      if (!formData.email) {
         setEmailExists(false);
         return;
       }
@@ -121,18 +116,9 @@ export default function Users() {
         return;
       }
 
-      try {
-        // Try to create user to check if email exists
-        // We'll use a different approach - check via admin API
-        const { data, error } = await supabaseAdmin.auth.admin.listUsers();
-        if (!error && data) {
-          const exists = data.users.some(user => user.email === formData.email);
-          setEmailExists(exists);
-        }
-      } catch (error) {
-        // If check fails, don't show error - let createUser handle it
-        setEmailExists(false);
-      }
+      // Email validation will be handled by the API when creating the user
+      // For now, we'll let the API handle duplicate detection
+      setEmailExists(false);
     };
 
     const timeoutId = setTimeout(checkEmail, 500);
@@ -242,129 +228,48 @@ export default function Users() {
 
     setIsCreating(true);
     try {
-      if (!supabaseAdmin) {
+      if (!adminClientAvailable) {
         toast({
           title: "Błąd",
-          description: "Klient administratora niedostępny. Upewnij się, że VITE_SUPABASE_SERVICE_ROLE_KEY jest ustawiony w .env.local",
+          description: "Klient administratora niedostępny. Upewnij się, że VITE_SUPABASE_SERVICE_ROLE_KEY jest ustawiony w .env.local (lokalnie) lub SUPABASE_SERVICE_ROLE_KEY w Vercel (produkcja)",
           variant: "destructive",
         });
         return;
       }
 
-      // 1. Check if user already exists in public.users (by name)
-      const { data: existingPublicUsers } = await supabaseAdmin
-        .from("users")
-        .select("id, auth_id")
-        .eq("name", formData.name)
-        .maybeSingle();
-
-      if (existingPublicUsers) {
-        throw new Error(`Użytkownik o nazwie "${formData.name}" już istnieje.`);
-      }
-
-      // 2. Create auth user with requires_password_change flag
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      const result = await adminApi.createUser({
         email: formData.email,
         password: formData.password,
-        email_confirm: true,
-        user_metadata: {
-          name: formData.name,
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          requires_password_change: true,
-        },
+        name: formData.name,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        role: formData.role,
+        active: formData.active,
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Nie udało się utworzyć użytkownika auth");
+      // Store credentials for sharing dialog
+      setCreatedUserCredentials({
+        email: formData.email,
+        password: formData.password,
+        userName: formData.name,
+      });
 
-      const newAuthId = authData.user.id;
+      // Close create dialog and show credential dialog
+      setIsCreateDialogOpen(false);
+      setShowCredentialDialog(true);
 
-      try {
-        // 3. Upsert into public.users (handle case where trigger already created entry)
-        // The handle_new_user() trigger may have already created a user entry
-        // Check if user already exists
-        const { data: existingUser } = await supabaseAdmin
-          .from("users")
-          .select("id")
-          .eq("auth_id", newAuthId)
-          .maybeSingle();
-
-        let userError;
-        if (existingUser) {
-          // Update existing user
-          const { error } = await supabaseAdmin
-            .from("users")
-            .update({
-              name: formData.name,
-              first_name: formData.first_name,
-              last_name: formData.last_name,
-              role: formData.role,
-              active: formData.active,
-            })
-            .eq("auth_id", newAuthId);
-          userError = error;
-        } else {
-          // Insert new user
-          const { error } = await supabaseAdmin
-            .from("users")
-            .insert({
-              auth_id: newAuthId,
-              name: formData.name,
-              first_name: formData.first_name,
-              last_name: formData.last_name,
-              role: formData.role,
-              active: formData.active,
-            });
-          userError = error;
-        }
-
-        if (userError) throw userError;
-
-        // 4. Insert into user_roles
-        const { error: roleError } = await supabaseAdmin
-          .from("user_roles")
-          .upsert([
-            {
-              user_id: newAuthId,
-              role: formData.role as Database["public"]["Enums"]["app_role"],
-            },
-          ], {
-            onConflict: 'user_id,role'
-          });
-
-        if (roleError) throw roleError;
-
-        // Store credentials for sharing dialog
-        setCreatedUserCredentials({
-          email: formData.email,
-          password: formData.password,
-          userName: formData.name,
-        });
-
-        // Close create dialog and show credential dialog
-        setIsCreateDialogOpen(false);
-        setShowCredentialDialog(true);
-
-        // Reset form
-        setFormData({
-          name: "",
-          email: "",
-          password: "",
-          first_name: "",
-          last_name: "",
-          role: "housekeeping" as UserRole,
-          active: true,
-        });
-        setValidationErrors({});
-        await fetchUsers();
-
-      } catch (innerError: any) {
-        // ROLLBACK: Delete the auth user if public table inserts fail
-        console.error("Transaction failed, rolling back auth user:", innerError);
-        await supabaseAdmin.auth.admin.deleteUser(newAuthId);
-        throw innerError;
-      }
+      // Reset form
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        first_name: "",
+        last_name: "",
+        role: "housekeeping" as UserRole,
+        active: true,
+      });
+      setValidationErrors({});
+      await fetchUsers();
 
     } catch (error: any) {
       console.error("Error creating user:", error);
@@ -382,79 +287,31 @@ export default function Users() {
     if (!selectedUser) return;
 
     try {
-      const client = supabaseAdmin ?? supabase;
-
-      // 1. Update public.users
-      const { error: userError } = await client
-        .from("users")
-        .update({
-          name: formData.name,
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          role: formData.role,
-          active: formData.active,
-        })
-        .eq("id", selectedUser.id);
-
-      if (userError) {
-        if (!supabaseAdmin && userError.code === "42501") {
-          throw new Error(
-            "Aktualizacja zablokowana przez RLS. Zaloguj się jako administrator lub skonfiguruj klucz roli serwisowej."
-          );
-        }
-        throw userError;
-      }
-
-      // 2. Update password (if provided)
+      // Handle password update separately if it's a self-update
       if (formData.password && selectedUser.auth_id) {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
-
+        
         if (currentUser?.id === selectedUser.auth_id) {
-          // Self-update
+          // Self-update password
           const { error: passwordError } = await supabase.auth.updateUser({
             password: formData.password
           });
           if (passwordError) throw passwordError;
           toast({ title: "Sukces", description: "Hasło zostało zaktualizowane" });
-        } else if (supabaseAdmin) {
-          // Admin update
-          const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
-            selectedUser.auth_id,
-            { password: formData.password }
-          );
-          if (passwordError) throw passwordError;
-          toast({ title: "Sukces", description: "Hasło użytkownika zostało zaktualizowane" });
-        } else {
-          toast({
-            title: "Ostrzeżenie",
-            description: "Nie można zmienić hasła innego użytkownika bez uprawnień administratora (service role).",
-            variant: "destructive",
-          });
+          setFormData((prev) => ({ ...prev, password: "" }));
         }
-        setFormData((prev) => ({ ...prev, password: "" }));
       }
 
-      // 3. Update user_roles (if role changed)
-      if (selectedUser.auth_id && formData.role !== selectedUser.role) {
-        // Use a transaction-like approach: delete old, insert new
-        // Note: In a real PG function this would be atomic. Here we do best effort.
-
-        const { error: deleteError } = await client
-          .from("user_roles")
-          .delete()
-          .eq("user_id", selectedUser.auth_id);
-
-        if (deleteError) console.warn("Warning: Failed to clear old roles", deleteError);
-
-        const { error: roleError } = await client
-          .from("user_roles")
-          .insert([{
-            user_id: selectedUser.auth_id,
-            role: formData.role as Database["public"]["Enums"]["app_role"],
-          }]);
-
-        if (roleError) throw new Error(`Nie udało się zaktualizować roli: ${roleError.message}`);
-      }
+      // Update user via admin API
+      await adminApi.updateUser(selectedUser.id, {
+        name: formData.name,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        role: formData.role,
+        active: formData.active,
+        password: formData.password && selectedUser.auth_id && (await supabase.auth.getUser()).data.user?.id !== selectedUser.auth_id ? formData.password : undefined,
+        auth_id: selectedUser.auth_id,
+      });
 
       toast({
         title: "Sukces",
@@ -463,6 +320,7 @@ export default function Users() {
 
       setIsEditDialogOpen(false);
       setSelectedUser(null);
+      setFormData((prev) => ({ ...prev, password: "" }));
       await fetchUsers();
 
     } catch (error: any) {
@@ -477,40 +335,17 @@ export default function Users() {
 
   const handleDeleteUser = async (userId: string, authId: string | null) => {
     try {
-      if (!supabaseAdmin) {
+      if (!adminClientAvailable) {
         toast({
           title: "Błąd",
-          description: "Klient administratora niedostępny. Usuwanie użytkownika wymaga VITE_SUPABASE_SERVICE_ROLE_KEY",
+          description: "Klient administratora niedostępny. Usuwanie użytkownika wymaga VITE_SUPABASE_SERVICE_ROLE_KEY (lokalnie) lub SUPABASE_SERVICE_ROLE_KEY w Vercel (produkcja)",
           variant: "destructive",
         });
         return;
       }
 
       setIsDeleting(true);
-
-      // Best effort cleanup: try to delete from all tables.
-      // We don't stop on error for auxiliary tables, but we do for the main user record.
-
-      if (authId) {
-        // 1. Delete user roles
-        await supabaseAdmin.from("user_roles").delete().eq("user_id", authId);
-      }
-
-      // 2. Delete from public.users
-      const { error: userError } = await supabaseAdmin
-        .from("users")
-        .delete()
-        .eq("id", userId);
-
-      if (userError) throw userError;
-
-      // 3. Delete from auth.users
-      if (authId) {
-        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(authId);
-        if (authError) {
-          console.warn("Failed to delete auth user (might already be gone):", authError);
-        }
-      }
+      await adminApi.deleteUser(userId, authId);
 
       toast({
         title: "Sukces",
@@ -929,7 +764,7 @@ export default function Users() {
                   Debug Info:<br />
                   Mode: {import.meta.env.MODE}<br />
                   Key Present: {import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ? 'Yes' : 'No'}<br />
-                  Admin Client: {isAdminClientAvailable() ? 'Available' : 'Unavailable'}
+                  Admin Client: {adminClientAvailable ? 'Available' : 'Unavailable'}
                 </div>
               </div>
             )}

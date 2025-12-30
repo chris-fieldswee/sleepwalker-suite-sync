@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabaseAdmin, isAdminClientAvailable } from "@/integrations/supabase/admin-client";
+import { adminApi } from "@/lib/admin-api";
 import { supabase } from "@/integrations/supabase/client";
 
 interface UserCreationResult {
@@ -31,10 +31,10 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
   ];
 
   const createUsers = async () => {
-    if (!supabaseAdmin) {
+    if (!adminApi.isAvailable()) {
       toast({
         title: "Błąd",
-        description: "Klient administratora niedostępny. Upewnij się, że VITE_SUPABASE_SERVICE_ROLE_KEY jest ustawiony w .env.local",
+        description: "Klient administratora niedostępny. Upewnij się, że VITE_SUPABASE_SERVICE_ROLE_KEY jest ustawiony w .env.local (lokalnie) lub SUPABASE_SERVICE_ROLE_KEY w Vercel (produkcja)",
         variant: "destructive",
       });
       return;
@@ -52,7 +52,7 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
           .from('users')
           .select('id, name, auth_id')
           .eq('name', user.name)
-          .single();
+          .maybeSingle();
 
         if (existingUser) {
           if (existingUser.auth_id) {
@@ -73,95 +73,21 @@ export const BulkCreateHousekeepingUsers: React.FC = () => {
           continue;
         }
 
-        // Step 1: Create auth user using admin client
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        // Create user using admin API
+        const result = await adminApi.createUser({
           email: user.email,
           password: 'housekeeping123', // Default password
-          email_confirm: true,
-          user_metadata: {
-            name: user.name,
-            first_name: user.firstName,
-            last_name: user.lastName,
-          },
+          name: user.name,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          role: "housekeeping",
+          active: true,
         });
-
-        if (authError) throw authError;
-        if (!authData.user) throw new Error("Nie udało się utworzyć użytkownika autoryzacji");
-
-        // Step 2: Upsert user into public.users table (handle case where trigger already created entry)
-        // The handle_new_user() trigger may have already created a user entry
-        // Check if user already exists
-        const { data: existingUser } = await supabase
-          .from("users")
-          .select("id")
-          .eq("auth_id", authData.user.id)
-          .maybeSingle();
-
-        let userData;
-        let userError;
-        if (existingUser) {
-          // Update existing user
-          const { data, error } = await supabase
-            .from("users")
-            .update({
-              name: user.name,
-              first_name: user.firstName,
-              last_name: user.lastName,
-              role: "housekeeping",
-              active: true,
-            })
-            .eq("auth_id", authData.user.id)
-            .select()
-            .single();
-          userData = data;
-          userError = error;
-        } else {
-          // Insert new user
-          const { data, error } = await supabase
-            .from("users")
-            .insert({
-              auth_id: authData.user.id,
-              name: user.name,
-              first_name: user.firstName,
-              last_name: user.lastName,
-              role: "housekeeping",
-              active: true,
-            })
-            .select()
-            .single();
-          userData = data;
-          userError = error;
-        }
-
-        if (userError) {
-          // Cleanup: delete the auth user if database insert fails
-          await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-          throw userError;
-        }
-
-        // Step 3: Insert role into user_roles table
-        const { error: roleError } = await supabase
-          .from("user_roles")
-          .upsert([
-            {
-              user_id: authData.user.id,
-              role: "housekeeping",
-            },
-          ], {
-            onConflict: 'user_id,role'
-          });
-
-        if (roleError) {
-          // Cleanup if role insert fails
-          await supabase.from("users").delete().eq("auth_id", authData.user.id);
-          await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-          throw roleError;
-        }
 
         creationResults.push({
           name: user.name,
           success: true,
-          userId: userData.id
+          userId: result.user.id
         });
 
       } catch (error: any) {

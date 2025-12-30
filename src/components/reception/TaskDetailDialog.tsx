@@ -41,7 +41,7 @@ const roomGroupLabels: Record<RoomGroup, string> = {
 
 // Helper function to parse capacity_configurations from a room
 const parseCapacityConfigurations = (room: Room | null): Array<{
-    capacity: number;
+    capacity_id: string;
     capacity_label: string;
     cleaning_types: Array<{ type: CleaningType; time_limit: number }>;
 }> => {
@@ -55,16 +55,26 @@ const parseCapacityConfigurations = (room: Room | null): Array<{
             configs = room.capacity_configurations;
         }
 
-        return configs.map((config: any) => ({
-            capacity: Number(config.capacity) || 0,
-            capacity_label: config.capacity_label || String(config.capacity || ''),
-            cleaning_types: Array.isArray(config.cleaning_types)
-                ? config.cleaning_types.map((ct: any) => ({
-                    type: ct.type as CleaningType,
-                    time_limit: Number(ct.time_limit) || 30
-                }))
-                : []
-        }));
+        return configs.map((config: any) => {
+            // Prefer capacity_id, fallback to deriving from capacity_label
+            let capacityId = config.capacity_id;
+            const capacityLabel = config.capacity_label || '';
+            
+            if (!capacityId && capacityLabel) {
+                capacityId = LABEL_TO_CAPACITY_ID[normalizeCapacityLabel(capacityLabel)] || '';
+            }
+            
+            return {
+                capacity_id: capacityId || 'd', // Default fallback
+                capacity_label: capacityLabel,
+                cleaning_types: Array.isArray(config.cleaning_types)
+                    ? config.cleaning_types.map((ct: any) => ({
+                        type: ct.type as CleaningType,
+                        time_limit: Number(ct.time_limit) || 30
+                    }))
+                    : []
+            };
+        });
     } catch (e) {
         console.error("Error parsing capacity_configurations:", e);
         return [];
@@ -73,8 +83,9 @@ const parseCapacityConfigurations = (room: Room | null): Array<{
 
 
 // Guest count options based on room's capacity_configurations
+// Now uses capacity_id (string) instead of numeric value
 type GuestOption = {
-    value: number;
+    value: string; // Now capacity_id
     label: string;
     display: React.ReactNode;
 };
@@ -87,7 +98,7 @@ const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
     // If room has capacity_configurations, use them
     if (configs.length > 0) {
         return configs.map(config => ({
-            value: config.capacity,
+            value: config.capacity_id,
             label: config.capacity_label,
             display: renderCapacityIconPattern(config.capacity_label)
         }));
@@ -98,42 +109,46 @@ const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
 
     switch (roomGroup) {
         case 'P1':
-            return [{ value: 1, label: '1', display: renderCapacityIconPattern('1') }];
+            return [{ value: 'a', label: '1', display: renderCapacityIconPattern('1') }];
 
         case 'P2':
             return [
-                { value: 1, label: '1', display: renderCapacityIconPattern('1') },
-                { value: 2, label: '2', display: renderCapacityIconPattern('2') },
-                { value: 2, label: '1+1', display: renderCapacityIconPattern('1+1') },
+                { value: 'a', label: '1', display: renderCapacityIconPattern('1') },
+                { value: 'd', label: '2', display: renderCapacityIconPattern('2') },
+                { value: 'b', label: '1+1', display: renderCapacityIconPattern('1+1') },
             ];
 
         case 'A1S':
             return [
-                { value: 1, label: '1', display: renderCapacityIconPattern('1') },
-                { value: 2, label: '2', display: renderCapacityIconPattern('2') },
-                { value: 2, label: '1+1', display: renderCapacityIconPattern('1+1') },
-                { value: 3, label: '2+1', display: renderCapacityIconPattern('2+1') },
-                { value: 4, label: '2+2', display: renderCapacityIconPattern('2+2') },
+                { value: 'a', label: '1', display: renderCapacityIconPattern('1') },
+                { value: 'd', label: '2', display: renderCapacityIconPattern('2') },
+                { value: 'b', label: '1+1', display: renderCapacityIconPattern('1+1') },
+                { value: 'e', label: '2+1', display: renderCapacityIconPattern('2+1') },
+                { value: 'f', label: '2+2', display: renderCapacityIconPattern('2+2') },
             ];
 
         case 'A2S':
             return [
-                { value: 1, label: '1', display: renderCapacityIconPattern('1') },
-                { value: 2, label: '2', display: renderCapacityIconPattern('2') },
-                { value: 2, label: '1+1', display: renderCapacityIconPattern('1+1') },
-                { value: 3, label: '2+1', display: renderCapacityIconPattern('2+1') },
-                { value: 4, label: '2+2', display: renderCapacityIconPattern('2+2') },
-                { value: 3, label: '1+1+1', display: renderCapacityIconPattern('1+1+1') },
-                { value: 5, label: '2+2+1', display: renderCapacityIconPattern('2+2+1') },
-                { value: 6, label: '2+2+2', display: renderCapacityIconPattern('2+2+2') },
+                { value: 'a', label: '1', display: renderCapacityIconPattern('1') },
+                { value: 'd', label: '2', display: renderCapacityIconPattern('2') },
+                { value: 'b', label: '1+1', display: renderCapacityIconPattern('1+1') },
+                { value: 'e', label: '2+1', display: renderCapacityIconPattern('2+1') },
+                { value: 'f', label: '2+2', display: renderCapacityIconPattern('2+2') },
+                { value: 'c', label: '1+1+1', display: renderCapacityIconPattern('1+1+1') },
+                { value: 'g', label: '2+2+1', display: renderCapacityIconPattern('2+2+1') },
+                { value: 'h', label: '2+2+2', display: renderCapacityIconPattern('2+2+2') },
             ];
 
         case 'OTHER':
-            return Array.from({ length: 10 }, (_, i) => ({
-                value: i + 1,
-                label: String(i + 1),
-                display: renderCapacityIconPattern(String(i + 1)),
-            }));
+            return Array.from({ length: 10 }, (_, i) => {
+                const label = String(i + 1);
+                const capacityId = LABEL_TO_CAPACITY_ID[label] || label;
+                return {
+                    value: capacityId,
+                    label: label,
+                    display: renderCapacityIconPattern(label),
+                };
+            });
 
         default:
             return [];
@@ -166,13 +181,13 @@ const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] =>
 };
 
 // Get time limit from room's capacity_configurations
-const getTimeLimitFromRoom = (room: Room | null, capacity: number, cleaningType: CleaningType): number | null => {
+const getTimeLimitFromRoom = (room: Room | null, capacityId: string, cleaningType: CleaningType): number | null => {
     if (!room) return null;
 
     const configs = parseCapacityConfigurations(room);
 
-    // Find the configuration matching the capacity
-    const config = configs.find(c => c.capacity === capacity);
+    // Find the configuration matching the capacity_id
+    const config = configs.find(c => c.capacity_id === capacityId);
     if (!config) return null;
 
     // Find the cleaning type in that configuration
@@ -190,7 +205,7 @@ interface Task {
     room: { id: string; name: string; group_type: string; color: string | null };
     user: { id: string; name: string } | null;
     cleaning_type: CleaningType;
-    guest_count: number;
+    guest_count: string; // Now stores capacity_id (a, b, c, d, etc.) instead of numeric value
     time_limit: number | null;
     actual_time: number | null;
     difference: number | null;
@@ -211,7 +226,7 @@ interface Task {
 interface EditableTaskState {
     roomId: string;
     cleaningType: CleaningType;
-    guestCount: number;
+    capacityId: string; // Changed from guestCount: number to capacityId: string
     staffId: string | 'unassigned';
     notes: string;
     date: string;
@@ -282,7 +297,7 @@ export function TaskDetailDialog({
             setEditableState({
                 roomId: task.room.id,
                 cleaningType: task.cleaning_type,
-                guestCount: task.guest_count,
+                capacityId: task.guest_count, // guest_count now stores capacity_id
                 staffId: task.user?.id || 'unassigned',
                 notes: task.reception_notes || '',
                 date: task.date,
@@ -377,11 +392,11 @@ export function TaskDetailDialog({
                 }
 
                 const guestOptions = getGuestCountOptionsFromRoom(selectedRoom);
-                nextState.guestCount = selectedRoom?.group_type === 'OTHER'
-                    ? 1
+                nextState.capacityId = selectedRoom?.group_type === 'OTHER'
+                    ? 'a' // Default to 'a' for OTHER rooms
                     : guestOptions.length > 0
                         ? guestOptions[0].value
-                        : 1;
+                        : 'd'; // Default to 'd' (2) if no options
             }
 
             return nextState;
@@ -397,7 +412,7 @@ export function TaskDetailDialog({
             return {
                 ...prev,
                 roomId: "",
-                guestCount: 1,
+                capacityId: 'a', // Default to 'a' (1)
                 cleaningType: nextCleaningType as CleaningType,
             };
         });
@@ -438,8 +453,9 @@ export function TaskDetailDialog({
             toast({ title: "Błąd Walidacji", description: "Pokój nie może być pusty.", variant: "destructive" });
             return;
         }
-        if (editableState.guestCount < 1) {
-            toast({ title: "Błąd Walidacji", description: "Liczba gości musi wynosić co najmniej 1.", variant: "destructive" });
+        // Validation: capacityId must be a valid letter identifier
+        if (!editableState.capacityId || !CAPACITY_ID_TO_LABEL[editableState.capacityId]) {
+            toast({ title: "Błąd Walidacji", description: "Nieprawidłowa pojemność.", variant: "destructive" });
             return;
         }
         if (editableState.notes && editableState.notes.length > 2000) {
@@ -456,7 +472,7 @@ export function TaskDetailDialog({
 
         if (editableState.roomId !== task.room.id) { updates.roomId = editableState.roomId; changed = true; }
         if (editableState.cleaningType !== task.cleaning_type) { updates.cleaningType = editableState.cleaningType; changed = true; }
-        if (editableState.guestCount !== task.guest_count) { updates.guestCount = editableState.guestCount; changed = true; }
+        if (editableState.capacityId !== task.guest_count) { updates.capacityId = editableState.capacityId; changed = true; }
         if (editableState.staffId !== (task.user?.id || 'unassigned')) { updates.staffId = editableState.staffId; changed = true; }
         if (editableState.notes !== (task.reception_notes || '')) { updates.notes = editableState.notes; changed = true; }
         if (editableState.date !== task.date) { updates.date = editableState.date; changed = true; }
@@ -520,7 +536,7 @@ export function TaskDetailDialog({
                     setEditableState({
                         roomId: updatedRoom?.id ?? '',
                         cleaningType: refreshedTask.cleaning_type as CleaningType,
-                        guestCount: updatedRoom?.group_type === 'OTHER' ? 0 : refreshedTask.guest_count,
+                        capacityId: updatedRoom?.group_type === 'OTHER' ? 'a' : refreshedTask.guest_count, // guest_count now stores capacity_id
                         staffId: updatedUser?.id ?? 'unassigned',
                         notes: refreshedTask.reception_notes ?? '',
                         date: refreshedTask.date,
@@ -529,7 +545,7 @@ export function TaskDetailDialog({
                     });
                     setSelectedGroup((updatedRoom?.group_type ?? task.room.group_type) as RoomGroup);
                     if (updatedRoom?.group_type === 'OTHER') {
-                        task.guest_count = 0;
+                        task.guest_count = 'a'; // Use 'a' for OTHER rooms
                     }
                 } else {
                     setEditableState(prev => prev ? { ...prev, ...updates } : prev);
@@ -574,20 +590,22 @@ export function TaskDetailDialog({
     const isOtherLocation = effectiveGroup === 'OTHER';
     const roomGroupLabel = roomGroupLabels[effectiveGroup] ?? effectiveGroup;
 
-    const effectiveGuestCount = isEditMode ? editableState.guestCount : task.guest_count;
+    const effectiveCapacityId = isEditMode ? editableState.capacityId : task.guest_count; // guest_count now stores capacity_id
     const effectiveCleaningType = (isEditMode ? editableState.cleaningType : task.cleaning_type) as CleaningType;
 
-    let capacityLabel = String(effectiveGuestCount);
+    // Lookup capacity label from capacity_id
+    let capacityLabel = CAPACITY_ID_TO_LABEL[effectiveCapacityId] || effectiveCapacityId;
     if (currentRoom) {
         const configs = parseCapacityConfigurations(currentRoom);
         if (configs.length > 0) {
-            const matchingByCapacity = configs.filter(config => config.capacity === effectiveGuestCount);
-            const matchByCleaning = matchingByCapacity.find(config =>
+            // Find config matching capacity_id
+            const matchingByCapacityId = configs.filter(config => config.capacity_id === effectiveCapacityId);
+            const matchByCleaning = matchingByCapacityId.find(config =>
                 config.cleaning_types.some(ct => ct.type === effectiveCleaningType)
             );
-            const chosenConfig = matchByCleaning ?? matchingByCapacity[0];
+            const chosenConfig = matchByCleaning ?? matchingByCapacityId[0];
             if (chosenConfig) {
-                capacityLabel = chosenConfig.capacity_label || String(chosenConfig.capacity);
+                capacityLabel = chosenConfig.capacity_label || CAPACITY_ID_TO_LABEL[effectiveCapacityId] || effectiveCapacityId;
             }
         } else if (currentRoom.capacity_label) {
             capacityLabel = currentRoom.capacity_label;
@@ -789,18 +807,9 @@ export function TaskDetailDialog({
                                     </div>
                                 ) : (
                                     <Select
-                                        value={(() => {
-                                            const selectedRoom = availableRooms.find(r => r.id === editableState.roomId) || null;
-                                            const options = getGuestCountOptionsFromRoom(selectedRoom);
-                                            // Find the last matching option to prefer "1+1" over "2" when both exist
-                                            const matchingOptions = options.filter(opt => opt.value === editableState.guestCount);
-                                            const matchingOption = matchingOptions.length > 0 ? matchingOptions[matchingOptions.length - 1] : null;
-                                            return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : String(editableState.guestCount);
-                                        })()}
+                                        value={editableState.capacityId || 'd'} // Default to 'd' if not set
                                         onValueChange={(value) => {
-                                            // Extract numeric value from composite "value-label" format
-                                            const numericValue = parseInt(value.split('-')[0], 10);
-                                            handleFieldChange('guestCount', numericValue);
+                                            handleFieldChange('capacityId', value);
                                         }}
                                         disabled={isUpdating}
                                     >

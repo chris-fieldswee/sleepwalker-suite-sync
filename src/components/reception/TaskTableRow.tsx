@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { User, Eye, Trash2, AlertTriangle, MessageSquare, CalendarDays } from "lucide-react"; // Added CalendarDays
 import { cn } from "@/lib/utils";
+import { CAPACITY_ID_TO_LABEL, renderCapacityIconPattern } from "@/lib/capacity-utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,7 +31,7 @@ interface Task {
   room: { name: string; group_type: string }; // Assuming group_type might be needed later, keep it
   user: { id: string; name: string } | null;
   cleaning_type: string;
-  guest_count: number;
+  guest_count: string; // Now stores capacity_id (a, b, c, d, etc.)
   time_limit: number | null;
   actual_time: number | null;
   difference: number | null;
@@ -91,21 +92,11 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
     S: "Standard"
   };
 
-  const renderGuestIcons = (count: number) => {
-    const icons = [];
-    // Ensure count is a positive integer, default to 1 if invalid/zero
-    const validCount = Math.max(1, Math.floor(count) || 1);
-    // Limit icons to prevent excessive width in table cell
-    const displayCount = Math.min(validCount, 5);
-
-    for (let i = 0; i < displayCount; i++) {
-      icons.push(<User key={i} className="h-4 w-4 text-muted-foreground" />);
-    }
-    // Show "+N" if count exceeds display limit
-    if (validCount > displayCount) {
-      icons.push(<span key="plus" className="text-xs text-muted-foreground ml-0.5">+{validCount - displayCount}</span>);
-    }
-    return <div className="flex items-center justify-center gap-0.5">{icons}</div>;
+  const renderGuestIcons = (capacityId: string) => {
+    // Lookup label from capacity_id
+    const label = CAPACITY_ID_TO_LABEL[capacityId] || capacityId;
+    // Use renderCapacityIconPattern to get the icon display
+    return <div className="flex items-center justify-center">{renderCapacityIconPattern(label)}</div>;
   };
 
   // Format difference with color coding

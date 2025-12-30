@@ -9,22 +9,24 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, User } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
-import { getCapacitySortKey, normalizeCapacityLabel, renderCapacityIconPattern } from "@/lib/capacity-utils";
+import { getCapacitySortKey, normalizeCapacityLabel, renderCapacityIconPattern, LABEL_TO_CAPACITY_ID, CAPACITY_ID_TO_LABEL, getLabelGuestTotal } from "@/lib/capacity-utils";
 
 type RoomGroup = Database["public"]["Enums"]["room_group"];
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
 
 type CapacityConfiguration = {
-  capacity: number;
+  capacity_id: string;
   capacity_label: string;
   cleaning_types: {
     type: CleaningType;
     time_limit: number;
   }[];
+  // Keep capacity field for backward compatibility during migration
+  capacity?: number;
 };
 
 type SelectedCapacity = {
-  capacity: number;
+  capacity_id: string;
   capacity_label: string;
 };
 
@@ -70,22 +72,22 @@ const availableCleaningTypes: Record<RoomGroup, CleaningType[]> = {
 // Get ALL available capacity options (not filtered by group type)
 // Each option is a distinct icon arrangement, independent of numerical calculations
 // Admin can select any capacity option for any room
-const getAllCapacityOptions = (): Array<{ value: number; label: string; display: React.ReactNode; patternId: string }> => {
-  // Define all 8 distinct icon arrangements as separate options
-  // Each has a unique patternId that maps to a specific visual arrangement
-  const distinctOptions: Array<{ value: number; label: string; patternId: string }> = [
-    { value: 1, label: '1', patternId: '1' },
-    { value: 2, label: '1+1', patternId: '1+1' },
-    { value: 3, label: '1+1+1', patternId: '1+1+1' },
-    { value: 2, label: '2', patternId: '2' },
-    { value: 3, label: '2+1', patternId: '2+1' },
-    { value: 4, label: '2+2', patternId: '2+2' },
-    { value: 5, label: '2+2+1', patternId: '2+2+1' },
-    { value: 6, label: '2+2+2', patternId: '2+2+2' },
+// Now uses capacity_id (letter identifiers) instead of numeric values
+const getAllCapacityOptions = (): Array<{ value: string; label: string; display: React.ReactNode; patternId: string }> => {
+  // Define all 8 distinct icon arrangements with their capacity_id mappings
+  const distinctOptions: Array<{ capacity_id: string; label: string; patternId: string }> = [
+    { capacity_id: 'a', label: '1', patternId: '1' },
+    { capacity_id: 'b', label: '1+1', patternId: '1+1' },
+    { capacity_id: 'c', label: '1+1+1', patternId: '1+1+1' },
+    { capacity_id: 'd', label: '2', patternId: '2' },
+    { capacity_id: 'e', label: '2+1', patternId: '2+1' },
+    { capacity_id: 'f', label: '2+2', patternId: '2+2' },
+    { capacity_id: 'g', label: '2+2+1', patternId: '2+2+1' },
+    { capacity_id: 'h', label: '2+2+2', patternId: '2+2+2' },
   ];
 
   return distinctOptions.map(option => ({
-    value: option.value,
+    value: option.capacity_id, // Now using capacity_id as value
     label: option.label,
     patternId: option.patternId,
     display: renderCapacityIconPattern(option.patternId)
@@ -171,7 +173,7 @@ export function RoomConfigurationDialog({
         });
 
         if (capacityConfigs && capacityConfigs.length > 0) {
-          // Extract unique capacities
+          // Extract unique capacities using capacity_id
           const capacityMap = new Map<string, SelectedCapacity>();
           const allCleaningTypes = new Map<CleaningType, number>();
 
@@ -179,13 +181,28 @@ export function RoomConfigurationDialog({
             console.log("Processing config:", config);
             if (!config || typeof config !== 'object') return;
 
-            const capacity = Number(config.capacity);
-            const capacityLabel = config.capacity_label || String(capacity);
-            const capacityKey = `${capacity}-${capacityLabel}`;
+            // Prefer capacity_id, fallback to deriving from capacity_label
+            let capacityId = config.capacity_id;
+            const capacityLabel = config.capacity_label || '';
+            
+            // If no capacity_id, try to derive from capacity_label
+            if (!capacityId && capacityLabel) {
+              capacityId = LABEL_TO_CAPACITY_ID[normalizeCapacityLabel(capacityLabel)] || null;
+            }
+            
+            // Legacy fallback: if still no capacity_id, try to derive from numeric capacity
+            if (!capacityId && config.capacity !== undefined) {
+              const numericCapacity = Number(config.capacity);
+              if (!isNaN(numericCapacity) && capacityLabel) {
+                capacityId = LABEL_TO_CAPACITY_ID[normalizeCapacityLabel(capacityLabel)] || null;
+              }
+            }
 
-            if (!capacityMap.has(capacityKey) && !isNaN(capacity)) {
+            const capacityKey = capacityId || `${config.capacity}-${capacityLabel}`;
+
+            if (capacityId && !capacityMap.has(capacityKey)) {
               capacityMap.set(capacityKey, {
-                capacity: capacity,
+                capacity_id: capacityId,
                 capacity_label: capacityLabel
               });
             }
@@ -212,9 +229,11 @@ export function RoomConfigurationDialog({
           });
         } else if (room.capacity !== null && room.group_type !== 'OTHER') {
           // Migrate from legacy single capacity
+          const capacityLabel = room.capacity_label || String(room.capacity);
+          const capacityId = LABEL_TO_CAPACITY_ID[normalizeCapacityLabel(capacityLabel)] || 'd'; // Default to 'd' if unknown
           parsedCapacities = [{
-            capacity: room.capacity,
-            capacity_label: room.capacity_label || String(room.capacity)
+            capacity_id: capacityId,
+            capacity_label: capacityLabel
           }];
         } else if (room.group_type === 'OTHER') {
           // For OTHER rooms, check if cleaning_types are stored in the legacy field
@@ -251,33 +270,34 @@ export function RoomConfigurationDialog({
     }
   }, [isOpen, room]);
 
-  const handleToggleCapacity = (option: { value: number; label: string }) => {
-    const capacityKey = `${option.value}-${option.label}`;
+  const handleToggleCapacity = (option: { value: string; label: string }) => {
+    const capacityId = option.value; // Now using capacity_id as value
     const exists = selectedCapacities.some(
-      cap => cap.capacity === option.value && cap.capacity_label === option.label
+      cap => cap.capacity_id === capacityId && cap.capacity_label === option.label
     );
 
     if (exists) {
       setSelectedCapacities(selectedCapacities.filter(
-        cap => !(cap.capacity === option.value && cap.capacity_label === option.label)
+        cap => !(cap.capacity_id === capacityId && cap.capacity_label === option.label)
       ));
     } else {
       setSelectedCapacities([...selectedCapacities, {
-        capacity: option.value,
+        capacity_id: capacityId,
         capacity_label: option.label
       }]);
     }
   };
 
-  const isCapacitySelected = (option: { value: number; label: string }): boolean => {
+  const isCapacitySelected = (option: { value: string; label: string }): boolean => {
+    const capacityId = option.value; // Now using capacity_id as value
     const isSelected = selectedCapacities.some(
       cap => {
-        // Compare both capacity value and label
+        // Compare both capacity_id and label
         // Handle cases where label might be a number string vs actual string
         const capLabelMatch = cap.capacity_label === option.label ||
           String(cap.capacity_label) === String(option.label);
-        const capValueMatch = cap.capacity === option.value;
-        return capValueMatch && capLabelMatch;
+        const capIdMatch = cap.capacity_id === capacityId;
+        return capIdMatch && capLabelMatch;
       }
     );
     return isSelected;
@@ -327,9 +347,11 @@ export function RoomConfigurationDialog({
     // Each capacity gets all cleaning types (since they're defined at room level)
     // For OTHER rooms, we still need to save cleaning types even without capacity configurations
     const capacityConfigurations: CapacityConfiguration[] = selectedCapacities.map(capacity => ({
-      capacity: capacity.capacity,
+      capacity_id: capacity.capacity_id,
       capacity_label: capacity.capacity_label,
-      cleaning_types: cleaningTypes
+      cleaning_types: cleaningTypes,
+      // Keep numeric capacity for backward compatibility (derived from capacity_id)
+      capacity: getLabelGuestTotal(capacity.capacity_label) || 0
     }));
 
     // For OTHER rooms, create a dummy capacity configuration with cleaning types if cleaning types are defined
@@ -337,11 +359,12 @@ export function RoomConfigurationDialog({
     let finalCapacityConfigurations = capacityConfigurations;
     if (groupType === 'OTHER' && cleaningTypes.length > 0) {
       // Create a placeholder capacity configuration for OTHER rooms to store cleaning types
-      // The capacity value doesn't matter for OTHER rooms, but we need the structure
+      // Use a special capacity_id for OTHER rooms
       finalCapacityConfigurations = [{
-        capacity: 0,
+        capacity_id: 'other',
         capacity_label: 'N/A',
-        cleaning_types: cleaningTypes
+        cleaning_types: cleaningTypes,
+        capacity: 0 // Keep for backward compatibility
       }];
     }
 

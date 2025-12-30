@@ -46,7 +46,7 @@ const roomGroupLabels: Record<RoomGroup, string> = {
 
 // Helper function to parse capacity_configurations from a room
 const parseCapacityConfigurations = (room: Room | null): Array<{
-    capacity: number;
+    capacity_id: string;
     capacity_label: string;
     cleaning_types: Array<{ type: CleaningType; time_limit: number }>;
 }> => {
@@ -60,16 +60,26 @@ const parseCapacityConfigurations = (room: Room | null): Array<{
             configs = room.capacity_configurations;
         }
 
-        return configs.map((config: any) => ({
-            capacity: Number(config.capacity) || 0,
-            capacity_label: config.capacity_label || String(config.capacity || ''),
-            cleaning_types: Array.isArray(config.cleaning_types)
-                ? config.cleaning_types.map((ct: any) => ({
-                    type: ct.type as CleaningType,
-                    time_limit: Number(ct.time_limit) || 30
-                }))
-                : []
-        }));
+        return configs.map((config: any) => {
+            // Prefer capacity_id, fallback to deriving from capacity_label
+            let capacityId = config.capacity_id;
+            const capacityLabel = config.capacity_label || '';
+            
+            if (!capacityId && capacityLabel) {
+                capacityId = LABEL_TO_CAPACITY_ID[normalizeCapacityLabel(capacityLabel)] || '';
+            }
+            
+            return {
+                capacity_id: capacityId || 'd', // Default fallback
+                capacity_label: capacityLabel,
+                cleaning_types: Array.isArray(config.cleaning_types)
+                    ? config.cleaning_types.map((ct: any) => ({
+                        type: ct.type as CleaningType,
+                        time_limit: Number(ct.time_limit) || 30
+                    }))
+                    : []
+            };
+        });
     } catch (e) {
         console.error("Error parsing capacity_configurations:", e);
         return [];
@@ -99,14 +109,15 @@ const prepareGuestOptions = (options: GuestOption[]): GuestOption[] => {
 };
 
 // Get guest count options from room's capacity_configurations
+// Now uses capacity_id (string) instead of numeric value
 type GuestOption = {
-    value: number;
+    value: string; // Now capacity_id
     label: string;
     display: React.ReactNode;
 };
 
 const getGuestOptionValue = (option: GuestOption): string =>
-    `${option.value}-${option.label}`;
+    option.value; // Now just return capacity_id directly
 
 const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
     if (!room) return [];
@@ -116,11 +127,9 @@ const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
     // If room has capacity_configurations, use them
     if (configs.length > 0) {
         const options = configs.map(config => {
-            const normalizedLabel = normalizeCapacityLabel(
-                config.capacity_label || String(config.capacity || '')
-            );
+            const normalizedLabel = normalizeCapacityLabel(config.capacity_label || '');
             return {
-                value: config.capacity,
+                value: config.capacity_id,
                 label: normalizedLabel,
                 display: renderCapacityIconPattern(normalizedLabel)
             };
@@ -134,42 +143,43 @@ const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
 
     switch (roomGroup) {
         case 'P1':
-            return prepareGuestOptions([{ value: 1, label: '1', display: renderCapacityIconPattern('1') }]);
+            return prepareGuestOptions([{ value: 'a', label: '1', display: renderCapacityIconPattern('1') }]);
 
         case 'P2':
             return prepareGuestOptions([
-                { value: 1, label: '1', display: renderCapacityIconPattern('1') },
-                { value: 2, label: '2', display: renderCapacityIconPattern('2') },
-                { value: 2, label: '1+1', display: renderCapacityIconPattern('1+1') },
+                { value: 'a', label: '1', display: renderCapacityIconPattern('1') },
+                { value: 'd', label: '2', display: renderCapacityIconPattern('2') },
+                { value: 'b', label: '1+1', display: renderCapacityIconPattern('1+1') },
             ]);
 
         case 'A1S':
             return prepareGuestOptions([
-                { value: 1, label: '1', display: renderCapacityIconPattern('1') },
-                { value: 2, label: '2', display: renderCapacityIconPattern('2') },
-                { value: 2, label: '1+1', display: renderCapacityIconPattern('1+1') },
-                { value: 3, label: '2+1', display: renderCapacityIconPattern('2+1') },
-                { value: 4, label: '2+2', display: renderCapacityIconPattern('2+2') },
+                { value: 'a', label: '1', display: renderCapacityIconPattern('1') },
+                { value: 'd', label: '2', display: renderCapacityIconPattern('2') },
+                { value: 'b', label: '1+1', display: renderCapacityIconPattern('1+1') },
+                { value: 'e', label: '2+1', display: renderCapacityIconPattern('2+1') },
+                { value: 'f', label: '2+2', display: renderCapacityIconPattern('2+2') },
             ]);
 
         case 'A2S':
             return prepareGuestOptions([
-                { value: 1, label: '1', display: renderCapacityIconPattern('1') },
-                { value: 2, label: '2', display: renderCapacityIconPattern('2') },
-                { value: 2, label: '1+1', display: renderCapacityIconPattern('1+1') },
-                { value: 3, label: '2+1', display: renderCapacityIconPattern('2+1') },
-                { value: 4, label: '2+2', display: renderCapacityIconPattern('2+2') },
-                { value: 3, label: '1+1+1', display: renderCapacityIconPattern('1+1+1') },
-                { value: 5, label: '2+2+1', display: renderCapacityIconPattern('2+2+1') },
-                { value: 6, label: '2+2+2', display: renderCapacityIconPattern('2+2+2') },
+                { value: 'a', label: '1', display: renderCapacityIconPattern('1') },
+                { value: 'd', label: '2', display: renderCapacityIconPattern('2') },
+                { value: 'b', label: '1+1', display: renderCapacityIconPattern('1+1') },
+                { value: 'e', label: '2+1', display: renderCapacityIconPattern('2+1') },
+                { value: 'f', label: '2+2', display: renderCapacityIconPattern('2+2') },
+                { value: 'c', label: '1+1+1', display: renderCapacityIconPattern('1+1+1') },
+                { value: 'g', label: '2+2+1', display: renderCapacityIconPattern('2+2+1') },
+                { value: 'h', label: '2+2+2', display: renderCapacityIconPattern('2+2+2') },
             ]);
 
         case 'OTHER':
             return prepareGuestOptions(
                 Array.from({ length: 10 }, (_, i) => {
                     const label = String(i + 1);
+                    const capacityId = LABEL_TO_CAPACITY_ID[label] || label;
                     return {
-                        value: i + 1,
+                        value: capacityId,
                         label,
                         display: renderCapacityIconPattern(label),
                     };
@@ -216,13 +226,13 @@ const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] =>
 };
 
 // Get time limit from room's capacity_configurations
-const getTimeLimitFromRoom = (room: Room | null, capacity: number, cleaningType: CleaningType): number | null => {
+const getTimeLimitFromRoom = (room: Room | null, capacityId: string, cleaningType: CleaningType): number | null => {
     if (!room) return null;
 
     const configs = parseCapacityConfigurations(room);
 
-    // Find the configuration matching the capacity
-    const config = configs.find(c => c.capacity === capacity);
+    // Find the configuration matching the capacity_id
+    const config = configs.find(c => c.capacity_id === capacityId);
     if (!config) return null;
 
     // Find the cleaning type in that configuration
@@ -300,7 +310,7 @@ export function AddTaskDialog({
 
     // Get time limit from room's capacity_configurations when room, cleaning type, and guest count are selected
     useEffect(() => {
-        if (!newTask.roomId || !newTask.cleaningType || !newTask.guestCount || !isOpen) {
+        if (!newTask.roomId || !newTask.cleaningType || !newTask.capacityId || !isOpen) {
             setTaskTimeLimit(null);
             return;
         }
@@ -312,15 +322,15 @@ export function AddTaskDialog({
         }
 
         // Get time limit from room's capacity_configurations
-        const timeLimit = getTimeLimitFromRoom(selectedRoom, newTask.guestCount, newTask.cleaningType);
+        const timeLimit = getTimeLimitFromRoom(selectedRoom, newTask.capacityId, newTask.cleaningType);
         setTaskTimeLimit(timeLimit);
 
         if (timeLimit !== null) {
-            console.log(`Time limit from room config for ${selectedRoom.name}/${newTask.cleaningType}/${newTask.guestCount}: ${timeLimit} minutes`);
+            console.log(`Time limit from room config for ${selectedRoom.name}/${newTask.cleaningType}/${newTask.capacityId}: ${timeLimit} minutes`);
         } else {
-            console.log(`No time limit found in room config for ${selectedRoom.name}/${newTask.cleaningType}/${newTask.guestCount}`);
+            console.log(`No time limit found in room config for ${selectedRoom.name}/${newTask.cleaningType}/${newTask.capacityId}`);
         }
-    }, [newTask.roomId, newTask.cleaningType, newTask.guestCount, isOpen, availableRooms]);
+    }, [newTask.roomId, newTask.cleaningType, newTask.capacityId, isOpen, availableRooms]);
 
     // Fetch available staff for the selected date and task requirements
     useEffect(() => {
@@ -436,7 +446,7 @@ export function AddTaskDialog({
                 ...prev,
                 roomId: "", // Clear the room selection
                 staffId: "", // Also clear staff selection
-                guestCount: 1, // Reset to default
+                capacityId: 'a', // Reset to default (1)
             }));
         }
     }, [filteredRooms, availableRooms, assignedRoomIds, newTask.roomId, isOpen]);
@@ -468,22 +478,22 @@ export function AddTaskDialog({
         if (guestCountOptions.length === 0) return;
 
         const hasMatchingOption = guestCountOptions.some(
-            (option) => option.value === newTask.guestCount
+            (option) => option.value === newTask.capacityId
         );
 
         if (!hasMatchingOption) {
             setNewTask((prev) => ({
                 ...prev,
-                guestCount: guestCountOptions[0].value,
+                capacityId: guestCountOptions[0].value,
             }));
         }
-    }, [isOpen, selectedRoom, isGuestCountDisabled, guestCountOptions, newTask.guestCount]);
+    }, [isOpen, selectedRoom, isGuestCountDisabled, guestCountOptions, newTask.capacityId]);
 
     const selectedGuestOptionValue = useMemo(() => {
         if (isGuestCountDisabled || !selectedRoom || guestCountOptions.length === 0) return "";
 
         const matchingOption = guestCountOptions.find(
-            (option) => option.value === newTask.guestCount
+            (option) => option.value === newTask.capacityId
         );
 
         if (matchingOption) {
@@ -491,7 +501,7 @@ export function AddTaskDialog({
         }
 
         return getGuestOptionValue(guestCountOptions[0]);
-    }, [selectedRoom, isGuestCountDisabled, guestCountOptions, newTask.guestCount]);
+    }, [selectedRoom, isGuestCountDisabled, guestCountOptions, newTask.capacityId]);
 
     // Reset form when dialog opens
     useEffect(() => {
@@ -549,7 +559,7 @@ export function AddTaskDialog({
             ...prev,
             roomId,
             staffId: "", // Clear staff selection when room changes
-            guestCount: defaultGuestCount, // Reset to first available guest count option
+            capacityId: defaultGuestCount, // Reset to first available capacity option (now capacity_id)
             cleaningType: defaultCleaningType // Reset to first available cleaning type for this room
         }));
     };
@@ -828,11 +838,10 @@ export function AddTaskDialog({
                             </div>
                         ) : (
                             <Select
-                                value={selectedGuestOptionValue}
+                                value={newTask.capacityId || ''}
                                 onValueChange={(value) => {
-                                    // Extract numeric value from composite "value-label" format
-                                    const numericValue = parseInt(value.split('-')[0], 10);
-                                    setNewTask(prev => ({ ...prev, guestCount: numericValue }));
+                                    // value is now capacity_id directly
+                                    setNewTask(prev => ({ ...prev, capacityId: value }));
                                 }}
                                 disabled={isSubmitting || !newTask.roomId}
                             >
@@ -842,9 +851,8 @@ export function AddTaskDialog({
                                 <SelectContent>
                                     {newTask.roomId && selectedRoom ? (
                                         guestCountOptions.map((option, index) => {
-                                            const uniqueValue = getGuestOptionValue(option);
                                             return (
-                                                <SelectItem key={`${uniqueValue}-${index}`} value={uniqueValue}>
+                                                <SelectItem key={`${option.value}-${index}`} value={option.value}>
                                                     {option.display}
                                                 </SelectItem>
                                             );
@@ -938,7 +946,7 @@ export function AddTaskDialog({
                             !newTask.date ||
                             !selectedGroup ||
                             !newTask.cleaningType ||
-                            (!isGuestCountDisabled && newTask.guestCount < 1)
+                            (!isGuestCountDisabled && !newTask.capacityId)
                         }
                     >
                         {isSubmitting ? "Adding..." : "Add Task"}

@@ -17,7 +17,7 @@ const OPEN_TASK_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'paused', 'repa
 export interface NewTaskState {
     roomId: string;
     cleaningType: CleaningType;
-    guestCount: number;
+    capacityId: string; // Changed from guestCount: number to capacityId: string
     staffId: string | 'unassigned';
     notes: string;
     date: string;
@@ -26,7 +26,7 @@ export interface NewTaskState {
 export interface EditableTaskState {
     roomId: string;
     cleaningType: CleaningType;
-    guestCount: number;
+    capacityId: string; // Changed from guestCount: number to capacityId: string
     staffId: string | 'unassigned';
     notes: string;
     date: string;
@@ -39,7 +39,7 @@ const getTodayDateString = () => new Date().toISOString().split("T")[0];
 const initialNewTaskState: NewTaskState = {
     roomId: "",
     cleaningType: "W",
-    guestCount: 2,
+    capacityId: "d", // Default to 'd' (2)
     staffId: "unassigned",
     notes: "",
     date: getTodayDateString(),
@@ -80,7 +80,7 @@ export function useReceptionActions(
 
   // Helper function to parse capacity_configurations from a room
   const parseCapacityConfigurations = (room: Room | null): Array<{
-    capacity: number;
+    capacity_id: string;
     capacity_label: string;
     cleaning_types: Array<{ type: CleaningType; time_limit: number }>;
   }> => {
@@ -94,16 +94,26 @@ export function useReceptionActions(
         configs = room.capacity_configurations;
       }
       
-      return configs.map((config: any) => ({
-        capacity: Number(config.capacity) || 0,
-        capacity_label: config.capacity_label || String(config.capacity || ''),
-        cleaning_types: Array.isArray(config.cleaning_types) 
-          ? config.cleaning_types.map((ct: any) => ({
-              type: ct.type as CleaningType,
-              time_limit: Number(ct.time_limit) || 30
-            }))
-          : []
-      }));
+      return configs.map((config: any) => {
+        // Prefer capacity_id, fallback to deriving from capacity_label
+        let capacityId = config.capacity_id;
+        const capacityLabel = config.capacity_label || '';
+        
+        if (!capacityId && capacityLabel) {
+          capacityId = LABEL_TO_CAPACITY_ID[normalizeCapacityLabel(capacityLabel)] || '';
+        }
+        
+        return {
+          capacity_id: capacityId || 'd', // Default fallback
+          capacity_label: capacityLabel,
+          cleaning_types: Array.isArray(config.cleaning_types) 
+            ? config.cleaning_types.map((ct: any) => ({
+                type: ct.type as CleaningType,
+                time_limit: Number(ct.time_limit) || 30
+              }))
+            : []
+        };
+      });
     } catch (e) {
       console.error("Error parsing capacity_configurations:", e);
       return [];
@@ -111,13 +121,13 @@ export function useReceptionActions(
   };
 
   // Get time limit from room's capacity_configurations
-  const getTimeLimitFromRoom = (room: Room | null, capacity: number, cleaningType: CleaningType): number | null => {
+  const getTimeLimitFromRoom = (room: Room | null, capacityId: string, cleaningType: CleaningType): number | null => {
     if (!room) return null;
     
     const configs = parseCapacityConfigurations(room);
     
-    // Find the configuration matching the capacity
-    const config = configs.find(c => c.capacity === capacity);
+    // Find the configuration matching the capacity_id
+    const config = configs.find(c => c.capacity_id === capacityId);
     if (!config) return null;
     
     // Find the cleaning type in that configuration
@@ -208,7 +218,7 @@ export function useReceptionActions(
 
             const validation = taskInputSchema.safeParse({
               cleaning_type: newTask.cleaningType,
-              guest_count: newTask.guestCount,
+              guest_count: newTask.capacityId, // guest_count now stores capacity_id
               reception_notes: newTask.notes,
               date: newTask.date,
               room_id: resolvedRoomId,
@@ -224,7 +234,7 @@ export function useReceptionActions(
             }
 
             // Get time limit from room's capacity_configurations
-            let timeLimit = getTimeLimitFromRoom(selectedRoom, newTask.guestCount, newTask.cleaningType);
+            let timeLimit = getTimeLimitFromRoom(selectedRoom, newTask.capacityId, newTask.cleaningType);
             
             // Fallback to global limits table if not found in room config
             if (timeLimit === null) {
@@ -234,7 +244,7 @@ export function useReceptionActions(
                   .select('time_limit')
                   .eq('group_type', selectedRoom.group_type)
                   .eq('cleaning_type', newTask.cleaningType)
-                  .eq('guest_count', newTask.guestCount)
+                  .eq('guest_count', newTask.capacityId) // guest_count now stores capacity_id
                   .maybeSingle();
 
               if (limitError) {
@@ -253,7 +263,7 @@ export function useReceptionActions(
                 date: newTask.date,
                 room_id: resolvedRoomId,
                 cleaning_type: newTask.cleaningType,
-                guest_count: newTask.guestCount,
+                guest_count: newTask.capacityId, // guest_count now stores capacity_id
                 time_limit: timeLimit,
                 reception_notes: newTask.notes || null,
                 user_id: userId,
@@ -546,7 +556,7 @@ export function useReceptionActions(
 
           if (updates.roomId !== undefined) { dbUpdates.room_id = updates.roomId; needsLimitCheck = true; }
           if (updates.cleaningType !== undefined) { dbUpdates.cleaning_type = updates.cleaningType; needsLimitCheck = true; }
-          if (updates.guestCount !== undefined) { dbUpdates.guest_count = updates.guestCount; needsLimitCheck = true; }
+          if (updates.capacityId !== undefined) { dbUpdates.guest_count = updates.capacityId; needsLimitCheck = true; } // guest_count now stores capacity_id
           if (updates.staffId !== undefined) { 
             dbUpdates.user_id = (updates.staffId === 'unassigned' || updates.staffId === '' || !updates.staffId) 
               ? null 
@@ -574,15 +584,15 @@ export function useReceptionActions(
               const room = availableRooms.find(r => r.id === finalRoomId);
               const groupType = room?.group_type;
               const cleaningType = updates.cleaningType ?? currentTaskInfo.cleaning_type;
-              const guestCount = updates.guestCount ?? currentTaskInfo.guest_count;
+              const capacityId = updates.capacityId ?? currentTaskInfo.guest_count; // guest_count now stores capacity_id
 
-             if (groupType && cleaningType && guestCount) {
+             if (groupType && cleaningType && capacityId) {
                   const { data: limitData, error: limitError } = await supabase
                      .from('limits')
                      .select('time_limit')
                      .eq('group_type', groupType)
                      .eq('cleaning_type', cleaningType)
-                     .eq('guest_count', guestCount)
+                     .eq('guest_count', capacityId) // guest_count now stores capacity_id
                      .maybeSingle();
 
                   if (limitError) console.warn("Could not fetch new time limit during update:", limitError.message);

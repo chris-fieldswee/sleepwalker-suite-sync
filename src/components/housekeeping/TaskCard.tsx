@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, Check, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { CAPACITY_ID_TO_LABEL } from "@/lib/capacity-utils";
 import { TaskActions } from './TaskActions';
 import { SecondaryTaskActions } from './SecondaryTaskActions';
 import { TaskTimerDisplay } from '@/pages/Housekeeping';
@@ -79,7 +80,7 @@ export function TaskCard({
         <div>
           <CardTitle className="text-lg font-semibold">{task.room?.name || 'Nieznany Pokój'}</CardTitle>
           <p className="text-xs text-muted-foreground pt-1">
-            Typ: {task.cleaning_type} / Goście: {task.guest_count} / Limit: {task.time_limit ? `${task.time_limit}m` : 'N/A'}
+            Typ: {task.cleaning_type} / Goście: {CAPACITY_ID_TO_LABEL[task.guest_count] || task.guest_count} / Limit: {task.time_limit ? `${task.time_limit}m` : 'N/A'}
           </p>
         </div>
         {/* Apply status color utility */}
