@@ -39,13 +39,21 @@ RENAME COLUMN guest_count_new TO guest_count;
 ALTER TABLE public.tasks 
 ALTER COLUMN guest_count DROP NOT NULL;
 
--- Set default to NULL (will be set properly after data migration)
+-- Remove the old integer default and set new text default
 ALTER TABLE public.tasks 
-ALTER COLUMN guest_count SET DEFAULT NULL;
+ALTER COLUMN guest_count DROP DEFAULT;
+
+-- Set default to 'd' (capacity 2, most common) after data migration
+-- This will be set in the data migration script
+-- ALTER TABLE public.tasks ALTER COLUMN guest_count SET DEFAULT 'd';
 
 -- Update limits table constraint
 ALTER TABLE public.limits 
 ALTER COLUMN guest_count DROP NOT NULL;
+
+-- Remove default from limits table
+ALTER TABLE public.limits 
+ALTER COLUMN guest_count DROP DEFAULT;
 
 -- Step 7: Re-add NOT NULL constraint after data migration completes
 -- (This will be done in the data migration script after all values are converted)

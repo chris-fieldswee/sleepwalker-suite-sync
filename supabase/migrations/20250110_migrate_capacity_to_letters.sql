@@ -204,9 +204,12 @@ END $$;
 ALTER TABLE public.tasks 
 ALTER COLUMN guest_count SET NOT NULL;
 
--- Set a default value (will be 'd' for capacity 2, which is most common)
+-- Set a default value ('d' for capacity 2, which is most common)
 ALTER TABLE public.tasks 
 ALTER COLUMN guest_count SET DEFAULT 'd';
+
+-- Re-add NOT NULL for limits table if needed
+-- ALTER TABLE public.limits ALTER COLUMN guest_count SET NOT NULL;
 
 -- For limits table, keep it nullable since it might not always be set
 -- ALTER TABLE public.limits ALTER COLUMN guest_count SET NOT NULL;
