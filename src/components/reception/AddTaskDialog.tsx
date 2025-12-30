@@ -12,7 +12,7 @@ import type { Room, Staff } from '@/hooks/useReceptionData';
 import type { NewTaskState } from '@/hooks/useReceptionActions';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
-import { getCapacitySortKey, normalizeCapacityLabel, renderCapacityIconPattern } from "@/lib/capacity-utils";
+import { getCapacitySortKey, normalizeCapacityLabel, renderCapacityIconPattern, LABEL_TO_CAPACITY_ID, CAPACITY_ID_TO_LABEL } from "@/lib/capacity-utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";

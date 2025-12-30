@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { renderCapacityIconPattern } from "@/lib/capacity-utils";
+import { renderCapacityIconPattern, LABEL_TO_CAPACITY_ID, CAPACITY_ID_TO_LABEL, normalizeCapacityLabel } from "@/lib/capacity-utils";
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];

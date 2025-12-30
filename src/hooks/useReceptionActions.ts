@@ -8,6 +8,7 @@ import type { Room, Staff } from './useReceptionData';
 import { taskInputSchema, workLogSchema } from '@/lib/validation';
 import { useAuth } from '@/contexts/AuthContext'; // ✅ FIXED: Import added
 import type { IssueTask } from '@/components/reception/IssueDetailDialog';
+import { LABEL_TO_CAPACITY_ID, normalizeCapacityLabel } from '@/lib/capacity-utils';
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
 type TaskStatus = Database["public"]["Enums"]["task_status"];
