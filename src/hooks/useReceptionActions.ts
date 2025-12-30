@@ -140,6 +140,9 @@ export function useReceptionActions(
 
   // --- handleAddTask ---
     const handleAddTask = async (newTask: NewTaskState): Promise<boolean> => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:142',message:'handleAddTask entry',data:{newTask,capacityId:newTask.capacityId,capacityIdType:typeof newTask.capacityId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         setIsSubmittingTask(true);
         let success = false;
         try {
@@ -225,6 +228,10 @@ export function useReceptionActions(
               room_id: resolvedRoomId,
             });
 
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:220',message:'validation result',data:{validationSuccess:validation.success,validationErrors:validation.success?null:validation.error.errors,capacityId:newTask.capacityId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
+
             if (!validation.success) {
               toast({
                 title: "Validation Error",
@@ -271,9 +278,17 @@ export function useReceptionActions(
                 status: 'todo' as const,
             };
 
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:263',message:'taskToInsert before insert',data:{taskToInsert,capacityId:newTask.capacityId,capacityIdType:typeof newTask.capacityId,guest_count:taskToInsert.guest_count,guest_countType:typeof taskToInsert.guest_count},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+
             // Try with regular client first
             let insertError = null;
             const { error: regularError } = await supabase.from('tasks').insert(taskToInsert);
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:276',message:'insert result',data:{hasError:!!regularError,errorCode:regularError?.code,errorMessage:regularError?.message,errorDetails:regularError?.details,errorHint:regularError?.hint},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
             
             // If RLS error and admin client is available, try with admin client
             if (regularError && regularError.code === '42501' && supabaseAdmin) {
@@ -304,6 +319,9 @@ export function useReceptionActions(
             success = true;
 
         } catch (error: any) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:306',message:'error caught in catch block',data:{errorMessage:error?.message,errorCode:error?.code,errorDetails:error?.details,errorHint:error?.hint,errorStack:error?.stack,errorString:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
             console.error("Error adding task:", error);
             toast({ title: "Error Adding Task", description: error.message, variant: "destructive" });
         } finally {

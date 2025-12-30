@@ -546,10 +546,14 @@ export function AddTaskDialog({
 
         const guestOptions = getGuestCountOptionsFromRoom(selectedRoom);
         const defaultGuestCount = selectedRoom.group_type === 'OTHER'
-            ? 1
+            ? 'other'  // Use 'other' string for OTHER rooms instead of number 1
             : guestOptions.length > 0
                 ? guestOptions[0].value
-                : 1;
+                : 'd';  // Default to 'd' instead of number 1
+
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:543',message:'handleRoomChange for OTHER room',data:{roomId,groupType:selectedRoom.group_type,isOther:selectedRoom.group_type==='OTHER',defaultGuestCount,defaultGuestCountType:typeof defaultGuestCount},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
 
         // Get available cleaning types for this room
         const availableTypes = getAvailableCleaningTypesFromRoom(selectedRoom);
@@ -579,6 +583,16 @@ export function AddTaskDialog({
         // Normalize room ID for comparison
         const normalizedRoomId = String(newTask.roomId).trim();
         let selectedRoom = availableRooms.find(r => String(r.id).trim() === normalizedRoomId);
+        
+        // Ensure capacityId is set to "other" for OTHER rooms before submission
+        if (selectedRoom?.group_type === 'OTHER') {
+            if (newTask.capacityId !== 'other') {
+                // Update state and submit with corrected capacityId
+                const correctedTask = { ...newTask, capacityId: 'other' };
+                await onSubmit(correctedTask);
+                return;
+            }
+        }
 
         // If still not found, try case-insensitive comparison
         if (!selectedRoom) {

@@ -112,7 +112,7 @@ export type Database = {
           cleaning_type: Database["public"]["Enums"]["cleaning_type"]
           created_at: string | null
           group_type: Database["public"]["Enums"]["room_group"]
-          guest_count: number
+          guest_count: string
           id: string
           time_limit: number
         }
@@ -120,7 +120,7 @@ export type Database = {
           cleaning_type: Database["public"]["Enums"]["cleaning_type"]
           created_at?: string | null
           group_type: Database["public"]["Enums"]["room_group"]
-          guest_count: number
+          guest_count: string
           id?: string
           time_limit: number
         }
@@ -128,7 +128,7 @@ export type Database = {
           cleaning_type?: Database["public"]["Enums"]["cleaning_type"]
           created_at?: string | null
           group_type?: Database["public"]["Enums"]["room_group"]
-          guest_count?: number
+          guest_count?: string
           id?: string
           time_limit?: number
         }
@@ -177,7 +177,7 @@ export type Database = {
           created_at: string | null
           date: string
           difference: number | null
-          guest_count: number
+          guest_count: string
           housekeeping_notes: string | null
           id: string
           issue_description: string | null
@@ -201,7 +201,7 @@ export type Database = {
           created_at?: string | null
           date?: string
           difference?: number | null
-          guest_count?: number
+          guest_count?: string
           housekeeping_notes?: string | null
           id?: string
           issue_description?: string | null
@@ -225,7 +225,7 @@ export type Database = {
           created_at?: string | null
           date?: string
           difference?: number | null
-          guest_count?: number
+          guest_count?: string
           housekeeping_notes?: string | null
           id?: string
           issue_description?: string | null

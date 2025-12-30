@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // Valid capacity_id values (a, b, c, d, e, f, g, h, and 'other' for OTHER rooms)
-const capacityIdSchema = z.string().regex(/^[a-h]|other$/, {
+const capacityIdSchema = z.string().regex(/^([a-h]|other)$/, {
   message: "Capacity ID must be a valid letter identifier (a-h) or 'other'"
 });
 
