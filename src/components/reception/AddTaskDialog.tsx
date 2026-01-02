@@ -200,14 +200,32 @@ const useGuestCountOptions = (selectedRoom: Room | null) => {
     }, [selectedRoom]);
 };
 
-// Sort cleaning types with 'G' (Generalne) always last
-const sortCleaningTypes = (types: CleaningType[]): CleaningType[] => {
+// Sort cleaning types: for non-OTHER groups use P, W, T, O, G order (G always last)
+// For OTHER groups, keep S, G order
+const sortCleaningTypes = (types: CleaningType[], roomGroup?: RoomGroup): CleaningType[] => {
+    // For OTHER group, just ensure G is last
+    if (roomGroup === 'OTHER') {
+        return types.sort((a, b) => {
+            if (a === 'G') return 1;
+            if (b === 'G') return -1;
+            return a.localeCompare(b);
+        });
+    }
+    
+    // For non-OTHER groups: P, W, T, O, G (G always last)
+    const typeOrder: CleaningType[] = ['P', 'W', 'T', 'O', 'G'];
     return types.sort((a, b) => {
         // Put 'G' at the end
         if (a === 'G') return 1;
         if (b === 'G') return -1;
-        // Sort others alphabetically
-        return a.localeCompare(b);
+        // Sort others by custom order
+        const indexA = typeOrder.indexOf(a);
+        const indexB = typeOrder.indexOf(b);
+        // If not in order array, sort alphabetically
+        if (indexA === -1 && indexB === -1) return a.localeCompare(b);
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
     });
 };
 
@@ -225,7 +243,7 @@ const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] =>
                 cleaningTypesSet.add(ct.type);
             });
         });
-        return sortCleaningTypes(Array.from(cleaningTypesSet));
+        return sortCleaningTypes(Array.from(cleaningTypesSet), room.group_type);
     }
 
     // Fallback to group-based logic for rooms without configurations
@@ -233,7 +251,7 @@ const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] =>
     if (roomGroup === 'OTHER') {
         return ['S', 'G'];
     }
-    return ['W', 'P', 'T', 'O', 'G'];
+    return ['P', 'W', 'T', 'O', 'G'];
 };
 
 // Get time limit from room's capacity_configurations
@@ -480,7 +498,17 @@ export function AddTaskDialog({
     const availableGroups = useMemo(() => {
         const groups = new Set<RoomGroup>();
         availableRooms.forEach(room => groups.add(room.group_type));
-        return Array.from(groups).sort();
+        // Sort in specific order: P1, P2, A1S, A2S, OTHER
+        const groupOrder: RoomGroup[] = ['P1', 'P2', 'A1S', 'A2S', 'OTHER'];
+        return Array.from(groups).sort((a, b) => {
+            const indexA = groupOrder.indexOf(a);
+            const indexB = groupOrder.indexOf(b);
+            // If not in order array, put at end
+            if (indexA === -1 && indexB === -1) return 0;
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
     }, [availableRooms]);
 
     // Filter rooms by selected group and exclude already assigned rooms
@@ -568,7 +596,7 @@ export function AddTaskDialog({
         // Fallback to group-based if no room selected
         if (!selectedGroup) return [];
         if (selectedGroup === 'OTHER') return ['S', 'G'];
-        return ['W', 'P', 'T', 'O', 'G'];
+        return ['P', 'W', 'T', 'O', 'G'];
     }, [selectedRoom, selectedGroup]);
 
     const guestCountOptions = useGuestCountOptions(selectedRoom);
@@ -631,8 +659,8 @@ export function AddTaskDialog({
         setSelectedGroup(group);
 
         // Reset room and cleaning type when group changes
-        const defaultTypes = group === 'OTHER' ? ['S', 'G'] : ['W', 'P', 'T', 'O', 'G'];
-        const defaultCleaningType = (defaultTypes[0] || 'W') as CleaningType;
+        const defaultTypes = group === 'OTHER' ? ['S', 'G'] : ['P', 'W', 'T', 'O', 'G'];
+        const defaultCleaningType = (defaultTypes[0] || 'P') as CleaningType;
         // #region agent log
         fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:620',message:'handleGroupChange cleaningType assignment',data:{group,defaultTypes,defaultCleaningType,cleaningTypeType:typeof defaultCleaningType},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'})}).catch(()=>{});
         // #endregion

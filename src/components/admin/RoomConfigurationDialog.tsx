@@ -61,10 +61,10 @@ const cleaningTypeLabels: Record<CleaningType, string> = {
 };
 
 const availableCleaningTypes: Record<RoomGroup, CleaningType[]> = {
-  P1: ['W', 'P', 'T', 'O', 'G'],
-  P2: ['W', 'P', 'T', 'O', 'G'],
-  A1S: ['W', 'P', 'T', 'O', 'G'],
-  A2S: ['W', 'P', 'T', 'O', 'G'],
+  P1: ['P', 'W', 'T', 'O', 'G'],
+  P2: ['P', 'W', 'T', 'O', 'G'],
+  A1S: ['P', 'W', 'T', 'O', 'G'],
+  A2S: ['P', 'W', 'T', 'O', 'G'],
   OTHER: ['S', 'G']
 };
 
@@ -425,11 +425,11 @@ export function RoomConfigurationDialog({
                   <SelectValue placeholder="Wybierz typ grupy" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="P1">P1</SelectItem>
-                  <SelectItem value="P2">P2</SelectItem>
-                  <SelectItem value="A1S">A1S</SelectItem>
-                  <SelectItem value="A2S">A2S</SelectItem>
-                  <SelectItem value="OTHER">Inna Lokalizacja</SelectItem>
+                  <SelectItem value="P1">Pokoje P1</SelectItem>
+                  <SelectItem value="P2">Pokoje P2</SelectItem>
+                  <SelectItem value="A1S">Apartamenty A1S</SelectItem>
+                  <SelectItem value="A2S">Apartamenty A2S</SelectItem>
+                  <SelectItem value="OTHER">Inne Przestrzenie</SelectItem>
                 </SelectContent>
               </Select>
             </div>

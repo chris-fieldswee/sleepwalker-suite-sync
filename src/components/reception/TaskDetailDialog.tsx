@@ -155,14 +155,32 @@ const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
     }
 };
 
-// Sort cleaning types with 'G' (Generalne) always last
-const sortCleaningTypes = (types: CleaningType[]): CleaningType[] => {
+// Sort cleaning types: for non-OTHER groups use P, W, T, O, G order (G always last)
+// For OTHER groups, keep S, G order
+const sortCleaningTypes = (types: CleaningType[], roomGroup?: RoomGroup): CleaningType[] => {
+    // For OTHER group, just ensure G is last
+    if (roomGroup === 'OTHER') {
+        return types.sort((a, b) => {
+            if (a === 'G') return 1;
+            if (b === 'G') return -1;
+            return a.localeCompare(b);
+        });
+    }
+    
+    // For non-OTHER groups: P, W, T, O, G (G always last)
+    const typeOrder: CleaningType[] = ['P', 'W', 'T', 'O', 'G'];
     return types.sort((a, b) => {
         // Put 'G' at the end
         if (a === 'G') return 1;
         if (b === 'G') return -1;
-        // Sort others alphabetically
-        return a.localeCompare(b);
+        // Sort others by custom order
+        const indexA = typeOrder.indexOf(a);
+        const indexB = typeOrder.indexOf(b);
+        // If not in order array, sort alphabetically
+        if (indexA === -1 && indexB === -1) return a.localeCompare(b);
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
     });
 };
 
@@ -180,7 +198,7 @@ const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] =>
                 cleaningTypesSet.add(ct.type);
             });
         });
-        return sortCleaningTypes(Array.from(cleaningTypesSet));
+        return sortCleaningTypes(Array.from(cleaningTypesSet), room.group_type);
     }
 
     // Fallback to group-based logic for rooms without configurations
@@ -188,7 +206,7 @@ const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] =>
     if (roomGroup === 'OTHER') {
         return ['S', 'G'];
     }
-    return ['W', 'P', 'T', 'O', 'G'];
+    return ['P', 'W', 'T', 'O', 'G'];
 };
 
 // Get time limit from room's capacity_configurations
@@ -284,7 +302,17 @@ export function TaskDetailDialog({
     const availableRoomGroups = useMemo<RoomGroup[]>(() => {
         const groups = new Set<RoomGroup>();
         availableRooms.forEach(room => groups.add(room.group_type as RoomGroup));
-        return Array.from(groups).sort();
+        // Sort in specific order: P1, P2, A1S, A2S, OTHER
+        const groupOrder: RoomGroup[] = ['P1', 'P2', 'A1S', 'A2S', 'OTHER'];
+        return Array.from(groups).sort((a, b) => {
+            const indexA = groupOrder.indexOf(a);
+            const indexB = groupOrder.indexOf(b);
+            // If not in order array, put at end
+            if (indexA === -1 && indexB === -1) return 0;
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
     }, [availableRooms]);
 
     const selectedRoom = useMemo(() => {
@@ -305,7 +333,7 @@ export function TaskDetailDialog({
         if (selectedGroup === 'OTHER') {
             return ['S', 'G'];
         }
-        return ['W', 'P', 'T', 'O', 'G'];
+        return ['P', 'W', 'T', 'O', 'G'];
     }, [selectedRoom, selectedGroup]);
 
     useEffect(() => {
@@ -428,7 +456,7 @@ export function TaskDetailDialog({
         setSelectedGroup(group);
         setEditableState(prev => {
             if (!prev) return null;
-            const defaultTypes = group === 'OTHER' ? ['S', 'G'] : ['W', 'P', 'T', 'O', 'G'];
+            const defaultTypes = group === 'OTHER' ? ['S', 'G'] : ['P', 'W', 'T', 'O', 'G'];
             const nextCleaningType = defaultTypes.includes(prev.cleaningType) ? prev.cleaningType : (defaultTypes[0] || prev.cleaningType);
             return {
                 ...prev,

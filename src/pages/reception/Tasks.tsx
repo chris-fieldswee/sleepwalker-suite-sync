@@ -81,11 +81,11 @@ const getDisplayDate = (dateStr: string | null) => {
 
 const allRoomGroups: RoomGroupOption[] = [
   { value: 'all', label: 'Wszystkie grupy' },
-  { value: 'P1', label: 'P1' },
-  { value: 'P2', label: 'P2' },
-  { value: 'A1S', label: 'A1S' },
-  { value: 'A2S', label: 'A2S' },
-  { value: 'OTHER', label: 'Inne' },
+  { value: 'P1', label: 'Pokoje P1' },
+  { value: 'P2', label: 'Pokoje P2' },
+  { value: 'A1S', label: 'Apartamenty A1S' },
+  { value: 'A2S', label: 'Apartamenty A2S' },
+  { value: 'OTHER', label: 'Inne Przestrzenie' },
 ];
 
 interface TasksProps {
