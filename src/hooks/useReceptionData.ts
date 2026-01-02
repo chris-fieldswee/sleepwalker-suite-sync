@@ -118,7 +118,7 @@ export function useReceptionData() {
       staffId: string,
       roomGroup: RoomGroup | 'all',
       roomId: string,
-      fetchAllTasks: boolean = false // New parameter to fetch all tasks regardless of date/status
+      fetchAllTasks: boolean = false // New parameter to fetch all tasks regardless of date (status filter still applies)
     ) => {
      console.log('fetchTasks called with:', { date, status, staffId, roomGroup, roomId, fetchAllTasks });
      let query = supabase.from("tasks")
@@ -145,12 +145,9 @@ export function useReceptionData() {
      }
 
      // Apply Status Filter
-     if (fetchAllTasks) {
-       // Fetch all tasks regardless of status
-       // Don't apply status filter
-     } else if (status === "all") {
-       // When status is "all" and not fetching all tasks, fetch all statuses (not just active ones)
-       // This is needed for "open" tab which shows all statuses from current/future dates
+     // Note: fetchAllTasks only affects date filter, status filter should always be applied
+     if (status === "all") {
+       // When status is "all", fetch all statuses (not just active ones)
        // Don't apply status filter - get all statuses
      } else {
        // Apply specific status filter

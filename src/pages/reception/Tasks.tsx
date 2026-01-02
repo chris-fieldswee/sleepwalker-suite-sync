@@ -379,6 +379,7 @@ export default function Tasks({
                 onClearFilters={onClearFilters}
                 showRoomGroupFilter={true}
                 allowPastDates={true}
+                showDoneStatus={true}
               />
             </CardContent>
           </Card>

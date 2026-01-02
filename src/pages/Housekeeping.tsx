@@ -354,8 +354,11 @@ export default function Housekeeping() {
                         <Button
                           id="open-date-filter"
                           variant="outline"
-                          className={`w-full justify-start text-left font-normal h-9 ${!dateFilter && "text-muted-foreground"
-                            } `}
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-9",
+                            !dateFilter && "text-muted-foreground",
+                            dateFilter && "border-[#7d212b]"
+                          )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateFilter ? (
@@ -389,7 +392,13 @@ export default function Housekeeping() {
                       Status
                     </Label>
                     <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value as TaskStatusFilter)}>
-                      <SelectTrigger id="open-status-filter" className="h-9">
+                      <SelectTrigger 
+                        id="open-status-filter" 
+                        className={cn(
+                          "h-9",
+                          statusFilter !== 'all' && "border-[#7d212b]"
+                        )}
+                      >
                         <SelectValue placeholder="Wybierz status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -468,8 +477,11 @@ export default function Housekeeping() {
                         <Button
                           id="all-date-filter"
                           variant="outline"
-                          className={`w-full justify-start text-left font-normal h-9 ${!dateFilter && "text-muted-foreground"
-                            } `}
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-9",
+                            !dateFilter && "text-muted-foreground",
+                            dateFilter && "border-[#7d212b]"
+                          )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateFilter ? (
@@ -503,7 +515,13 @@ export default function Housekeeping() {
                       Status
                     </Label>
                     <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value as TaskStatusFilter)}>
-                      <SelectTrigger id="all-status-filter" className="h-9">
+                      <SelectTrigger 
+                        id="all-status-filter" 
+                        className={cn(
+                          "h-9",
+                          statusFilter !== 'all' && "border-[#7d212b]"
+                        )}
+                      >
                         <SelectValue placeholder="Wybierz status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -611,13 +629,25 @@ export default function Housekeeping() {
                 );
               } else {
                 // No active task - show total time limits
+                const formatHours = (minutes: number): string => {
+                  const hours = Math.floor(minutes / 60);
+                  const remainingMinutes = minutes % 60;
+                  
+                  if (hours === 0) {
+                    return `${remainingMinutes}m`;
+                  }
+                  if (remainingMinutes === 0) {
+                    return `${hours}h`;
+                  }
+                  return `${hours}h ${remainingMinutes}m`;
+                };
                 return (
                   <>
                     <span className="text-muted-foreground">
                       Zadania na dziś
                     </span>
                     <span className="font-medium">
-                      {totalTimeLimit > 0 ? `Łącznie: ${totalTimeLimit}m` : 'Brak limitów'}
+                      {totalTimeLimit > 0 ? `Łącznie: ${formatHours(totalTimeLimit)}` : 'Brak limitów'}
                     </span>
                   </>
                 );
@@ -657,9 +687,9 @@ export const TaskTimerDisplay: React.FC<TaskTimerDisplayProps> = ({ task }) => {
   // Display for 'done' tasks
   if (task.status === 'done') {
     // Use actual_time if available and valid, otherwise display placeholder
-    const displayTime = (task.actual_time !== null && task.actual_time >= 0) ? `${task.actual_time} m` : '-';
-    // Use difference if available and valid
-    const displayDiff = (task.difference !== null) ? `(${task.difference > 0 ? '+' : ''}${task.difference}m)` : '';
+    const displayTime = (task.actual_time !== null && task.actual_time !== undefined && task.actual_time >= 0) ? `${task.actual_time} m` : '-';
+    // Use difference if available and valid (check for both null and undefined)
+    const displayDiff = (task.difference !== null && task.difference !== undefined) ? `(${task.difference > 0 ? '+' : ''}${task.difference}m)` : '';
     const diffColor = (task.difference ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400";
 
     return (

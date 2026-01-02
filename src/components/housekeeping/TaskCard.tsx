@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Check, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
-import { CAPACITY_ID_TO_LABEL } from "@/lib/capacity-utils";
+import { CAPACITY_ID_TO_LABEL, renderCapacityIconPattern } from "@/lib/capacity-utils";
 import { TaskActions } from './TaskActions';
 import { SecondaryTaskActions } from './SecondaryTaskActions';
 import { TaskTimerDisplay } from '@/pages/Housekeeping';
@@ -31,6 +31,18 @@ const getStatusLabel = (status: Task['status'] | null | undefined): string => {
     done: "Zrobione", repair_needed: "Naprawa",
   };
   return labels[status] || (status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' '));
+};
+
+const getCleaningTypeLabel = (type: string): string => {
+  const labels: Record<string, string> = {
+    W: "Wyjazd",
+    P: "Przyjazd",
+    T: "Transformacja",
+    O: "Odśwież",
+    G: "Głębokie",
+    S: "Serwis"
+  };
+  return labels[type] || type;
 };
 // --- END Utility Functions ---
 
@@ -85,7 +97,7 @@ export function TaskCard({
         <div>
           <CardTitle className="text-lg font-semibold">{task.room?.name || 'Nieznany Pokój'}</CardTitle>
           <p className="text-xs text-muted-foreground pt-1">
-            Typ: {task.cleaning_type} / Goście: {CAPACITY_ID_TO_LABEL[task.guest_count] || task.guest_count} / Limit: {task.time_limit ? `${task.time_limit}m` : 'N/A'}
+            Typ: <span className="font-bold">{getCleaningTypeLabel(task.cleaning_type)}</span> / Goście: <span className="font-bold inline-flex items-center">{renderCapacityIconPattern(CAPACITY_ID_TO_LABEL[task.guest_count] || task.guest_count)}</span> / Limit: <span className="font-bold">{task.time_limit ? `${task.time_limit}m` : 'N/A'}</span>
           </p>
           {/* #region agent log */}
           {(() => {

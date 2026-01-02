@@ -5,18 +5,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Staff, Room } from '@/hooks/useReceptionData'; // Import Room type
 import type { Database } from "@/integrations/supabase/types"; // Import Database types
 
 type TaskStatus = Database["public"]["Enums"]["task_status"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
 
-// Define statuses available in the filter dropdown
-const filterableStatuses: Array<{ value: TaskStatus | 'all', label: string }> = [
-  { value: 'all', label: 'Wszystkie aktywne' },
+// Base statuses available in the filter dropdown
+const baseFilterableStatuses: Array<{ value: TaskStatus | 'all', label: string }> = [
+  { value: 'all', label: 'Wszystkie' },
   { value: 'todo', label: 'Do sprzątania' },
   { value: 'in_progress', label: 'W trakcie' },
   { value: 'paused', label: 'Wstrzymane' },
+];
+
+// Additional status for "all tasks" tab
+const doneStatusOption: Array<{ value: TaskStatus | 'all', label: string }> = [
+  { value: 'done', label: 'Gotowe' },
 ];
 
 // *** MODIFICATION START: Define room group options type ***
@@ -43,6 +49,7 @@ interface TaskFiltersProps {
   onClearFilters: () => void;
   showRoomGroupFilter?: boolean;
   allowPastDates?: boolean;
+  showDoneStatus?: boolean; // Show "Gotowe" status option (for "all tasks" tab)
 }
 
 export const TaskFilters = ({
@@ -64,6 +71,7 @@ export const TaskFilters = ({
   onClearFilters,
   showRoomGroupFilter = true,
   allowPastDates = false,
+  showDoneStatus = false,
 }: TaskFiltersProps) => {
   // Filter available rooms based on selected room group
   const filteredRooms = useMemo(() => {
@@ -72,6 +80,14 @@ export const TaskFilters = ({
     }
     return availableRooms.filter(room => room.group_type === roomGroup);
   }, [availableRooms, roomGroup]);
+
+  // Build status options list - include "done" status if showDoneStatus is true
+  const filterableStatuses = useMemo(() => {
+    if (showDoneStatus) {
+      return [...baseFilterableStatuses, ...doneStatusOption];
+    }
+    return baseFilterableStatuses;
+  }, [showDoneStatus]);
 
   const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onDateChange(e.target.value || null);
@@ -110,7 +126,10 @@ export const TaskFilters = ({
           value={date ?? ''}
           onChange={handleDateInputChange}
           min={allowPastDates ? undefined : new Date().toISOString().split('T')[0]} // Allow past dates if allowPastDates is true
-          className="bg-card h-9 text-sm"
+          className={cn(
+            "bg-card h-9 text-sm",
+            date && "border-[#7d212b]"
+          )}
         />
       </div>
 
@@ -118,7 +137,13 @@ export const TaskFilters = ({
       <div className="space-y-1">
         <Label htmlFor="status-filter">Status</Label>
         <Select value={status} onValueChange={onStatusChange}>
-          <SelectTrigger id="status-filter" className="bg-card h-9 text-sm">
+          <SelectTrigger 
+            id="status-filter" 
+            className={cn(
+              "bg-card h-9 text-sm",
+              status !== 'all' && "border-[#7d212b]"
+            )}
+          >
             <SelectValue placeholder="Filtruj status..." />
           </SelectTrigger>
           <SelectContent className="bg-card z-50">
@@ -135,7 +160,13 @@ export const TaskFilters = ({
       <div className="space-y-1">
         <Label htmlFor="staff-filter">Personel</Label>
         <Select value={staffId} onValueChange={onStaffChange}>
-          <SelectTrigger id="staff-filter" className="bg-card h-9 text-sm">
+          <SelectTrigger 
+            id="staff-filter" 
+            className={cn(
+              "bg-card h-9 text-sm",
+              staffId !== 'all' && staffId !== 'unassigned' && "border-[#7d212b]"
+            )}
+          >
             <SelectValue placeholder="Filtruj personel..." />
           </SelectTrigger>
           <SelectContent className="bg-card z-50">
@@ -155,7 +186,13 @@ export const TaskFilters = ({
         <div className="space-y-1">
           <Label htmlFor="group-filter">Grupa</Label>
           <Select value={roomGroup} onValueChange={handleRoomGroupChange}>
-            <SelectTrigger id="group-filter" className="bg-card h-9 text-sm">
+            <SelectTrigger 
+              id="group-filter" 
+              className={cn(
+                "bg-card h-9 text-sm",
+                roomGroup !== 'all' && "border-[#7d212b]"
+              )}
+            >
               <SelectValue placeholder="Filtruj grupę..." />
             </SelectTrigger>
             <SelectContent className="bg-card z-50">
@@ -175,7 +212,13 @@ export const TaskFilters = ({
       <div className="space-y-1">
         <Label htmlFor="room-filter">Pokój</Label>
         <Select value={roomId} onValueChange={handleRoomChange}>
-          <SelectTrigger id="room-filter" className="bg-card h-9 text-sm">
+          <SelectTrigger 
+            id="room-filter" 
+            className={cn(
+              "bg-card h-9 text-sm",
+              roomId !== 'all' && "border-[#7d212b]"
+            )}
+          >
             <SelectValue placeholder="Filtruj pokój..." />
           </SelectTrigger>
           <SelectContent className="bg-card z-50">
