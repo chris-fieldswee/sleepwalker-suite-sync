@@ -200,6 +200,17 @@ const useGuestCountOptions = (selectedRoom: Room | null) => {
     }, [selectedRoom]);
 };
 
+// Sort cleaning types with 'G' (Generalne) always last
+const sortCleaningTypes = (types: CleaningType[]): CleaningType[] => {
+    return types.sort((a, b) => {
+        // Put 'G' at the end
+        if (a === 'G') return 1;
+        if (b === 'G') return -1;
+        // Sort others alphabetically
+        return a.localeCompare(b);
+    });
+};
+
 // Get available cleaning types from room's capacity_configurations
 const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] => {
     if (!room) return [];
@@ -214,7 +225,7 @@ const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] =>
                 cleaningTypesSet.add(ct.type);
             });
         });
-        return Array.from(cleaningTypesSet).sort();
+        return sortCleaningTypes(Array.from(cleaningTypesSet));
     }
 
     // Fallback to group-based logic for rooms without configurations
@@ -357,15 +368,21 @@ export function AddTaskDialog({
             }
             
             if (numericGuestCount !== null) {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:370',message:'Fetching time limit from limits table',data:{numericGuestCount,guestCountString:String(numericGuestCount),groupType:selectedRoom.group_type,cleaningType:newTask.cleaningType},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
                 // Fetch from limits table asynchronously
                 supabase
                     .from('limits')
                     .select('time_limit')
                     .eq('group_type', selectedRoom.group_type)
                     .eq('cleaning_type', newTask.cleaningType)
-                    .eq('guest_count', numericGuestCount)
+                    .eq('guest_count', String(numericGuestCount))
                     .maybeSingle()
                     .then(({ data: limitData, error: limitError }) => {
+                        // #region agent log
+                        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:379',message:'Time limit query result',data:{hasError:!!limitError,error:limitError?.message,hasData:!!limitData,timeLimit:limitData?.time_limit},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
+                        // #endregion
                         if (limitError) {
                             console.warn(`Could not fetch time limit: ${limitError.message}.`);
                         } else if (limitData) {
@@ -386,15 +403,23 @@ export function AddTaskDialog({
 
         const fetchAvailableStaff = async () => {
             try {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:401',message:'Fetching staff availability',data:{date:newTask.date,taskTimeLimit},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+                // #endregion
                 // Get staff availability for the selected date
-                const { data: availabilityData, error: availabilityError } = await supabase
-                    .from('staff_availability')
+                // Note: staff_availability table exists but may not be in TypeScript types yet
+                const { data: availabilityData, error: availabilityError } = await (supabase
+                    .from('staff_availability' as any)
                     .select(`
                         staff_id,
                         available_hours,
                         staff:users(id, name, first_name, last_name, role)
                     `)
-                    .eq('date', newTask.date);
+                    .eq('date', newTask.date) as any);
+
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:412',message:'Staff availability query result',data:{hasError:!!availabilityError,error:availabilityError?.message,dataCount:availabilityData?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+                // #endregion
 
                 if (availabilityError) {
                     console.error('Error fetching staff availability:', availabilityError);
@@ -607,11 +632,15 @@ export function AddTaskDialog({
 
         // Reset room and cleaning type when group changes
         const defaultTypes = group === 'OTHER' ? ['S', 'G'] : ['W', 'P', 'T', 'O', 'G'];
+        const defaultCleaningType = (defaultTypes[0] || 'W') as CleaningType;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:620',message:'handleGroupChange cleaningType assignment',data:{group,defaultTypes,defaultCleaningType,cleaningTypeType:typeof defaultCleaningType},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         setNewTask(prev => ({
             ...prev,
             roomId: "", // Clear selected room
-            cleaningType: defaultTypes[0] || 'W', // Set first available type or default
-            guestCount: 1, // Reset guest count; will be ignored for OTHER
+            cleaningType: defaultCleaningType, // Set first available type or default
+            capacityId: 'a', // Reset capacity ID to default
         }));
     };
 

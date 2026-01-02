@@ -155,6 +155,17 @@ const getGuestCountOptionsFromRoom = (room: Room | null): GuestOption[] => {
     }
 };
 
+// Sort cleaning types with 'G' (Generalne) always last
+const sortCleaningTypes = (types: CleaningType[]): CleaningType[] => {
+    return types.sort((a, b) => {
+        // Put 'G' at the end
+        if (a === 'G') return 1;
+        if (b === 'G') return -1;
+        // Sort others alphabetically
+        return a.localeCompare(b);
+    });
+};
+
 // Get available cleaning types from room's capacity_configurations
 const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] => {
     if (!room) return [];
@@ -169,7 +180,7 @@ const getAvailableCleaningTypesFromRoom = (room: Room | null): CleaningType[] =>
                 cleaningTypesSet.add(ct.type);
             });
         });
-        return Array.from(cleaningTypesSet).sort();
+        return sortCleaningTypes(Array.from(cleaningTypesSet));
     }
 
     // Fallback to group-based logic for rooms without configurations

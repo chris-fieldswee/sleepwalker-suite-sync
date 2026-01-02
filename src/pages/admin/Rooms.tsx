@@ -15,6 +15,18 @@ import { RoomConfigurationDialog } from "@/components/admin/RoomConfigurationDia
 
 type Room = Database["public"]["Tables"]["rooms"]["Row"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
+type CleaningType = Database["public"]["Enums"]["cleaning_type"];
+
+// Sort cleaning types with 'G' (Generalne) always last
+const sortCleaningTypes = (types: CleaningType[]): CleaningType[] => {
+  return types.sort((a, b) => {
+    // Put 'G' at the end
+    if (a === 'G') return 1;
+    if (b === 'G') return -1;
+    // Sort others alphabetically
+    return a.localeCompare(b);
+  });
+};
 
 export default function Rooms() {
   const { toast } = useToast();
@@ -156,7 +168,7 @@ export default function Rooms() {
           });
         }
       });
-      roomDataToSave.cleaning_types = Array.from(cleaningTypesSet).sort();
+      roomDataToSave.cleaning_types = sortCleaningTypes(Array.from(cleaningTypesSet) as CleaningType[]);
 
       // For non-OTHER rooms, set legacy fields for backward compatibility
       if (roomData.group_type !== 'OTHER' && roomData.capacity_configurations.length > 0) {
