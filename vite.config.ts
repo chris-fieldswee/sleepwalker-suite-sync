@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
       VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt', // Changed to 'prompt' to force update check
       includeAssets: ['icon-192.svg', 'icon-512.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'SleepWalker Housekeeping',
@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => ({
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
-        start_url: '/',
+        start_url: '/?v=2', // Add version query param to force cache refresh
         icons: [
           {
             src: '/icon-192.svg',
@@ -43,6 +43,9 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // Force update on every deployment
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*$/,
