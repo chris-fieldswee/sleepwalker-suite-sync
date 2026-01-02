@@ -71,7 +71,7 @@ export default function TaskDetails() {
     const navigate = useNavigate();
     const { signOut } = useAuth();
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetails.tsx:57',message:'calling useHousekeepingTasks hook',data:{taskId:taskId},timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetails.tsx:57',message:'calling useHousekeepingTasks hook',data:{taskId:taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
     // #endregion
     const { tasks, loading, activeTaskId, setActiveTaskId, fetchTasks } = useHousekeepingTasks();
     // #region agent log
