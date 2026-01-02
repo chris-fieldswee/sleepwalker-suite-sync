@@ -257,16 +257,14 @@ export function IssueDetailDialog({
                                 {formatDate(issue.reported_at)}
                             </p>
                         </div>
-                        {issue.reported_by && (
-                            <div className="space-y-1">
-                                <Label className="text-muted-foreground flex items-center gap-1">
-                                    <User className="h-4 w-4" /> Zgłaszający
-                                </Label>
-                                <p className="text-sm border p-2 rounded bg-muted/30">
-                                    {getDisplayName(issue.reported_by)}
-                                </p>
-                            </div>
-                        )}
+                        <div className="space-y-1">
+                            <Label className="text-muted-foreground flex items-center gap-1">
+                                <User className="h-4 w-4" /> Zgłaszający
+                            </Label>
+                            <p className="text-sm border p-2 rounded bg-muted/30">
+                                {issue.reported_by ? getDisplayName(issue.reported_by) : <span className="italic text-muted-foreground/70">Nieznany</span>}
+                            </p>
+                        </div>
                     </div>
 
                     {/* Assigned Staff */}

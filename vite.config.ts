@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
       VitePWA({
-      registerType: 'prompt', // Changed to 'prompt' to force update check
+      registerType: 'autoUpdate', // Automatically update without user prompt
       includeAssets: ['icon-192.svg', 'icon-512.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'SleepWalker Housekeeping',

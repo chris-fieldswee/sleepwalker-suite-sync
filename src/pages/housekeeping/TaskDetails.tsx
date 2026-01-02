@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { TaskTimerDisplay, useTaskTimer } from "@/pages/Housekeeping";
 import { SecondaryTaskActions } from "@/components/housekeeping/SecondaryTaskActions";
 import type { Task } from "@/pages/Housekeeping";
+import { CAPACITY_ID_TO_LABEL, renderCapacityIconPattern } from "@/lib/capacity-utils";
 
 // Utility functions
 const getStatusColor = (status: Task['status'] | null | undefined): string => {
@@ -144,7 +145,9 @@ export default function TaskDetails() {
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Liczba gości</p>
-                                <p className="font-medium">{task.guest_count}</p>
+                                <div className="font-medium">
+                                    {renderCapacityIconPattern(CAPACITY_ID_TO_LABEL[task.guest_count] || task.guest_count)}
+                                </div>
                             </div>
                             {task.time_limit && (
                                 <div>

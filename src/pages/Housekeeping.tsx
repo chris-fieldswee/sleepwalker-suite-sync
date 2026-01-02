@@ -158,7 +158,7 @@ export function useTaskTimer(task: Task | null): number | null {
 
 // --- Main Component ---
 export default function Housekeeping() {
-  const { signOut } = useAuth(); // Only need signOut from AuthContext directly now
+  const { signOut, userId, user } = useAuth();
 
   // Destructure fetchTasks from the hook
   const { tasks, loading, activeTaskId, setActiveTaskId, fetchTasks } = useHousekeepingTasks();
@@ -167,58 +167,81 @@ export default function Housekeeping() {
 
   // Local state for filter and active tab
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
-  const [activeTab, setActiveTab] = useState<'current' | 'archive'>('current');
-  const [dateFilter, setDateFilter] = useState<string>(''); // For archive tab date filtering
+  const [activeTab, setActiveTab] = useState<'open' | 'all'>('open');
+  const [dateFilter, setDateFilter] = useState<string>(''); // For date filtering
+  const [userName, setUserName] = useState<string>('');
 
-  // Get today's date for comparison
+  // Fetch user name
+  useEffect(() => {
+    const fetchUserName = async () => {
+      if (!userId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('name, first_name, last_name')
+          .eq('id', userId)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Error fetching user name:', error);
+          return;
+        }
+        
+        if (data) {
+          // Prefer first_name + last_name, fallback to name
+          const displayName = data.first_name && data.last_name
+            ? `${data.first_name} ${data.last_name}`
+            : data.name || user?.email || '';
+          setUserName(displayName);
+        }
+      } catch (error) {
+        console.error('Error fetching user name:', error);
+      }
+    };
+
+    fetchUserName();
+  }, [userId, user]);
+
+  // Get today's date for comparison (used for progress calculation)
   const todayDate = useMemo(() => {
     const today = new Date();
     return today.toISOString().split('T')[0];
   }, []);
 
-  // Split tasks into current and archived
-  // Current: today/future tasks that are not done
-  // Archived: past date tasks OR completed tasks from today
-  const currentTasks = useMemo(() => {
-    return tasks.filter(task => task.date >= todayDate && task.status !== 'done');
-  }, [tasks, todayDate]);
-
-  const archivedTasks = useMemo(() => {
-    return tasks.filter(task => task.date < todayDate || (task.date === todayDate && task.status === 'done'));
-  }, [tasks, todayDate]);
-
-  // Get unique dates from archived tasks for the date filter
-  const archiveDates = useMemo(() => {
-    const dates = archivedTasks.map(task => task.date);
-    return Array.from(new Set(dates)).sort((a, b) => b.localeCompare(a)); // Sort descending (newest first)
-  }, [archivedTasks]);
+  // Open tasks: tasks with status todo, in_progress, paused, or repair_needed (all dates)
+  const openTasks = useMemo(() => {
+    return tasks.filter(task => 
+      task.status === 'todo' || 
+      task.status === 'in_progress' || 
+      task.status === 'paused' || 
+      task.status === 'repair_needed'
+    );
+  }, [tasks]);
 
   // Filtered Tasks Memo - applies to whichever tab is active
   const filteredTasks = useMemo(() => {
-    let baseTasks = activeTab === 'current' ? currentTasks : archivedTasks;
+    let baseTasks = activeTab === 'open' ? openTasks : tasks;
 
-    // Apply date filter to both tabs
+    // Apply date filter if selected
     if (dateFilter) {
       baseTasks = baseTasks.filter(task => task.date === dateFilter);
     }
 
-    // Apply status filter (only relevant for current tasks, but won't hurt archives)
+    // Apply status filter
     if (statusFilter !== 'all') {
       return baseTasks.filter(task => task.status === statusFilter);
     }
 
-    // For current tasks, 'all' means 'all except done'
-    // For archived tasks, show all including done
-    if (activeTab === 'current') {
-      return baseTasks.filter(task => task.status !== 'done');
-    }
-
+    // For open tab, 'all' means all open statuses (already filtered in openTasks)
+    // For all tab, show all tasks regardless of status
     return baseTasks;
-  }, [activeTab, currentTasks, archivedTasks, statusFilter, dateFilter]);
+  }, [activeTab, openTasks, tasks, statusFilter, dateFilter]);
 
-  // Progress Calculation Memo - based on current tasks only
+  // Progress Calculation Memo - based on today's tasks only
   const progress = useMemo(() => {
-    const validTasks = Array.isArray(currentTasks) ? currentTasks : [];
+    const todayTasks = tasks.filter(task => task.date === todayDate);
+    const validTasks = Array.isArray(todayTasks) ? todayTasks : [];
     const totalTasks = validTasks.length;
     if (totalTasks === 0) return { count: 0, total: 0, percentage: 0 };
     const completedTasks = validTasks.filter(task => task.status === 'done').length;
@@ -227,7 +250,7 @@ export default function Housekeeping() {
       total: totalTasks,
       percentage: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
     };
-  }, [currentTasks]);
+  }, [tasks, todayDate]);
 
   // Timer for active task (must be at component level, not in callback)
   const activeTask = tasks.find(t => t.id === activeTaskId);
@@ -245,11 +268,15 @@ export default function Housekeeping() {
             <span className="ml-2">Ładowanie zadań...</span>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'current' | 'archive')} className="space-y-4">
-            {/* Header: Email & Actions */}
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'open' | 'all')} className="space-y-4">
+            {/* Header: Greeting & Actions */}
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium text-muted-foreground pl-1">
-                {useAuth().user?.email}
+                {userName ? (
+                  <>Hej, <strong>{userName}</strong>!</>
+                ) : (
+                  user?.email || ''
+                )}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -276,38 +303,38 @@ export default function Housekeeping() {
 
             {/* Centered Tabs List */}
             <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
-              <TabsTrigger value="current" className="relative">
-                Zadania bieżące
-                {currentTasks.length > 0 && (
+              <TabsTrigger value="open" className="relative">
+                Zadania otwarte
+                {openTasks.length > 0 && (
                   <Badge variant="secondary" className="ml-2 h-5 min-w-5 px-1 text-xs">
-                    {currentTasks.filter(t => t.status !== 'done').length}
+                    {openTasks.length}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="archive" className="relative">
-                Archiwum
-                {archivedTasks.length > 0 && (
+              <TabsTrigger value="all" className="relative">
+                Wszystkie zadania
+                {tasks.length > 0 && (
                   <Badge variant="secondary" className="ml-2 h-5 min-w-5 px-1 text-xs">
-                    {archivedTasks.length}
+                    {tasks.length}
                   </Badge>
                 )}
               </TabsTrigger>
             </TabsList>
 
-            {/* Current Tasks Tab */}
-            <TabsContent value="current" className="space-y-4 mt-4">
-              {/* Filters for Current Tasks */}
+            {/* Open Tasks Tab */}
+            <TabsContent value="open" className="space-y-4 mt-4">
+              {/* Filters for Open Tasks */}
               <Card className="p-4">
                 <div className="grid grid-cols-2 gap-4">
                   {/* Date Filter */}
                   <div className="w-full">
-                    <Label htmlFor="current-date-filter" className="text-sm mb-2 block">
+                    <Label htmlFor="open-date-filter" className="text-sm mb-2 block">
                       Data
                     </Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
-                          id="current-date-filter"
+                          id="open-date-filter"
                           variant="outline"
                           className={`w-full justify-start text-left font-normal h-9 ${!dateFilter && "text-muted-foreground"
                             } `}
@@ -316,7 +343,7 @@ export default function Housekeeping() {
                           {dateFilter ? (
                             format(new Date(dateFilter), "PPP", { locale: pl })
                           ) : (
-                            <span>Wybierz datę</span>
+                            <span>Wszystkie daty</span>
                           )}
                         </Button>
                       </PopoverTrigger>
@@ -327,12 +354,9 @@ export default function Housekeeping() {
                           onSelect={(date) => {
                             if (date) {
                               setDateFilter(format(date, 'yyyy-MM-dd'));
+                            } else {
+                              setDateFilter('');
                             }
-                          }}
-                          disabled={(date) => {
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            return date < today;
                           }}
                           initialFocus
                           locale={pl}
@@ -343,17 +367,17 @@ export default function Housekeeping() {
 
                   {/* Status Filter */}
                   <div className="w-full">
-                    <Label htmlFor="current-status-filter" className="text-sm mb-2 block">
+                    <Label htmlFor="open-status-filter" className="text-sm mb-2 block">
                       Status
                     </Label>
                     <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value as TaskStatusFilter)}>
-                      <SelectTrigger id="current-status-filter" className="h-9">
+                      <SelectTrigger id="open-status-filter" className="h-9">
                         <SelectValue placeholder="Wybierz status" />
                       </SelectTrigger>
                       <SelectContent>
                         {statusFilters.map(status => (
                           <SelectItem key={status} value={status}>
-                            {status === 'all' ? 'Wszystkie Aktywne' : getStatusLabel(status as Task['status'])}
+                            {status === 'all' ? 'Wszystkie otwarte' : getStatusLabel(status as Task['status'])}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -384,11 +408,11 @@ export default function Housekeeping() {
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Card className="p-6 border-dashed">
                     <CardTitle className="text-lg mb-2">
-                      {statusFilter === 'all' ? '🎉 Brak aktywnych zadań' : `Brak zadań pasujących do filtra: ${getStatusLabel(statusFilter as Task['status'])
+                      {statusFilter === 'all' ? '🎉 Brak otwartych zadań' : `Brak zadań pasujących do filtra: ${getStatusLabel(statusFilter as Task['status'])
                         }`}
                     </CardTitle>
                     <CardDescription>
-                      {statusFilter === 'all' ? 'Wszystkie przydzielone zadania są zakończone lub żadne nie zostały przydzielone.' : 'Spróbuj zmienić filtr statusu.'}
+                      {statusFilter === 'all' ? 'Brak zadań ze statusem: do sprzątania, w trakcie, wstrzymane lub naprawa.' : 'Spróbuj zmienić filtr statusu lub daty.'}
                     </CardDescription>
                   </Card>
                 </div>
@@ -411,50 +435,82 @@ export default function Housekeeping() {
               )}
             </TabsContent>
 
-            {/* Archived Tasks Tab */}
-            <TabsContent value="archive" className="space-y-4 mt-4">
-              {/* Date Filter for Archive */}
+            {/* All Tasks Tab */}
+            <TabsContent value="all" className="space-y-4 mt-4">
+              {/* Filters for All Tasks */}
               <Card className="p-4">
-                <div className="flex flex-wrap gap-4">
-                  <div className="flex-1 min-w-[200px]">
-                    <Label htmlFor="archive-date-filter" className="text-sm mb-2 block">
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Date Filter */}
+                  <div className="w-full">
+                    <Label htmlFor="all-date-filter" className="text-sm mb-2 block">
                       Data
                     </Label>
-                    <Select value={dateFilter || "all"} onValueChange={(val) => setDateFilter(val === "all" ? "" : val)}>
-                      <SelectTrigger id="archive-date-filter" className="h-9">
-                        <SelectValue placeholder="Wszystkie daty" />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="all-date-filter"
+                          variant="outline"
+                          className={`w-full justify-start text-left font-normal h-9 ${!dateFilter && "text-muted-foreground"
+                            } `}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateFilter ? (
+                            format(new Date(dateFilter), "PPP", { locale: pl })
+                          ) : (
+                            <span>Wszystkie daty</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={dateFilter ? new Date(dateFilter) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              setDateFilter(format(date, 'yyyy-MM-dd'));
+                            } else {
+                              setDateFilter('');
+                            }
+                          }}
+                          initialFocus
+                          locale={pl}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Status Filter */}
+                  <div className="w-full">
+                    <Label htmlFor="all-status-filter" className="text-sm mb-2 block">
+                      Status
+                    </Label>
+                    <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value as TaskStatusFilter)}>
+                      <SelectTrigger id="all-status-filter" className="h-9">
+                        <SelectValue placeholder="Wybierz status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">
-                          Wszystkie daty ({archivedTasks.length})
-                        </SelectItem>
-                        {archiveDates.map(date => {
-                          const taskCount = archivedTasks.filter(t => t.date === date).length;
-                          return (
-                            <SelectItem key={date} value={date}>
-                              {new Date(date).toLocaleDateString('pl-PL', {
-                                weekday: 'short',
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              })} ({taskCount})
-                            </SelectItem>
-                          );
-                        })}
+                        {statusFilters.map(status => (
+                          <SelectItem key={status} value={status}>
+                            {status === 'all' ? 'Wszystkie' : getStatusLabel(status as Task['status'])}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {/* Clear Filter Button */}
-                  {dateFilter && (
-                    <div className="flex items-end">
+                  {/* Clear Filters Button */}
+                  {(dateFilter || statusFilter !== 'all') && (
+                    <div className="col-span-2 flex justify-end">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setDateFilter('')}
+                        onClick={() => {
+                          setDateFilter('');
+                          setStatusFilter('all');
+                        }}
                         className="h-9"
                       >
-                        Wyczyść Filtr
+                        Wyczyść Filtry
                       </Button>
                     </div>
                   )}
@@ -466,10 +522,10 @@ export default function Housekeeping() {
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Card className="p-6 border-dashed">
                     <CardTitle className="text-lg mb-2">
-                      📦 Brak archiwalnych zadań
+                      📦 Brak zadań
                     </CardTitle>
                     <CardDescription>
-                      {statusFilter === 'all' ? 'Brak zadań z poprzednich dat.' : `Brak archiwalnych zadań pasujących do filtra: ${getStatusLabel(statusFilter as Task['status'])}`}
+                      {statusFilter === 'all' ? 'Brak zadań w systemie.' : `Brak zadań pasujących do filtra: ${getStatusLabel(statusFilter as Task['status'])}`}
                     </CardDescription>
                   </Card>
                 </div>
@@ -478,8 +534,8 @@ export default function Housekeeping() {
                   <TaskCard
                     key={task.id}
                     task={task}
-                    isActive={false} // Archived tasks cannot be active
-                    activeTaskId={null}
+                    isActive={activeTaskId === task.id}
+                    activeTaskId={activeTaskId}
                     onStart={taskActions.handleStart}
                     onPause={taskActions.handlePause}
                     onResume={taskActions.handleResume}
@@ -510,7 +566,8 @@ export default function Housekeeping() {
           {/* Time Information */}
           <div className="flex items-center justify-between text-xs">
               {(() => {
-              const totalTimeLimit = currentTasks.reduce((sum, task) => sum + (task.time_limit || 0), 0);
+              const todayTasks = tasks.filter(task => task.date === todayDate);
+              const totalTimeLimit = todayTasks.reduce((sum, task) => sum + (task.time_limit || 0), 0);
 
               if (activeTask) {
                 // Use pre-calculated elapsed time
@@ -539,7 +596,7 @@ export default function Housekeeping() {
                 return (
                   <>
                     <span className="text-muted-foreground">
-                      Zadania bieżące
+                      Zadania na dziś
                     </span>
                     <span className="font-medium">
                       {totalTimeLimit > 0 ? `Łącznie: ${totalTimeLimit}m` : 'Brak limitów'}
