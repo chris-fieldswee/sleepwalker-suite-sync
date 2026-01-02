@@ -222,9 +222,23 @@ const getTimeLimitFromRoom = (room: Room | null, capacityId: string, cleaningTyp
     if (!room) return null;
 
     const configs = parseCapacityConfigurations(room);
+    if (configs.length === 0) return null;
 
-    // Find the configuration matching the capacity_id
-    const config = configs.find(c => c.capacity_id === capacityId);
+    // For OTHER rooms, capacity_configurations use capacity_id 'other' regardless of the selected guest count
+    // So we need to look for the config with capacity_id 'other' instead of matching the numeric capacityId
+    let config;
+    if (room.group_type === 'OTHER') {
+        // For OTHER rooms, look for capacity_id 'other' (the special placeholder used for OTHER rooms)
+        config = configs.find(c => c.capacity_id === 'other');
+        // If not found, try the first config as fallback (OTHER rooms typically have only one config)
+        if (!config && configs.length > 0) {
+            config = configs[0];
+        }
+    } else {
+        // For regular rooms, match by capacity_id as usual
+        config = configs.find(c => c.capacity_id === capacityId);
+    }
+
     if (!config) return null;
 
     // Find the cleaning type in that configuration

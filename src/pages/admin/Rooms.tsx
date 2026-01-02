@@ -840,10 +840,10 @@ export default function Rooms() {
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle>Filtry</CardTitle>
+        <CardHeader className="py-4">
+          <CardTitle className="text-lg">Filtry</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 pb-4">
           <div className="grid gap-4 md:grid-cols-1 max-w-xs">
             <div className="space-y-2">
               <Label htmlFor="group-filter">Typ Grupy</Label>
