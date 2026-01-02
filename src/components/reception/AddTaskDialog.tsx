@@ -254,14 +254,15 @@ interface AddTaskDialogProps {
 const getTodayDateString = () => new Date().toISOString().split("T")[0];
 
 // Helper function to check if a room allows multiple tasks on the same date
-// These rooms are: pralnia, śniadania, and przerwa śniadaniowa
+// These rooms are: pralnia (including "Pralnia + Magazyn"), śniadania, and przerwa śniadaniowa
 const isSpecialRoomAllowingMultipleTasks = (roomName: string | null | undefined): boolean => {
     if (!roomName) return false;
     const normalizedName = roomName.trim().toLowerCase();
-    return normalizedName === 'pralnia' ||
+    // Check if room name contains or matches any of the special room keywords
+    return normalizedName.includes('pralnia') || // Matches "pralnia", "Pralnia + Magazyn", etc.
            normalizedName === 'śniadania' ||
-           normalizedName === 'przerwa śniadaniowa' ||
-           normalizedName === 'przerwa sniadaniowa'; // Handle both with and without special characters
+           normalizedName.includes('przerwa śniadaniowa') ||
+           normalizedName.includes('przerwa sniadaniowa'); // Handle both with and without special characters
 };
 
 export function AddTaskDialog({

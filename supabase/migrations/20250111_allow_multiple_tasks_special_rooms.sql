@@ -10,6 +10,7 @@ AS $function$
 DECLARE
   conflicting_task_id UUID;
   room_name TEXT;
+  normalized_room_name TEXT;
 BEGIN
   -- Skip validation when either date or room is missing
   IF NEW.date IS NULL OR NEW.room_id IS NULL THEN
@@ -29,15 +30,20 @@ BEGIN
     WHERE r.id = NEW.room_id;
 
     -- Allow multiple tasks for these specific rooms
-    -- Normalize room name to lowercase for case-insensitive comparison
-    IF room_name IS NOT NULL AND LOWER(TRIM(room_name)) IN (
-      LOWER('pralnia'),
-      LOWER('śniadania'),
-      LOWER('przerwa śniadaniowa'),
-      LOWER('przerwa sniadaniowa') -- Handle both with and without special characters
-    ) THEN
-      -- Skip duplicate check for these rooms
-      RETURN NEW;
+    -- Check if room name contains or matches any of the special room keywords
+    -- This handles "Pralnia + Magazyn", "pralnia", etc.
+    IF room_name IS NOT NULL THEN
+      normalized_room_name := LOWER(TRIM(room_name));
+      
+      -- Check if room name contains "pralnia" (matches "Pralnia + Magazyn", "pralnia", etc.)
+      -- or exactly matches "śniadania" or contains "przerwa śniadaniowa"
+      IF POSITION('pralnia' IN normalized_room_name) > 0 OR
+         normalized_room_name = 'śniadania' OR
+         POSITION('przerwa śniadaniowa' IN normalized_room_name) > 0 OR
+         POSITION('przerwa sniadaniowa' IN normalized_room_name) > 0 THEN
+        -- Skip duplicate check for these rooms
+        RETURN NEW;
+      END IF;
     END IF;
 
     -- For all other rooms, check for duplicates
