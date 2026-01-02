@@ -178,18 +178,26 @@ export default function Tasks({
   // Get today's date for filtering
   const todayDate = useMemo(() => getTodayDateString(), []);
 
-  // Filter tasks based on active tab
+  // Filter tasks based on active tab and date filter
   // Note: tasks prop is already filtered by status, staff, room group, and room ID from useReceptionData
   // We need to apply the tab-specific date filter here
   const filteredTasks = useMemo(() => {
-    if (activeTab === 'open') {
-      // For "open" tab, show all tasks from current and future dates regardless of status
-      return tasks.filter(task => task.date >= todayDate);
+    let result = tasks;
+    
+    // Apply date filter if a specific date is selected
+    if (filters.date) {
+      result = result.filter(task => task.date === filters.date);
     } else {
-      // For "all" tab, show all tasks (they're already filtered by other criteria from useReceptionData)
-      return tasks;
+      // When no date is selected, apply tab-specific default behavior
+      if (activeTab === 'open') {
+        // For "open" tab, show all tasks from current and future dates
+        result = result.filter(task => task.date >= todayDate);
+      }
+      // For "all" tab with no date filter, show all tasks (no additional filtering)
     }
-  }, [activeTab, tasks, todayDate]);
+    
+    return result;
+  }, [activeTab, tasks, todayDate, filters.date]);
 
   // Calculate counts for tab labels - use all tasks regardless of current filter
   const openTasksCount = useMemo(() => {
@@ -328,6 +336,7 @@ export default function Tasks({
                 onRoomChange={onRoomChange}
                 onClearFilters={onClearFilters}
                 showRoomGroupFilter={true}
+                allowPastDates={false}
               />
             </CardContent>
           </Card>
@@ -369,6 +378,7 @@ export default function Tasks({
                 onRoomChange={onRoomChange}
                 onClearFilters={onClearFilters}
                 showRoomGroupFilter={true}
+                allowPastDates={true}
               />
             </CardContent>
           </Card>

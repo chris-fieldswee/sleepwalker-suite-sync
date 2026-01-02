@@ -42,6 +42,7 @@ interface TaskFiltersProps {
   onRoomChange: (roomId: string) => void;
   onClearFilters: () => void;
   showRoomGroupFilter?: boolean;
+  allowPastDates?: boolean;
 }
 
 export const TaskFilters = ({
@@ -62,6 +63,7 @@ export const TaskFilters = ({
   onRoomChange,
   onClearFilters,
   showRoomGroupFilter = true,
+  allowPastDates = false,
 }: TaskFiltersProps) => {
   // Filter available rooms based on selected room group
   const filteredRooms = useMemo(() => {
@@ -107,7 +109,7 @@ export const TaskFilters = ({
           type="date"
           value={date ?? ''}
           onChange={handleDateInputChange}
-          min={new Date().toISOString().split('T')[0]} // Prevent selecting past dates
+          min={allowPastDates ? undefined : new Date().toISOString().split('T')[0]} // Allow past dates if allowPastDates is true
           className="bg-card h-9 text-sm"
         />
       </div>
