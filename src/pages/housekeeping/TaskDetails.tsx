@@ -1,5 +1,5 @@
 // src/pages/housekeeping/TaskDetails.tsx
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { TaskTimerDisplay, useTaskTimer } from "@/pages/Housekeeping";
 import { SecondaryTaskActions } from "@/components/housekeeping/SecondaryTaskActions";
 import type { Task } from "@/pages/Housekeeping";
 import { CAPACITY_ID_TO_LABEL, renderCapacityIconPattern } from "@/lib/capacity-utils";
+import { supabase } from "@/integrations/supabase/client";
 
 // Utility functions
 const getStatusColor = (status: Task['status'] | null | undefined): string => {
@@ -49,6 +50,14 @@ const getCleaningTypeLabel = (type: string): string => {
     return labels[type] || type;
 };
 
+interface TaskIssue {
+    id: string;
+    description: string;
+    photo_url: string | null;
+    reported_at: string;
+    status: string;
+}
+
 export default function TaskDetails() {
     // #region agent log
     useEffect(() => {
@@ -62,15 +71,67 @@ export default function TaskDetails() {
     const navigate = useNavigate();
     const { signOut } = useAuth();
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetails.tsx:57',message:'calling useHousekeepingTasks hook',data:{taskId:taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetails.tsx:57',message:'calling useHousekeepingTasks hook',data:{taskId:taskId},timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
     // #endregion
     const { tasks, loading, activeTaskId, setActiveTaskId, fetchTasks } = useHousekeepingTasks();
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetails.tsx:59',message:'useHousekeepingTasks returned',data:{tasksCount:tasks.length,loading:loading,taskIds:tasks.map(t=>t.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
     // #endregion
     const taskActions = useTaskActions(tasks, setActiveTaskId, activeTaskId, fetchTasks);
+    const [taskIssues, setTaskIssues] = useState<TaskIssue[]>([]);
+    const [loadingIssues, setLoadingIssues] = useState(false);
 
     const task = tasks.find(t => t.id === taskId);
+
+    // Fetch all issues for this task
+    useEffect(() => {
+        if (!taskId) return;
+
+        const fetchTaskIssues = async () => {
+            setLoadingIssues(true);
+            try {
+                const { data, error } = await supabase
+                    .from('issues')
+                    .select('id, description, photo_url, reported_at, status')
+                    .eq('task_id', taskId)
+                    .order('reported_at', { ascending: false });
+
+                if (error) {
+                    console.error('Error fetching task issues:', error);
+                } else {
+                    setTaskIssues(data || []);
+                }
+            } catch (error) {
+                console.error('Error fetching task issues:', error);
+            } finally {
+                setLoadingIssues(false);
+            }
+        };
+
+        fetchTaskIssues();
+
+        // Set up realtime subscription for issues
+        const channel = supabase
+            .channel(`task-issues-${taskId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'issues',
+                    filter: `task_id=eq.${taskId}`,
+                },
+                () => {
+                    // Refetch issues when they change
+                    fetchTaskIssues();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [taskId]);
 
     useEffect(() => {
         // #region agent log
@@ -191,19 +252,52 @@ export default function TaskDetails() {
                             </div>
                         )}
 
-                        {task.issue_flag && (
+                        {/* Display all reported issues */}
+                        {taskIssues.length > 0 && (
                             <div className="pt-4 border-t">
-                                <div className="p-3 rounded-md border border-red-200 bg-red-50 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-200">
-                                    <p className="font-semibold flex items-center mb-2">
-                                        <AlertTriangle className="h-4 w-4 mr-2" />
-                                        Problem konserwacyjny
-                                    </p>
-                                    {task.issue_description && <p className="text-sm mb-2">"{task.issue_description}"</p>}
-                                    {task.issue_photo && (
-                                        <a href={task.issue_photo} target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80">
-                                            <img src={task.issue_photo} alt="Zdjęcie problemu" className="h-24 w-24 object-cover rounded border" />
-                                        </a>
-                                    )}
+                                <p className="text-sm text-muted-foreground mb-3 font-semibold">
+                                    Zgłoszone problemy ({taskIssues.length})
+                                </p>
+                                <div className="space-y-3">
+                                    {taskIssues.map((issue) => (
+                                        <div
+                                            key={issue.id}
+                                            className="p-3 rounded-md border border-red-200 bg-red-50 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-200"
+                                        >
+                                            <div className="flex items-start justify-between mb-2">
+                                                <p className="font-semibold flex items-center">
+                                                    <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0" />
+                                                    Problem konserwacyjny
+                                                </p>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {new Date(issue.reported_at).toLocaleDateString('pl-PL', {
+                                                        day: '2-digit',
+                                                        month: '2-digit',
+                                                        year: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </span>
+                                            </div>
+                                            {issue.description && (
+                                                <p className="text-sm mb-2">"{issue.description}"</p>
+                                            )}
+                                            {issue.photo_url && (
+                                                <a
+                                                    href={issue.photo_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-block hover:opacity-80 mt-2"
+                                                >
+                                                    <img
+                                                        src={issue.photo_url}
+                                                        alt="Zdjęcie problemu"
+                                                        className="h-24 w-24 object-cover rounded border"
+                                                    />
+                                                </a>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
