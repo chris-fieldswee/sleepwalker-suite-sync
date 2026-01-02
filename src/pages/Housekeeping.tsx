@@ -78,7 +78,7 @@ const getStatusLabel = (status: Task['status'] | null | undefined): string => {
 
 // Possible filter values
 type TaskStatusFilter = Database["public"]["Enums"]["task_status"] | 'all';
-const statusFilters: TaskStatusFilter[] = ['all', 'todo', 'in_progress', 'paused', 'repair_needed', 'done'];
+const statusFilters: TaskStatusFilter[] = ['all', 'todo', 'in_progress', 'paused', 'done'];
 
 
 // --- Timer Hook ---
@@ -158,6 +158,14 @@ export function useTaskTimer(task: Task | null): number | null {
 
 // --- Main Component ---
 export default function Housekeeping() {
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Housekeeping.tsx:160',message:'Housekeeping component mounted',data:{timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
+    return () => {
+      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Housekeeping.tsx:160',message:'Housekeeping component UNMOUNTED',data:{timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
+    };
+  }, []);
+  // #endregion
   const { signOut, userId, user } = useAuth();
 
   // Destructure fetchTasks from the hook
@@ -171,15 +179,15 @@ export default function Housekeeping() {
   const [dateFilter, setDateFilter] = useState<string>(''); // For date filtering
   const [userName, setUserName] = useState<string>('');
 
-  // Fetch user name
+  // Fetch user first name
   useEffect(() => {
-    const fetchUserName = async () => {
+    const fetchUserFirstName = async () => {
       if (!userId) return;
       
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('name, first_name, last_name')
+          .select('first_name, name')
           .eq('id', userId)
           .maybeSingle();
         
@@ -189,10 +197,8 @@ export default function Housekeeping() {
         }
         
         if (data) {
-          // Prefer first_name + last_name, fallback to name
-          const displayName = data.first_name && data.last_name
-            ? `${data.first_name} ${data.last_name}`
-            : data.name || user?.email || '';
+          // Use first_name, fallback to name (if first_name not available)
+          const displayName = data.first_name || data.name || '';
           setUserName(displayName);
         }
       } catch (error) {
@@ -200,8 +206,8 @@ export default function Housekeeping() {
       }
     };
 
-    fetchUserName();
-  }, [userId, user]);
+    fetchUserFirstName();
+  }, [userId]);
 
   // Get today's date for comparison (used for progress calculation)
   const todayDate = useMemo(() => {
@@ -221,6 +227,9 @@ export default function Housekeeping() {
 
   // Filtered Tasks Memo - applies to whichever tab is active
   const filteredTasks = useMemo(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Housekeeping.tsx:221',message:'filteredTasks memo recalculating',data:{activeTab:activeTab,totalTasks:tasks.length,openTasks:openTasks.length,dateFilter:dateFilter,statusFilter:statusFilter},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     let baseTasks = activeTab === 'open' ? openTasks : tasks;
 
     // Apply date filter if selected
@@ -235,6 +244,9 @@ export default function Housekeeping() {
 
     // For open tab, 'all' means all open statuses (already filtered in openTasks)
     // For all tab, show all tasks regardless of status
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Housekeeping.tsx:237',message:'filteredTasks memo result',data:{filteredCount:baseTasks.length,taskIds:baseTasks.map(t=>t.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     return baseTasks;
   }, [activeTab, openTasks, tasks, statusFilter, dateFilter]);
 
@@ -262,6 +274,12 @@ export default function Housekeeping() {
 
       {/* Main Content with Tabs */}
       <main className="container mx-auto p-4">
+        {/* #region agent log */}
+        {(() => {
+          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Housekeeping.tsx:263',message:'render - checking loading state',data:{loading:loading,tasksCount:tasks.length,filteredCount:filteredTasks.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          return null;
+        })()}
+        {/* #endregion */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -412,7 +430,7 @@ export default function Housekeeping() {
                         }`}
                     </CardTitle>
                     <CardDescription>
-                      {statusFilter === 'all' ? 'Brak zadań ze statusem: do sprzątania, w trakcie, wstrzymane lub naprawa.' : 'Spróbuj zmienić filtr statusu lub daty.'}
+                      {statusFilter === 'all' ? 'Brak zadań ze statusem: do sprzątania, w trakcie lub wstrzymane.' : 'Spróbuj zmienić filtr statusu lub daty.'}
                     </CardDescription>
                   </Card>
                 </div>

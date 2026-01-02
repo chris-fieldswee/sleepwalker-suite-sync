@@ -50,16 +50,36 @@ const getCleaningTypeLabel = (type: string): string => {
 };
 
 export default function TaskDetails() {
+    // #region agent log
+    useEffect(() => {
+      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetails.tsx:52',message:'TaskDetails component mounted',data:{timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
+      return () => {
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetails.tsx:52',message:'TaskDetails component UNMOUNTED',data:{timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
+      };
+    }, []);
+    // #endregion
     const { taskId } = useParams<{ taskId: string }>();
     const navigate = useNavigate();
     const { signOut } = useAuth();
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetails.tsx:57',message:'calling useHousekeepingTasks hook',data:{taskId:taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
+    // #endregion
     const { tasks, loading, activeTaskId, setActiveTaskId, fetchTasks } = useHousekeepingTasks();
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetails.tsx:59',message:'useHousekeepingTasks returned',data:{tasksCount:tasks.length,loading:loading,taskIds:tasks.map(t=>t.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
+    // #endregion
     const taskActions = useTaskActions(tasks, setActiveTaskId, activeTaskId, fetchTasks);
 
     const task = tasks.find(t => t.id === taskId);
 
     useEffect(() => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetails.tsx:65',message:'TaskDetails useEffect - checking task',data:{loading:loading,hasTask:!!task,taskId:taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
+        // #endregion
         if (!loading && !task) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetails.tsx:68',message:'redirecting to /housekeeping - task not found',data:{taskId:taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
+            // #endregion
             navigate("/housekeeping");
         }
     }, [loading, task, navigate]);

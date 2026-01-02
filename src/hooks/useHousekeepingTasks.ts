@@ -15,8 +15,15 @@ export function useHousekeepingTasks() {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchTasks = useCallback(async () => {
+    // #region agent log
+    const currentTasksRef = tasks.length;
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:17',message:'fetchTasks called',data:{userId:userId,hasTasksBefore:currentTasksRef},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     if (!userId) return setLoading(false);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:20',message:'setLoading true BEFORE fetch',data:{userId:userId,loadingState:'setting to true'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     setLoading(true);
 
     const { data, error } = await supabase
@@ -32,8 +39,14 @@ export function useHousekeepingTasks() {
       .order("date", { ascending: true })
       .order("created_at", { ascending: true });
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:34',message:'fetch completed',data:{error:error?.message,dataLength:data?.length,hasError:!!error,taskIdsReturned:data?.map((t:any)=>t.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     if (error) {
       console.error("Error fetching tasks:", error);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:38',message:'fetch error - setting tasks to empty',data:{error:error.message,errorCode:error.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       toast({
         title: "Error",
         description: `Failed to fetch tasks: ${error.message}`,
@@ -43,16 +56,28 @@ export function useHousekeepingTasks() {
     } else {
       const fetchedTasks = (data as unknown as Task[]) || [];
       fetchedTasks.forEach(t => t.created_at = t.created_at || new Date(0).toISOString());
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:47',message:'setTasks called with fetched data',data:{taskCount:fetchedTasks.length,taskIds:fetchedTasks.map(t=>t.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       setTasks(fetchedTasks);
       const active = fetchedTasks.find((t) => t.status === "in_progress");
       setActiveTaskId(active?.id || null);
     }
+      // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:51',message:'setLoading false AFTER fetch',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     setLoading(false);
-  }, [userId]); // ✅ only depends on userId, not toast or loading
+    }, [userId]); // ✅ only depends on userId, not toast or loading
 
   // ✅ Stable effect – only runs when userId or role changes
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:54',message:'useEffect triggered',data:{userId:userId,userRole:userRole,hasChannel:!!channelRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     if (userRole !== "housekeeping" || !userId) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:57',message:'clearing tasks - invalid role/user',data:{userRole:userRole,userId:userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       setTasks([]);
       setLoading(false);
       setActiveTaskId(null);
@@ -60,10 +85,18 @@ export function useHousekeepingTasks() {
     }
 
     // Fetch immediately
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:66',message:'calling fetchTasks from useEffect',data:{userId:userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     fetchTasks();
 
     // Avoid double subscriptions
-    if (channelRef.current) return;
+    if (channelRef.current) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:69',message:'subscription already exists - skipping',data:{userId:userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      return;
+    }
 
     const channel = supabase
       .channel(`my-tasks-channel-${userId}`)
@@ -77,6 +110,9 @@ export function useHousekeepingTasks() {
         },
         (payload) => {
           console.log("Realtime update:", payload);
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:84',message:'realtime update received',data:{eventType:payload.eventType,taskId:payload.new?.id||payload.old?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+          // #endregion
           fetchTasks();
 
           if (payload.eventType === "INSERT") {
@@ -94,6 +130,9 @@ export function useHousekeepingTasks() {
       )
       .subscribe((status, err) => {
         console.log("Realtime subscription status:", status);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:97',message:'realtime subscription status',data:{status:status,error:err?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         if (err) console.error("Realtime subscription error:", err);
       });
 
@@ -101,6 +140,9 @@ export function useHousekeepingTasks() {
 
     return () => {
       console.log("Cleaning up housekeeping channel");
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:108',message:'cleanup function called',data:{userId:userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
           .catch(err => console.error("Error removing channel:", err));

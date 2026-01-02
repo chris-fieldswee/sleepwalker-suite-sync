@@ -74,7 +74,12 @@ export function TaskCard({
         "overflow-hidden transition-shadow duration-300 cursor-pointer",
         isActive ? `ring-2 ring-offset-2 ring-[hsl(var(--status-${task.status}))] shadow-lg` : 'shadow-sm hover:shadow-md',
       )}
-      onClick={() => navigate(`/housekeeping/task/${task.id}`)}
+      onClick={() => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskCard.tsx:77',message:'TaskCard clicked - navigating',data:{taskId:task.id,roomName:task.room?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
+        // #endregion
+        navigate(`/housekeeping/task/${task.id}`)
+      }}
     >
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 pt-3 px-4">
         <div>
@@ -148,6 +153,9 @@ export function TaskCard({
             variant="outline"
             onClick={(e) => {
               e.stopPropagation();
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskCard.tsx:151',message:'TaskCard button clicked - navigating',data:{taskId:task.id,roomName:task.room?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
+              // #endregion
               navigate(`/housekeeping/task/${task.id}`);
             }}
           >
