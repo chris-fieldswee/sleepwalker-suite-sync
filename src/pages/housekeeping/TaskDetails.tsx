@@ -42,10 +42,10 @@ const getCleaningTypeLabel = (type: string): string => {
     const labels: Record<string, string> = {
         W: "Wyjazd",
         P: "Przyjazd",
-        T: "Transformacja",
-        O: "Odśwież",
-        G: "Głębokie",
-        S: "Serwis"
+        T: "Trakt",
+        O: "Odświeżenie",
+        G: "Generalne",
+        S: "Standard"
     };
     return labels[type] || type;
 };
