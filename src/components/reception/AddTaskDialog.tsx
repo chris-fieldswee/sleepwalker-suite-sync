@@ -12,7 +12,7 @@ import type { Room, Staff } from '@/hooks/useReceptionData';
 import type { NewTaskState } from '@/hooks/useReceptionActions';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
-import { getCapacitySortKey, normalizeCapacityLabel, renderCapacityIconPattern, LABEL_TO_CAPACITY_ID, CAPACITY_ID_TO_LABEL } from "@/lib/capacity-utils";
+import { getCapacitySortKey, normalizeCapacityLabel, renderCapacityIconPattern, LABEL_TO_CAPACITY_ID, CAPACITY_ID_TO_LABEL, getLabelGuestTotal } from "@/lib/capacity-utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -322,13 +322,49 @@ export function AddTaskDialog({
         }
 
         // Get time limit from room's capacity_configurations
-        const timeLimit = getTimeLimitFromRoom(selectedRoom, newTask.capacityId, newTask.cleaningType);
-        setTaskTimeLimit(timeLimit);
-
-        if (timeLimit !== null) {
-            console.log(`Time limit from room config for ${selectedRoom.name}/${newTask.cleaningType}/${newTask.capacityId}: ${timeLimit} minutes`);
+        let timeLimit = getTimeLimitFromRoom(selectedRoom, newTask.capacityId, newTask.cleaningType);
+        
+        // Fallback to global limits table if not found in room config (same logic as handleAddTask)
+        if (timeLimit === null) {
+            // Convert capacity_id to numeric guest_count for limits table query
+            let numericGuestCount: number | null = null;
+            
+            // If capacity_id is a letter (a, b, c, etc.), convert via label to total guest count
+            if (newTask.capacityId.length === 1 && /[a-z]/.test(newTask.capacityId)) {
+                const label = CAPACITY_ID_TO_LABEL[newTask.capacityId];
+                if (label) {
+                    // Calculate total guests from label (e.g., "1+1" = 2, "2+2" = 4)
+                    numericGuestCount = getLabelGuestTotal(label);
+                }
+            } else {
+                // If capacity_id is already a number string (for OTHER rooms), use it directly
+                const parsed = parseInt(newTask.capacityId, 10);
+                if (!isNaN(parsed)) {
+                    numericGuestCount = parsed;
+                }
+            }
+            
+            if (numericGuestCount !== null) {
+                // Fetch from limits table asynchronously
+                supabase
+                    .from('limits')
+                    .select('time_limit')
+                    .eq('group_type', selectedRoom.group_type)
+                    .eq('cleaning_type', newTask.cleaningType)
+                    .eq('guest_count', numericGuestCount)
+                    .maybeSingle()
+                    .then(({ data: limitData, error: limitError }) => {
+                        if (limitError) {
+                            console.warn(`Could not fetch time limit: ${limitError.message}.`);
+                        } else if (limitData) {
+                            setTaskTimeLimit(limitData.time_limit);
+                            console.log(`Time limit from limits table for ${selectedRoom.name}/${newTask.cleaningType}/${numericGuestCount}: ${limitData.time_limit} minutes`);
+                        }
+                    });
+            }
         } else {
-            console.log(`No time limit found in room config for ${selectedRoom.name}/${newTask.cleaningType}/${newTask.capacityId}`);
+            setTaskTimeLimit(timeLimit);
+            console.log(`Time limit from room config for ${selectedRoom.name}/${newTask.cleaningType}/${newTask.capacityId}: ${timeLimit} minutes`);
         }
     }, [newTask.roomId, newTask.cleaningType, newTask.capacityId, isOpen, availableRooms]);
 
@@ -574,6 +610,16 @@ export function AddTaskDialog({
             toast({
                 title: "Wymagany Pokój",
                 description: "Proszę wybrać pokój przed zatwierdzeniem.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        // Validation: Check if staffId is set and not "unassigned"
+        if (!newTask.staffId || newTask.staffId === "unassigned") {
+            toast({
+                title: "Wymagane Przypisanie Personelu",
+                description: "Proszę przypisać zadanie do pracownika przed zatwierdzeniem.",
                 variant: "destructive",
             });
             return;
@@ -881,17 +927,16 @@ export function AddTaskDialog({
 
                     {/* Staff Select */}
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="assignStaff-modal" className="text-right">Assign Staff</Label>
+                        <Label htmlFor="assignStaff-modal" className="text-right">Assign Staff*</Label>
                         <Select
                             value={newTask.staffId}
                             onValueChange={(value) => setNewTask(prev => ({ ...prev, staffId: value }))}
                             disabled={isSubmitting || !newTask.roomId} // Disable until room is selected
                         >
                             <SelectTrigger id="assignStaff-modal" className="col-span-3">
-                                <SelectValue placeholder={newTask.roomId ? "Unassigned" : "Select room first"} />
+                                <SelectValue placeholder={newTask.roomId ? "Select staff" : "Select room first"} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="unassigned">Unassigned</SelectItem>
                                 {!newTask.roomId && (
                                     <SelectItem value="select-room" disabled>
                                         Please select a room first
@@ -960,7 +1005,9 @@ export function AddTaskDialog({
                             !newTask.date ||
                             !selectedGroup ||
                             !newTask.cleaningType ||
-                            (!isGuestCountDisabled && !newTask.capacityId)
+                            (!isGuestCountDisabled && !newTask.capacityId) ||
+                            !newTask.staffId ||
+                            newTask.staffId === "unassigned"
                         }
                     >
                         {isSubmitting ? "Adding..." : "Add Task"}

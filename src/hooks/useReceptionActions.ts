@@ -8,7 +8,7 @@ import type { Room, Staff } from './useReceptionData';
 import { taskInputSchema, workLogSchema } from '@/lib/validation';
 import { useAuth } from '@/contexts/AuthContext'; // ✅ FIXED: Import added
 import type { IssueTask } from '@/components/reception/IssueDetailDialog';
-import { LABEL_TO_CAPACITY_ID, normalizeCapacityLabel } from '@/lib/capacity-utils';
+import { LABEL_TO_CAPACITY_ID, CAPACITY_ID_TO_LABEL, normalizeCapacityLabel, getLabelGuestTotal } from '@/lib/capacity-utils';
 
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
 type TaskStatus = Database["public"]["Enums"]["task_status"];
@@ -41,7 +41,7 @@ const initialNewTaskState: NewTaskState = {
     roomId: "",
     cleaningType: "W",
     capacityId: "d", // Default to 'd' (2)
-    staffId: "unassigned",
+    staffId: "", // Required field - must be selected
     notes: "",
     date: getTodayDateString(),
 };
@@ -247,18 +247,42 @@ export function useReceptionActions(
             // Fallback to global limits table if not found in room config
             if (timeLimit === null) {
               console.log("Time limit not found in room config, trying global limits table...");
-              const { data: limitData, error: limitError } = await supabase
-                  .from('limits')
-                  .select('time_limit')
-                  .eq('group_type', selectedRoom.group_type)
-                  .eq('cleaning_type', newTask.cleaningType)
-                  .eq('guest_count', newTask.capacityId) // guest_count now stores capacity_id
-                  .maybeSingle();
-
-              if (limitError) {
-                console.warn(`Could not fetch time limit: ${limitError.message}. Proceeding without limit.`);
+              
+              // Convert capacity_id to numeric guest_count for limits table query
+              // The limits table stores guest_count as INTEGER, not capacity_id
+              let numericGuestCount: number | null = null;
+              
+              // If capacity_id is a letter (a, b, c, etc.), convert via label to total guest count
+              if (newTask.capacityId.length === 1 && /[a-z]/.test(newTask.capacityId)) {
+                const label = CAPACITY_ID_TO_LABEL[newTask.capacityId];
+                if (label) {
+                  // Calculate total guests from label (e.g., "1+1" = 2, "2+2" = 4)
+                  numericGuestCount = getLabelGuestTotal(label);
+                }
               } else {
-                timeLimit = limitData?.time_limit ?? null;
+                // If capacity_id is already a number string (for OTHER rooms), use it directly
+                const parsed = parseInt(newTask.capacityId, 10);
+                if (!isNaN(parsed)) {
+                  numericGuestCount = parsed;
+                }
+              }
+              
+              if (numericGuestCount !== null) {
+                const { data: limitData, error: limitError } = await supabase
+                    .from('limits')
+                    .select('time_limit')
+                    .eq('group_type', selectedRoom.group_type)
+                    .eq('cleaning_type', newTask.cleaningType)
+                    .eq('guest_count', numericGuestCount)
+                    .maybeSingle();
+
+                if (limitError) {
+                  console.warn(`Could not fetch time limit: ${limitError.message}. Proceeding without limit.`);
+                } else {
+                  timeLimit = limitData?.time_limit ?? null;
+                }
+              } else {
+                console.warn(`Could not convert capacity_id '${newTask.capacityId}' to numeric guest_count for limits table query.`);
               }
             }
 
@@ -590,7 +614,7 @@ export function useReceptionActions(
           } else if (needsLimitCheck) {
               const { data: currentTaskInfo, error: currentInfoError } = await supabase
                  .from('tasks')
-                 .select('cleaning_type, guest_count, room_id, room:rooms!inner(group_type)')
+                 .select('cleaning_type, guest_count, room_id, time_limit, room:rooms!inner(group_type)')
                  .eq('id', taskId)
                  .single();
 
@@ -604,21 +628,87 @@ export function useReceptionActions(
               const groupType = room?.group_type;
               const cleaningType = updates.cleaningType ?? currentTaskInfo.cleaning_type;
               const capacityId = updates.capacityId ?? currentTaskInfo.guest_count; // guest_count now stores capacity_id
+              const existingTimeLimit = currentTaskInfo.time_limit; // Preserve existing time limit as fallback
 
-             if (groupType && cleaningType && capacityId) {
-                  const { data: limitData, error: limitError } = await supabase
-                     .from('limits')
-                     .select('time_limit')
-                     .eq('group_type', groupType)
-                     .eq('cleaning_type', cleaningType)
-                     .eq('guest_count', capacityId) // guest_count now stores capacity_id
-                     .maybeSingle();
+             if (groupType && cleaningType && capacityId && room) {
+                  // #region agent log
+                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:633',message:'Time limit calculation start',data:{roomId:room.id,roomGroup:groupType,capacityId,cleaningType,existingTimeLimit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+                  // #endregion
+                  
+                  // First try to get time limit from room's capacity_configurations (same as handleAddTask)
+                  let timeLimit = getTimeLimitFromRoom(room, capacityId, cleaningType);
+                  
+                  // #region agent log
+                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:637',message:'Time limit from room config',data:{timeLimitFromConfig:timeLimit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+                  // #endregion
+                  
+                  // Fallback to global limits table if not found in room config
+                  if (timeLimit === null) {
+                      console.log("Time limit not found in room config, trying global limits table...");
+                      
+                      // Convert capacity_id to numeric guest_count for limits table query
+                      // The limits table stores guest_count as INTEGER, not capacity_id
+                      let numericGuestCount: number | null = null;
+                      
+                      // If capacity_id is a letter (a, b, c, etc.), convert via label to total guest count
+                      if (capacityId.length === 1 && /[a-z]/.test(capacityId)) {
+                          const label = CAPACITY_ID_TO_LABEL[capacityId];
+                          if (label) {
+                              // Calculate total guests from label (e.g., "1+1" = 2, "2+2" = 4)
+                              numericGuestCount = getLabelGuestTotal(label);
+                          }
+                      } else {
+                          // If capacity_id is already a number string (for OTHER rooms), use it directly
+                          const parsed = parseInt(capacityId, 10);
+                          if (!isNaN(parsed)) {
+                              numericGuestCount = parsed;
+                          }
+                      }
+                      
+                      // #region agent log
+                      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:658',message:'Numeric guest count conversion',data:{capacityId,numericGuestCount,groupType,cleaningType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+                      // #endregion
+                      
+                      if (numericGuestCount !== null) {
+                          const { data: limitData, error: limitError } = await supabase
+                             .from('limits')
+                             .select('time_limit')
+                             .eq('group_type', groupType)
+                             .eq('cleaning_type', cleaningType)
+                             .eq('guest_count', numericGuestCount)
+                             .maybeSingle();
 
-                  if (limitError) console.warn("Could not fetch new time limit during update:", limitError.message);
-                  dbUpdates.time_limit = limitData?.time_limit ?? null;
+                          if (limitError) {
+                              console.warn("Could not fetch new time limit during update:", limitError.message);
+                          } else {
+                              timeLimit = limitData?.time_limit ?? null;
+                          }
+                          
+                          // #region agent log
+                          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:672',message:'Time limit from limits table',data:{timeLimitFromTable:timeLimit,limitError:limitError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+                          // #endregion
+                      } else {
+                          console.warn(`Could not convert capacity_id '${capacityId}' to numeric guest_count for limits table query.`);
+                      }
+                  }
+                  
+                  // If still not found, preserve existing time limit instead of setting to null
+                  const finalTimeLimit = timeLimit ?? existingTimeLimit;
+                  
+                  // #region agent log
+                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:680',message:'Final time limit decision',data:{finalTimeLimit,wasFromConfig:timeLimit!==null,wasFromTable:timeLimit===null&&finalTimeLimit!==null,wasPreserved:finalTimeLimit===existingTimeLimit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+                  // #endregion
+                  
+                  dbUpdates.time_limit = finalTimeLimit;
              } else {
-                 console.warn("Could not determine all required fields for time limit check. Setting limit to null.");
-                 dbUpdates.time_limit = null;
+                 console.warn("Could not determine all required fields for time limit check. Preserving existing time limit.");
+                 // #region agent log
+                 fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:682',message:'Time limit check failed - missing fields',data:{hasGroupType:!!groupType,hasCleaningType:!!cleaningType,hasCapacityId:!!capacityId,hasRoom:!!room},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+                 // #endregion
+                 // Preserve existing time limit instead of setting to null
+                 if (existingTimeLimit !== null && existingTimeLimit !== undefined) {
+                     dbUpdates.time_limit = existingTimeLimit;
+                 }
              }
           }
 

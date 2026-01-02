@@ -17,7 +17,6 @@ const filterableStatuses: Array<{ value: TaskStatus | 'all', label: string }> = 
   { value: 'todo', label: 'Do sprzątania' },
   { value: 'in_progress', label: 'W trakcie' },
   { value: 'paused', label: 'Wstrzymane' },
-  { value: 'repair_needed', label: 'Wymaga naprawy' },
 ];
 
 // *** MODIFICATION START: Define room group options type ***

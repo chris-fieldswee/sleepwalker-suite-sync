@@ -431,10 +431,14 @@ export function TaskDetailDialog({
 
         const selectedRoom = availableRooms.find(r => r.id === task.room.id) || null;
 
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetailDialog.tsx:428',message:'handleCancelEdit called',data:{taskId:task.id,roomGroup:task.room.group_type,guestCount:task.guest_count,timeLimit:task.time_limit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+
         setEditableState({
             roomId: task.room.id,
             cleaningType: task.cleaning_type,
-            guestCount: task.guest_count,
+            capacityId: task.guest_count, // Fixed: was guestCount, should be capacityId
             staffId: task.user?.id || 'unassigned',
             notes: task.reception_notes || '',
             date: task.date,
@@ -453,10 +457,44 @@ export function TaskDetailDialog({
             toast({ title: "Błąd Walidacji", description: "Pokój nie może być pusty.", variant: "destructive" });
             return;
         }
-        // Validation: capacityId must be a valid letter identifier
-        if (!editableState.capacityId || !CAPACITY_ID_TO_LABEL[editableState.capacityId]) {
+        
+        // Determine if this is an OTHER room for validation
+        const currentRoomForValidation = isEditMode
+            ? availableRooms.find(room => room.id === editableState.roomId)
+            : availableRooms.find(room => room.id === task.room.id);
+        const isOtherRoom = currentRoomForValidation?.group_type === 'OTHER';
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetailDialog.tsx:448',message:'handleSave validation start',data:{taskId:task.id,capacityId:editableState.capacityId,capacityIdType:typeof editableState.capacityId,isOtherRoom,roomGroup:currentRoomForValidation?.group_type,hasCapacityIdInLabel:!!CAPACITY_ID_TO_LABEL[editableState.capacityId],isNumeric:!!/^\d+$/.test(editableState.capacityId),capacityIdLength:editableState.capacityId?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        
+        // Validation: capacityId must be a valid identifier
+        // For OTHER rooms, capacityId can be a numeric string (1, 2, 3, etc.) OR a letter identifier (a, b, c, etc.)
+        // For other rooms, capacityId should be in CAPACITY_ID_TO_LABEL (a, b, c, etc.)
+        // Also handle composite values that might come from Select component (extract the capacityId part)
+        let capacityIdToValidate = editableState.capacityId;
+        if (capacityIdToValidate && capacityIdToValidate.includes('-')) {
+            // Extract capacityId from composite value (format: "value-label")
+            capacityIdToValidate = capacityIdToValidate.split('-')[0];
+        }
+        
+        const isValidCapacityId = capacityIdToValidate && (
+            CAPACITY_ID_TO_LABEL[capacityIdToValidate] || // Valid letter identifier
+            (isOtherRoom && /^\d+$/.test(capacityIdToValidate)) // Valid numeric string for OTHER rooms
+        );
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetailDialog.tsx:470',message:'handleSave validation result',data:{isValidCapacityId,originalCapacityId:editableState.capacityId,extractedCapacityId:capacityIdToValidate,isOtherRoom},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        
+        if (!isValidCapacityId) {
             toast({ title: "Błąd Walidacji", description: "Nieprawidłowa pojemność.", variant: "destructive" });
             return;
+        }
+        
+        // Use the extracted capacityId for updates
+        if (capacityIdToValidate !== editableState.capacityId) {
+            editableState.capacityId = capacityIdToValidate;
         }
         if (editableState.notes && editableState.notes.length > 2000) {
             toast({ title: "Błąd Walidacji", description: "Notatki nie mogą przekraczać 2000 znaków.", variant: "destructive" });
@@ -472,7 +510,8 @@ export function TaskDetailDialog({
 
         if (editableState.roomId !== task.room.id) { updates.roomId = editableState.roomId; changed = true; }
         if (editableState.cleaningType !== task.cleaning_type) { updates.cleaningType = editableState.cleaningType; changed = true; }
-        if (editableState.capacityId !== task.guest_count) { updates.capacityId = editableState.capacityId; changed = true; }
+        // Use the extracted capacityId (not the composite value)
+        if (capacityIdToValidate !== task.guest_count) { updates.capacityId = capacityIdToValidate; changed = true; }
         if (editableState.staffId !== (task.user?.id || 'unassigned')) { updates.staffId = editableState.staffId; changed = true; }
         if (editableState.notes !== (task.reception_notes || '')) { updates.notes = editableState.notes; changed = true; }
         if (editableState.date !== task.date) { updates.date = editableState.date; changed = true; }
@@ -533,10 +572,14 @@ export function TaskDetailDialog({
                             : null;
                     }
 
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetailDialog.tsx:549',message:'After save refresh',data:{taskId:task.id,roomGroup:updatedRoom?.group_type,guestCountFromDb:refreshedTask.guest_count,timeLimitFromDb:refreshedTask.time_limit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+                    // #endregion
+                    
                     setEditableState({
                         roomId: updatedRoom?.id ?? '',
                         cleaningType: refreshedTask.cleaning_type as CleaningType,
-                        capacityId: updatedRoom?.group_type === 'OTHER' ? 'a' : refreshedTask.guest_count, // guest_count now stores capacity_id
+                        capacityId: refreshedTask.guest_count || 'a', // Keep actual value from DB, default to 'a' if empty
                         staffId: updatedUser?.id ?? 'unassigned',
                         notes: refreshedTask.reception_notes ?? '',
                         date: refreshedTask.date,
@@ -544,9 +587,6 @@ export function TaskDetailDialog({
                         status: refreshedTask.status,
                     });
                     setSelectedGroup((updatedRoom?.group_type ?? task.room.group_type) as RoomGroup);
-                    if (updatedRoom?.group_type === 'OTHER') {
-                        task.guest_count = 'a'; // Use 'a' for OTHER rooms
-                    }
                 } else {
                     setEditableState(prev => prev ? { ...prev, ...updates } : prev);
                 }
@@ -807,9 +847,22 @@ export function TaskDetailDialog({
                                     </div>
                                 ) : (
                                     <Select
-                                        value={editableState.capacityId || 'd'} // Default to 'd' if not set
+                                        value={(() => {
+                                            // Extract capacityId from composite value if needed, or use direct value
+                                            const selectedRoom = availableRooms.find(r => r.id === editableState.roomId) || null;
+                                            const options = getGuestCountOptionsFromRoom(selectedRoom);
+                                            const currentCapacityId = editableState.capacityId || 'd';
+                                            // Find matching option and return composite value for Select
+                                            const matchingOption = options.find(opt => opt.value === currentCapacityId);
+                                            return matchingOption ? `${matchingOption.value}-${matchingOption.label}` : (editableState.capacityId || 'd');
+                                        })()}
                                         onValueChange={(value) => {
-                                            handleFieldChange('capacityId', value);
+                                            // #region agent log
+                                            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetailDialog.tsx:824',message:'Select onValueChange',data:{rawValue:value,currentCapacityId:editableState.capacityId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                                            // #endregion
+                                            // Extract capacityId from composite value (format: "value-label")
+                                            const capacityId = value.includes('-') ? value.split('-')[0] : value;
+                                            handleFieldChange('capacityId', capacityId);
                                         }}
                                         disabled={isUpdating}
                                     >
@@ -820,6 +873,9 @@ export function TaskDetailDialog({
                                             {(() => {
                                                 const selectedRoom = availableRooms.find(r => r.id === editableState.roomId) || null;
                                                 const options = getGuestCountOptionsFromRoom(selectedRoom);
+                                                // #region agent log
+                                                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetailDialog.tsx:835',message:'Select options generated',data:{roomId:editableState.roomId,roomGroup:selectedRoom?.group_type,optionsCount:options.length,options:options.map(o=>({value:o.value,label:o.label})),currentCapacityId:editableState.capacityId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                                                // #endregion
                                                 // Use composite value: value-label to handle duplicates
                                                 return options.map((option, index) => {
                                                     const uniqueValue = `${option.value}-${option.label}`;

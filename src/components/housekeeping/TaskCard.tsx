@@ -82,6 +82,12 @@ export function TaskCard({
           <p className="text-xs text-muted-foreground pt-1">
             Typ: {task.cleaning_type} / Goście: {CAPACITY_ID_TO_LABEL[task.guest_count] || task.guest_count} / Limit: {task.time_limit ? `${task.time_limit}m` : 'N/A'}
           </p>
+          {/* #region agent log */}
+          {(() => {
+            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskCard.tsx:83',message:'TaskCard render',data:{taskId:task.id,roomName:task.room?.name,roomGroup:task.room?.group_type,guestCount:task.guest_count,timeLimit:task.time_limit,cleaningType:task.cleaning_type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+            return null;
+          })()}
+          {/* #endregion */}
         </div>
         {/* Apply status color utility */}
         <Badge className={cn(getStatusColor(task.status), "text-xs ml-2 flex-shrink-0 text-white")}>

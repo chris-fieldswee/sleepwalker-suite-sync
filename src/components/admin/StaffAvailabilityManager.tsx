@@ -5,12 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RefreshCw } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { RefreshCw, Edit2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { ImportAvailabilityDialog } from './ImportAvailabilityDialog';
 import { AddAvailabilityDialog } from './AddAvailabilityDialog';
+import { EditAvailabilityDialog } from './EditAvailabilityDialog';
 
 type StaffAvailability = {
   id: string;
@@ -40,6 +43,9 @@ export const StaffAvailabilityManager: React.FC = () => {
   const [selectedStaffId, setSelectedStaffId] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [editingAvailability, setEditingAvailability] = useState<StaffAvailability | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchAvailability = async () => {
@@ -129,6 +135,46 @@ export const StaffAvailabilityManager: React.FC = () => {
 
   const handleRefresh = () => {
     fetchAvailability();
+  };
+
+  const handleEdit = (item: StaffAvailability) => {
+    setEditingAvailability(item);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      setDeletingId(id);
+      const { error } = await supabase
+        .from('staff_availability' as any)
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sukces",
+        description: "Dostępność została usunięta pomyślnie",
+      });
+
+      fetchAvailability();
+    } catch (error: any) {
+      console.error('Error deleting availability:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się usunąć dostępności",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const getStaffDisplayName = (item: StaffAvailability) => {
+    if (item.staff.first_name && item.staff.last_name) {
+      return `${item.staff.first_name} ${item.staff.last_name}`;
+    }
+    return item.staff.name;
   };
 
   return (
@@ -243,6 +289,7 @@ export const StaffAvailabilityManager: React.FC = () => {
                       <TableHead>Suma Godzin</TableHead>
                       <TableHead>Przydzielone Godziny</TableHead>
                       <TableHead>Dostępne Godziny</TableHead>
+                      <TableHead className="text-right">Akcje</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -262,6 +309,71 @@ export const StaffAvailabilityManager: React.FC = () => {
                         <TableCell>{item.total_hours}h</TableCell>
                         <TableCell>{item.assigned_hours}h</TableCell>
                         <TableCell className="font-medium">{item.available_hours}h</TableCell>
+                        <TableCell className="p-2 align-middle text-right">
+                          <div className="flex gap-1 justify-end">
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => handleEdit(item)}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                    <span className="sr-only">Edytuj</span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p>Edytuj dostępność</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            <AlertDialog>
+                              <TooltipProvider delayDuration={100}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                        disabled={deletingId === item.id}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        <span className="sr-only">Usuń dostępność</span>
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    <p>Usuń dostępność</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Czy na pewno?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tej akcji nie można cofnąć. Spowoduje to trwałe usunięcie dostępności dla{" "}
+                                    <span className="font-medium">{getStaffDisplayName(item)}</span> z dnia{" "}
+                                    <span className="font-medium">{formatDate(item.date)}</span>.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel disabled={deletingId === item.id}>Anuluj</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDelete(item.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    disabled={deletingId === item.id}
+                                  >
+                                    {deletingId === item.id ? "Usuwanie..." : "Usuń"}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -277,6 +389,19 @@ export const StaffAvailabilityManager: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <EditAvailabilityDialog
+        availability={editingAvailability}
+        isOpen={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false);
+          setEditingAvailability(null);
+        }}
+        onEditComplete={() => {
+          fetchAvailability();
+        }}
+      />
     </div>
   );
 };

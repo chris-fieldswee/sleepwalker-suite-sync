@@ -59,7 +59,7 @@ export interface WorkLog {
 const getTodayDateString = () => new Date().toISOString().split("T")[0];
 
 // Define active statuses for the 'all' filter and stats calculation
-const ACTIVE_TASK_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'paused', 'repair_needed'];
+const ACTIVE_TASK_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'paused'];
 
 export function useReceptionData() {
   const { toast } = useToast();
