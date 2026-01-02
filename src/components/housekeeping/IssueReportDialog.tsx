@@ -15,9 +15,9 @@ interface IssueReportDialogProps {
 }
 
 export function IssueReportDialog({ task, onReport, onClose }: IssueReportDialogProps) {
-  const [issueDescription, setIssueDescription] = useState(task.issue_description || "");
+  const [issueDescription, setIssueDescription] = useState("");
   const [issuePhoto, setIssuePhoto] = useState<File | null>(null);
-  const [issuePhotoPreview, setIssuePhotoPreview] = useState<string | null>(task.issue_photo || null);
+  const [issuePhotoPreview, setIssuePhotoPreview] = useState<string | null>(null);
   const [isReporting, setIsReporting] = useState(false);
   const { toast } = useToast();
 
@@ -70,6 +70,13 @@ export function IssueReportDialog({ task, onReport, onClose }: IssueReportDialog
     const success = await onReport(task.id, issueDescription, issuePhoto);
     setIsReporting(false);
     if (success) {
+      // Reset form for next issue
+      setIssueDescription("");
+      setIssuePhoto(null);
+      if (issuePhotoPreview) {
+        URL.revokeObjectURL(issuePhotoPreview);
+      }
+      setIssuePhotoPreview(null);
       onClose(); // Close dialog on successful report
     }
     // Keep dialog open on failure
@@ -79,7 +86,7 @@ export function IssueReportDialog({ task, onReport, onClose }: IssueReportDialog
     <DialogContent>
       <DialogHeader>
         <DialogTitle>Zgłoś problem dla pokoju {task.room?.name || 'Nieznany'}</DialogTitle>
-        <DialogDescription>Opisz problem konserwacyjny i opcjonalnie dodaj zdjęcie. Oznaczy to zadanie jako wymagające naprawy.</DialogDescription>
+        <DialogDescription>Opisz problem konserwacyjny i opcjonalnie dodaj zdjęcie. Możesz zgłosić wiele problemów dla tego samego zadania.</DialogDescription>
       </DialogHeader>
       <div className="grid gap-4 py-4">
         <div className="space-y-1">

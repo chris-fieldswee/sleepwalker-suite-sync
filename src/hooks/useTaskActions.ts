@@ -190,7 +190,27 @@ export function useTaskActions(
         });
         return false;
       }
-      currentUserId = userData?.id || null;
+      
+      if (!userData || !userData.id) {
+        console.error("User not found in users table for auth_id:", userId);
+        toast({ 
+          title: "Błąd", 
+          description: "Nie znaleziono użytkownika w bazie danych.", 
+          variant: "destructive" 
+        });
+        return false;
+      }
+      
+      currentUserId = userData.id;
+      console.log("Found user ID for issue reporting:", currentUserId, "for auth_id:", userId);
+    } else {
+      console.error("No userId available from auth context");
+      toast({ 
+        title: "Błąd", 
+        description: "Brak identyfikatora użytkownika.", 
+        variant: "destructive" 
+      });
+      return false;
     }
 
     // Upload photo if provided
@@ -249,7 +269,7 @@ export function useTaskActions(
       title: issueDescription.substring(0, 100),
       description: issueDescription,
       photo_url: photoUrl,
-      status: 'open' as const,
+      status: 'reported' as const,
       priority: 'medium' as const,
     };
 

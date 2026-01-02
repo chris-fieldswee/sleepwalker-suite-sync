@@ -37,24 +37,22 @@ export function SecondaryTaskActions({ task, onSaveNote, onReportIssue }: Second
         )}
       </Dialog>
 
-      {/* Report Issue Dialog - Hide if already flagged */}
-      {!task.issue_flag && (
-        <Dialog open={isIssueDialogOpen} onOpenChange={setIsIssueDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 px-2" onClick={(e) => e.stopPropagation()}>
-              <AlertTriangle className="mr-1 h-4 w-4" /> Zgłoś Problem
-            </Button>
-          </DialogTrigger>
-          {/* Render dialog only when open */}
-          {isIssueDialogOpen && (
-            <IssueReportDialog
-              task={task}
-              onReport={onReportIssue}
-              onClose={() => setIsIssueDialogOpen(false)} // Pass handler to close
-            />
-          )}
-        </Dialog>
-      )}
+      {/* Report Issue Dialog - Allow multiple issues per task */}
+      <Dialog open={isIssueDialogOpen} onOpenChange={setIsIssueDialogOpen}>
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 px-2" onClick={(e) => e.stopPropagation()}>
+            <AlertTriangle className="mr-1 h-4 w-4" /> Zgłoś Problem
+          </Button>
+        </DialogTrigger>
+        {/* Render dialog only when open */}
+        {isIssueDialogOpen && (
+          <IssueReportDialog
+            task={task}
+            onReport={onReportIssue}
+            onClose={() => setIsIssueDialogOpen(false)} // Pass handler to close
+          />
+        )}
+      </Dialog>
     </div>
   );
 }

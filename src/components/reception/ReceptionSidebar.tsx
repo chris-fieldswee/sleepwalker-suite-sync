@@ -1,6 +1,7 @@
 import { LayoutDashboard, ClipboardList, AlertTriangle, LogOut } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
@@ -14,6 +15,7 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useZgloszoneIssues } from "@/hooks/useZgloszoneIssues";
 
 interface ReceptionSidebarProps {
   onSignOut: () => void;
@@ -27,6 +29,7 @@ const navItems = [
 
 export function ReceptionSidebar({ onSignOut }: ReceptionSidebarProps) {
   const { open } = useSidebar();
+  const { hasZgloszoneIssues } = useZgloszoneIssues();
 
   return (
     <Sidebar collapsible="icon">
@@ -51,13 +54,26 @@ export function ReceptionSidebar({ onSignOut }: ReceptionSidebarProps) {
                       to={item.url}
                       end={item.end}
                       className={({ isActive }) =>
-                        isActive
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                          : "hover:bg-sidebar-accent/50"
+                        cn(
+                          isActive
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                            : "hover:bg-sidebar-accent/50",
+                          "overflow-visible"
+                        )
                       }
                     >
                       <item.icon className="h-4 w-4" />
-                      {open && <span>{item.title}</span>}
+                      {open && (
+                        <span className="relative inline-flex items-center gap-2 overflow-visible">
+                          {item.title}
+                          {item.title === "Problemy" && hasZgloszoneIssues && (
+                            <span className="relative h-2 w-2 overflow-visible">
+                              <span className="absolute inset-0 h-2 w-2 bg-white rounded-full animate-pulse"></span>
+                              <span className="absolute -inset-0.5 h-3 w-3 bg-white/20 rounded-full animate-ping" style={{ animationDuration: '2s' }}></span>
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

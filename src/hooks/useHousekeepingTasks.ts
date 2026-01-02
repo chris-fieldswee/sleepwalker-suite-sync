@@ -21,10 +21,14 @@ export function useHousekeepingTasks() {
     // #endregion
     if (!userId) return setLoading(false);
 
+    // Only set loading=true if we don't have tasks yet (initial load)
+    // If we already have tasks, keep showing them during refresh (optimistic UI)
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:20',message:'setLoading true BEFORE fetch',data:{userId:userId,loadingState:'setting to true'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:20',message:'setLoading true BEFORE fetch - only if no tasks',data:{userId:userId,hasExistingTasks:tasks.length>0,willSetLoading:tasks.length===0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
-    setLoading(true);
+    if (tasks.length === 0) {
+      setLoading(true);
+    }
 
     const { data, error } = await supabase
       .from("tasks")
@@ -57,14 +61,22 @@ export function useHousekeepingTasks() {
       const fetchedTasks = (data as unknown as Task[]) || [];
       fetchedTasks.forEach(t => t.created_at = t.created_at || new Date(0).toISOString());
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:47',message:'setTasks called with fetched data',data:{taskCount:fetchedTasks.length,taskIds:fetchedTasks.map(t=>t.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:47',message:'setTasks called with fetched data',data:{taskCount:fetchedTasks.length,taskIds:fetchedTasks.map(t=>t.id),hadTasksBefore:tasks.length>0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
-      setTasks(fetchedTasks);
-      const active = fetchedTasks.find((t) => t.status === "in_progress");
-      setActiveTaskId(active?.id || null);
+      // Only update tasks if we got results, or if this is the initial load (no existing tasks)
+      // This prevents clearing tasks on transient query issues
+      if (fetchedTasks.length > 0 || tasks.length === 0) {
+        setTasks(fetchedTasks);
+        const active = fetchedTasks.find((t) => t.status === "in_progress");
+        setActiveTaskId(active?.id || null);
+      } else {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:66',message:'skipping setTasks - empty result but had existing tasks',data:{fetchedCount:fetchedTasks.length,existingCount:tasks.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+      }
     }
       // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:51',message:'setLoading false AFTER fetch',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:51',message:'setLoading false AFTER fetch',data:{finalTaskCount:tasks.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
     setLoading(false);
     }, [userId]); // ✅ only depends on userId, not toast or loading
@@ -111,9 +123,17 @@ export function useHousekeepingTasks() {
         (payload) => {
           console.log("Realtime update:", payload);
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:84',message:'realtime update received',data:{eventType:payload.eventType,taskId:payload.new?.id||payload.old?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+          const payloadUserId = (payload.new as any)?.user_id || (payload.old as any)?.user_id;
+          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:115',message:'realtime update received',data:{eventType:payload.eventType,taskId:payload.new?.id||payload.old?.id,payloadUserId:payloadUserId,currentUserId:userId,matchesUser:payloadUserId===userId,currentTaskCount:tasks.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
           // #endregion
-          fetchTasks();
+          // Only refetch if this update is for our user's tasks
+          if (payloadUserId === userId || !payloadUserId) {
+            fetchTasks();
+          } else {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:121',message:'skipping fetchTasks - different user',data:{payloadUserId:payloadUserId,currentUserId:userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
+          }
 
           if (payload.eventType === "INSERT") {
             const room = (payload.new as Task)?.room?.name || "Unknown Room";

@@ -67,7 +67,7 @@ export function IssueDetailDialog({
             // Reset when dialog closes or issue becomes null
             setIsEditMode(false);
             setAssignedStaffId("unassigned");
-            setStatus('open');
+            setStatus('reported');
             setPriority('medium');
             setNotes("");
             setPhoto(null);
@@ -179,6 +179,7 @@ export function IssueDetailDialog({
 
     const getStatusBadge = (status: string) => {
         const config: Record<string, { label: string; className: string }> = {
+            reported: { label: 'Zgłoszone', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200' },
             open: { label: 'Otwarte', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
             in_progress: { label: 'W trakcie', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
             resolved: { label: 'Rozwiązane', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
@@ -300,7 +301,7 @@ export function IssueDetailDialog({
                         </Label>
                         {!isEditMode ? (
                             <p className="text-sm border p-2 rounded bg-muted/30">
-                                {issue.status === 'open' ? 'Otwarte' : issue.status === 'in_progress' ? 'W trakcie' : issue.status === 'resolved' ? 'Rozwiązane' : 'Zamknięte'}
+                                {issue.status === 'reported' ? 'Zgłoszone' : issue.status === 'open' ? 'Otwarte' : issue.status === 'in_progress' ? 'W trakcie' : issue.status === 'resolved' ? 'Rozwiązane' : issue.status === 'closed' ? 'Zamknięte' : issue.status}
                             </p>
                         ) : (
                             <Select value={status} onValueChange={setStatus} disabled={isSaving || !isEditMode}>
@@ -308,6 +309,7 @@ export function IssueDetailDialog({
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="reported">Zgłoszone</SelectItem>
                                     <SelectItem value="open">Otwarte</SelectItem>
                                     <SelectItem value="in_progress">W trakcie</SelectItem>
                                     <SelectItem value="resolved">Rozwiązane</SelectItem>

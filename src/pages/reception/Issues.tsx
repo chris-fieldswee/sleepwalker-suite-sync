@@ -58,36 +58,47 @@ export default function Issues({
         .select(`
           *,
           room:rooms(id, name, color),
-          assigned_to:users!assigned_to_user_id(id, name, first_name, last_name),
-          reported_by:users!reported_by_user_id(id, name, first_name, last_name),
-          resolved_by:users!resolved_by_user_id(id, name, first_name, last_name),
+          assigned_to:users!issues_assigned_to_user_id_fkey(id, name, first_name, last_name),
+          reported_by:users!issues_reported_by_user_id_fkey(id, name, first_name, last_name),
+          resolved_by:users!issues_resolved_by_user_id_fkey(id, name, first_name, last_name),
           task:tasks(id, date)
         `)
         .order('reported_at', { ascending: false });
 
       if (error) throw error;
 
-      const formattedIssues = (data || []).map((issue: any) => ({
-        ...issue,
-        assigned_to: issue.assigned_to ? {
-          ...issue.assigned_to,
-          name: issue.assigned_to.first_name && issue.assigned_to.last_name
-            ? `${issue.assigned_to.first_name} ${issue.assigned_to.last_name}`
-            : issue.assigned_to.name
-        } : null,
-        reported_by: issue.reported_by ? {
-          ...issue.reported_by,
-          name: issue.reported_by.first_name && issue.reported_by.last_name
-            ? `${issue.reported_by.first_name} ${issue.reported_by.last_name}`
-            : issue.reported_by.name
-        } : null,
-        resolved_by: issue.resolved_by ? {
-          ...issue.resolved_by,
-          name: issue.resolved_by.first_name && issue.resolved_by.last_name
-            ? `${issue.resolved_by.first_name} ${issue.resolved_by.last_name}`
-            : issue.resolved_by.name
-        } : null,
-      }));
+      const formattedIssues = (data || []).map((issue: any) => {
+        // Debug logging for reported_by
+        if (issue.reported_by_user_id && !issue.reported_by) {
+          console.warn("Issue has reported_by_user_id but join returned null:", {
+            issueId: issue.id,
+            reported_by_user_id: issue.reported_by_user_id,
+            reported_by: issue.reported_by
+          });
+        }
+        
+        return {
+          ...issue,
+          assigned_to: issue.assigned_to ? {
+            ...issue.assigned_to,
+            name: issue.assigned_to.first_name && issue.assigned_to.last_name
+              ? `${issue.assigned_to.first_name} ${issue.assigned_to.last_name}`
+              : issue.assigned_to.name
+          } : null,
+          reported_by: issue.reported_by ? {
+            ...issue.reported_by,
+            name: issue.reported_by.first_name && issue.reported_by.last_name
+              ? `${issue.reported_by.first_name} ${issue.reported_by.last_name}`
+              : issue.reported_by.name
+          } : null,
+          resolved_by: issue.resolved_by ? {
+            ...issue.resolved_by,
+            name: issue.resolved_by.first_name && issue.resolved_by.last_name
+              ? `${issue.resolved_by.first_name} ${issue.resolved_by.last_name}`
+              : issue.resolved_by.name
+          } : null,
+        };
+      });
 
       setAllIssues(formattedIssues);
     } catch (error: any) {
@@ -103,9 +114,9 @@ export default function Issues({
         .select(`
           *,
           room:rooms(id, name, color),
-          assigned_to:users!assigned_to_user_id(id, name, first_name, last_name),
-          reported_by:users!reported_by_user_id(id, name, first_name, last_name),
-          resolved_by:users!resolved_by_user_id(id, name, first_name, last_name),
+          assigned_to:users!issues_assigned_to_user_id_fkey(id, name, first_name, last_name),
+          reported_by:users!issues_reported_by_user_id_fkey(id, name, first_name, last_name),
+          resolved_by:users!issues_resolved_by_user_id_fkey(id, name, first_name, last_name),
           task:tasks(id, date)
         `)
         .order('reported_at', { ascending: false });
@@ -128,27 +139,38 @@ export default function Issues({
       const { data, error } = await query;
       if (error) throw error;
 
-      const formattedIssues = (data || []).map((issue: any) => ({
-        ...issue,
-        assigned_to: issue.assigned_to ? {
-          ...issue.assigned_to,
-          name: issue.assigned_to.first_name && issue.assigned_to.last_name
-            ? `${issue.assigned_to.first_name} ${issue.assigned_to.last_name}`
-            : issue.assigned_to.name
-        } : null,
-        reported_by: issue.reported_by ? {
-          ...issue.reported_by,
-          name: issue.reported_by.first_name && issue.reported_by.last_name
-            ? `${issue.reported_by.first_name} ${issue.reported_by.last_name}`
-            : issue.reported_by.name
-        } : null,
-        resolved_by: issue.resolved_by ? {
-          ...issue.resolved_by,
-          name: issue.resolved_by.first_name && issue.resolved_by.last_name
-            ? `${issue.resolved_by.first_name} ${issue.resolved_by.last_name}`
-            : issue.resolved_by.name
-        } : null,
-      }));
+      const formattedIssues = (data || []).map((issue: any) => {
+        // Debug logging for reported_by
+        if (issue.reported_by_user_id && !issue.reported_by) {
+          console.warn("Issue has reported_by_user_id but join returned null:", {
+            issueId: issue.id,
+            reported_by_user_id: issue.reported_by_user_id,
+            reported_by: issue.reported_by
+          });
+        }
+        
+        return {
+          ...issue,
+          assigned_to: issue.assigned_to ? {
+            ...issue.assigned_to,
+            name: issue.assigned_to.first_name && issue.assigned_to.last_name
+              ? `${issue.assigned_to.first_name} ${issue.assigned_to.last_name}`
+              : issue.assigned_to.name
+          } : null,
+          reported_by: issue.reported_by ? {
+            ...issue.reported_by,
+            name: issue.reported_by.first_name && issue.reported_by.last_name
+              ? `${issue.reported_by.first_name} ${issue.reported_by.last_name}`
+              : issue.reported_by.name
+          } : null,
+          resolved_by: issue.resolved_by ? {
+            ...issue.resolved_by,
+            name: issue.resolved_by.first_name && issue.resolved_by.last_name
+              ? `${issue.resolved_by.first_name} ${issue.resolved_by.last_name}`
+              : issue.resolved_by.name
+          } : null,
+        };
+      });
 
       setIssues(formattedIssues);
     } catch (error: any) {
@@ -275,7 +297,7 @@ export default function Issues({
         description: description,
         photo_url: photoUrl,
         reported_by_user_id: currentUser?.id || null,
-        status: 'open' as const,
+        status: 'reported' as const,
         priority: 'medium' as const,
       };
 
@@ -304,12 +326,13 @@ export default function Issues({
 
   const getStatusBadge = (status: IssueStatus) => {
     const config = {
+      reported: { label: 'Zgłoszone', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200' },
       open: { label: 'Otwarte', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
       in_progress: { label: 'W trakcie', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
       resolved: { label: 'Rozwiązane', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
       closed: { label: 'Zamknięte', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200' },
     };
-    const { label, className } = config[status];
+    const { label, className } = config[status] || { label: status, className: '' };
     return <Badge className={className}>{label}</Badge>;
   };
 
@@ -432,6 +455,7 @@ export default function Issues({
                   <SelectItem value="all" className="text-sm">Wszystkie statusy</SelectItem>
                   {availableFilterStatuses.map(status => {
                     const labels: Record<IssueStatus, string> = {
+                      reported: 'Zgłoszone',
                       open: 'Otwarte',
                       in_progress: 'W trakcie',
                       resolved: 'Rozwiązane',

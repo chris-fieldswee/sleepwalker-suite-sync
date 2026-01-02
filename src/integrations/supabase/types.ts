@@ -381,7 +381,7 @@ export type Database = {
       app_role: "admin" | "reception" | "housekeeping"
       cleaning_type: "W" | "P" | "T" | "O" | "G" | "S"
       issue_priority: "low" | "medium" | "high" | "urgent"
-      issue_status: "open" | "in_progress" | "resolved" | "closed"
+      issue_status: "open" | "in_progress" | "resolved" | "closed" | "reported"
       room_group: "P1" | "P2" | "A1S" | "A2S" | "OTHER"
       task_status: "todo" | "in_progress" | "paused" | "done" | "repair_needed"
       user_role: "admin" | "reception" | "housekeeping"
@@ -515,7 +515,7 @@ export const Constants = {
       app_role: ["admin", "reception", "housekeeping"],
       cleaning_type: ["W", "P", "T", "O", "G", "S"],
       issue_priority: ["low", "medium", "high", "urgent"],
-      issue_status: ["open", "in_progress", "resolved", "closed"],
+      issue_status: ["open", "in_progress", "resolved", "closed", "reported"],
       room_group: ["P1", "P2", "A1S", "A2S", "OTHER"],
       task_status: ["todo", "in_progress", "paused", "done", "repair_needed"],
       user_role: ["admin", "reception", "housekeeping"],
