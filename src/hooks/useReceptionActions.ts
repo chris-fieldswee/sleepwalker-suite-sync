@@ -296,7 +296,8 @@ export function useReceptionActions(
               }
               
               if (numericGuestCount !== null) {
-                const { data: limitData, error: limitError } = await supabase
+                // Try querying with numeric value first (for INTEGER column)
+                let { data: limitData, error: limitError } = await supabase
                     .from('limits')
                     .select('time_limit')
                     .eq('group_type', selectedRoom.group_type)
@@ -304,13 +305,40 @@ export function useReceptionActions(
                     .eq('guest_count', numericGuestCount)
                     .maybeSingle();
 
+                // If that fails, try with string value (for TEXT column)
+                if (limitError || !limitData) {
+                  const { data: limitDataText, error: limitErrorText } = await supabase
+                      .from('limits')
+                      .select('time_limit')
+                      .eq('group_type', selectedRoom.group_type)
+                      .eq('cleaning_type', newTask.cleaningType)
+                      .eq('guest_count', String(numericGuestCount))
+                      .maybeSingle();
+                  
+                  if (!limitErrorText && limitDataText) {
+                    limitData = limitDataText;
+                    limitError = null;
+                  } else if (limitError) {
+                    limitError = limitErrorText || limitError;
+                  }
+                }
+
                 if (limitError) {
                   console.warn(`Could not fetch time limit: ${limitError.message}. Proceeding without limit.`);
+                  // #region agent log
+                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:298',message:'Time limit query failed',data:{groupType:selectedRoom.group_type,cleaningType:newTask.cleaningType,numericGuestCount,capacityId:newTask.capacityId,error:limitError.message},timestamp:Date.now(),sessionId:'debug-session',runId:'production-debug',hypothesisId:'K'})}).catch(()=>{});
+                  // #endregion
                 } else {
                   timeLimit = limitData?.time_limit ?? null;
+                  // #region agent log
+                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:310',message:'Time limit found',data:{groupType:selectedRoom.group_type,cleaningType:newTask.cleaningType,numericGuestCount,capacityId:newTask.capacityId,timeLimit},timestamp:Date.now(),sessionId:'debug-session',runId:'production-debug',hypothesisId:'K'})}).catch(()=>{});
+                  // #endregion
                 }
               } else {
                 console.warn(`Could not convert capacity_id '${newTask.capacityId}' to numeric guest_count for limits table query.`);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:313',message:'Could not convert capacityId to numeric',data:{capacityId:newTask.capacityId,roomGroup:selectedRoom.group_type},timestamp:Date.now(),sessionId:'debug-session',runId:'production-debug',hypothesisId:'K'})}).catch(()=>{});
+                // #endregion
               }
             }
 
@@ -751,13 +779,32 @@ export function useReceptionActions(
                       // #endregion
                       
                       if (numericGuestCount !== null) {
-                          const { data: limitData, error: limitError } = await supabase
+                          // Try querying with numeric value first (for INTEGER column)
+                          let { data: limitData, error: limitError } = await supabase
                              .from('limits')
                              .select('time_limit')
                              .eq('group_type', groupType)
                              .eq('cleaning_type', cleaningType)
                              .eq('guest_count', numericGuestCount)
                              .maybeSingle();
+
+                          // If that fails, try with string value (for TEXT column)
+                          if (limitError || !limitData) {
+                            const { data: limitDataText, error: limitErrorText } = await supabase
+                                .from('limits')
+                                .select('time_limit')
+                                .eq('group_type', groupType)
+                                .eq('cleaning_type', cleaningType)
+                                .eq('guest_count', String(numericGuestCount))
+                                .maybeSingle();
+                            
+                            if (!limitErrorText && limitDataText) {
+                              limitData = limitDataText;
+                              limitError = null;
+                            } else if (limitError) {
+                              limitError = limitErrorText || limitError;
+                            }
+                          }
 
                           if (limitError) {
                               console.warn("Could not fetch new time limit during update:", limitError.message);
@@ -766,10 +813,13 @@ export function useReceptionActions(
                           }
                           
                           // #region agent log
-                          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:672',message:'Time limit from limits table',data:{timeLimitFromTable:timeLimit,limitError:limitError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+                          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:712',message:'Time limit from limits table',data:{timeLimitFromTable:timeLimit,limitError:limitError?.message,groupType,cleaningType,numericGuestCount,capacityId},timestamp:Date.now(),sessionId:'debug-session',runId:'production-debug',hypothesisId:'K'})}).catch(()=>{});
                           // #endregion
                       } else {
                           console.warn(`Could not convert capacity_id '${capacityId}' to numeric guest_count for limits table query.`);
+                          // #region agent log
+                          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:730',message:'Could not convert capacityId to numeric in update',data:{capacityId,groupType},timestamp:Date.now(),sessionId:'debug-session',runId:'production-debug',hypothesisId:'K'})}).catch(()=>{});
+                          // #endregion
                       }
                   }
                   

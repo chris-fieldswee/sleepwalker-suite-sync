@@ -253,6 +253,17 @@ interface AddTaskDialogProps {
 
 const getTodayDateString = () => new Date().toISOString().split("T")[0];
 
+// Helper function to check if a room allows multiple tasks on the same date
+// These rooms are: pralnia, śniadania, and przerwa śniadaniowa
+const isSpecialRoomAllowingMultipleTasks = (roomName: string | null | undefined): boolean => {
+    if (!roomName) return false;
+    const normalizedName = roomName.trim().toLowerCase();
+    return normalizedName === 'pralnia' ||
+           normalizedName === 'śniadania' ||
+           normalizedName === 'przerwa śniadaniowa' ||
+           normalizedName === 'przerwa sniadaniowa'; // Handle both with and without special characters
+};
+
 export function AddTaskDialog({
     availableRooms,
     allStaff,
@@ -447,19 +458,29 @@ export function AddTaskDialog({
     }, [availableRooms]);
 
     // Filter rooms by selected group and exclude already assigned rooms
+    // Exception: Allow special rooms (pralnia, śniadania, przerwa śniadaniowa) even if already assigned
     const filteredRooms = useMemo(() => {
         if (!selectedGroup) return [];
         return availableRooms
             // Filter by the selected group
             .filter(room => room.group_type === selectedGroup)
-            // **NEW**: Filter out rooms that are already assigned on the selected date
-            .filter(room => !assignedRoomIds.has(room.id))
+            // Filter out rooms that are already assigned on the selected date
+            // BUT allow special rooms that can have multiple tasks on the same date
+            .filter(room => {
+                const isAssigned = assignedRoomIds.has(room.id);
+                const allowsMultiple = isSpecialRoomAllowingMultipleTasks(room.name);
+                return !isAssigned || allowsMultiple;
+            })
             .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically by name
     }, [selectedGroup, availableRooms, assignedRoomIds]); // Add assignedRoomIds dependency
 
     // Clear selected room if it becomes unavailable (filtered out or assigned)
+    // Exception: Don't clear special rooms that allow multiple tasks even if assigned
     useEffect(() => {
         if (!newTask.roomId || !isOpen) return;
+
+        const selectedRoom = availableRooms.find(room => room.id === newTask.roomId);
+        const allowsMultiple = selectedRoom ? isSpecialRoomAllowingMultipleTasks(selectedRoom.name) : false;
 
         // Check if the selected room is still available in filteredRooms
         const isRoomStillAvailable = filteredRooms.some(room => room.id === newTask.roomId);
@@ -470,6 +491,24 @@ export function AddTaskDialog({
         // Check if the room is now assigned
         const isRoomAssigned = assignedRoomIds.has(newTask.roomId);
 
+        // Don't clear if it's a special room that allows multiple tasks
+        if (allowsMultiple) {
+            // Special rooms can stay selected even if assigned, but still check if room exists
+            if (!isRoomInAvailableRooms) {
+                console.log("Selected special room is no longer available, clearing selection:", {
+                    roomId: newTask.roomId,
+                });
+                setNewTask(prev => ({
+                    ...prev,
+                    roomId: "", // Clear the room selection
+                    staffId: "", // Also clear staff selection
+                    capacityId: 'a', // Reset to default (1)
+                }));
+            }
+            return;
+        }
+
+        // For regular rooms, clear if not available or assigned
         if (!isRoomStillAvailable || !isRoomInAvailableRooms || isRoomAssigned) {
             console.log("Selected room is no longer available, clearing selection:", {
                 roomId: newTask.roomId,
@@ -681,7 +720,9 @@ export function AddTaskDialog({
         }
 
         // Validation: Check if the selected room is still available (double-check against latest assignedRoomIds)
-        if (assignedRoomIds.has(newTask.roomId)) {
+        // Exception: Allow special rooms (pralnia, śniadania, przerwa śniadaniowa) even if already assigned
+        const allowsMultiple = selectedRoom ? isSpecialRoomAllowingMultipleTasks(selectedRoom.name) : false;
+        if (assignedRoomIds.has(newTask.roomId) && !allowsMultiple) {
             toast({
                 title: "Pokój Już Przypisany",
                 description: "Ten pokój ma już przypisane zadanie na wybraną datę. Proszę wybrać inny pokój.",
@@ -691,8 +732,9 @@ export function AddTaskDialog({
         }
 
         // Validation: Check if room is in filteredRooms (should be if it passed the above checks)
+        // Exception: Allow special rooms even if not in filteredRooms (though they should be due to our filter logic)
         const isRoomInFiltered = filteredRooms.some(r => r.id === newTask.roomId);
-        if (!isRoomInFiltered && selectedGroup) {
+        if (!isRoomInFiltered && selectedGroup && !allowsMultiple) {
             console.warn("Room is in availableRooms but not in filteredRooms:", {
                 roomId: newTask.roomId,
                 selectedGroup,
@@ -707,40 +749,43 @@ export function AddTaskDialog({
         }
 
         // Double-check just before submission to prevent race conditions
-        try {
-            const { data: existingOpenTasks, error: existingCheckError } = await supabase
-                .from('tasks')
-                .select('id')
-                .eq('date', newTask.date)
-                .eq('room_id', newTask.roomId)
-                .in('status', OPEN_TASK_STATUSES);
+        // Skip this check for special rooms that allow multiple tasks
+        if (!allowsMultiple) {
+            try {
+                const { data: existingOpenTasks, error: existingCheckError } = await supabase
+                    .from('tasks')
+                    .select('id')
+                    .eq('date', newTask.date)
+                    .eq('room_id', newTask.roomId)
+                    .in('status', OPEN_TASK_STATUSES);
 
-            if (existingCheckError) {
-                console.error("Error verifying existing tasks before submit:", existingCheckError);
+                if (existingCheckError) {
+                    console.error("Error verifying existing tasks before submit:", existingCheckError);
+                    toast({
+                        title: "Weryfikacja Nieudana",
+                        description: "Nie udało się zweryfikować dostępności pokoju. Spróbuj ponownie.",
+                        variant: "destructive",
+                    });
+                    return;
+                }
+
+                if (existingOpenTasks && existingOpenTasks.length > 0) {
+                    toast({
+                        title: "Pokój Już Przypisany",
+                        description: "Istnieje już otwarte zadanie dla tego pokoju w wybranym dniu. Zamknij je przed utworzeniem kolejnego.",
+                        variant: "destructive",
+                    });
+                    return;
+                }
+            } catch (verificationError) {
+                console.error("Unexpected error during duplicate task verification:", verificationError);
                 toast({
-                    title: "Weryfikacja Nieudana",
-                    description: "Nie udało się zweryfikować dostępności pokoju. Spróbuj ponownie.",
+                    title: "Błąd Weryfikacji",
+                    description: "Coś poszło nie tak podczas sprawdzania dostępności pokoju. Spróbuj ponownie.",
                     variant: "destructive",
                 });
                 return;
             }
-
-            if (existingOpenTasks && existingOpenTasks.length > 0) {
-                toast({
-                    title: "Pokój Już Przypisany",
-                    description: "Istnieje już otwarte zadanie dla tego pokoju w wybranym dniu. Zamknij je przed utworzeniem kolejnego.",
-                    variant: "destructive",
-                });
-                return;
-            }
-        } catch (verificationError) {
-            console.error("Unexpected error during duplicate task verification:", verificationError);
-            toast({
-                title: "Błąd Weryfikacji",
-                description: "Coś poszło nie tak podczas sprawdzania dostępności pokoju. Spróbuj ponownie.",
-                variant: "destructive",
-            });
-            return;
         }
 
         const success = await onSubmit(newTask);
