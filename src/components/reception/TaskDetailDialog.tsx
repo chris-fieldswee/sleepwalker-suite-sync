@@ -255,6 +255,12 @@ export function TaskDetailDialog({
 }: TaskDetailDialogProps) {
     const { toast } = useToast();
     const { userRole } = useAuth();
+    
+    // #region agent log
+    if (isOpen && task) {
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TaskDetailDialog.tsx:257',message:'TaskDetailDialog opened',data:{userRole,taskId:task.id,roomGroup:task.room.group_type},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'I'})}).catch(()=>{});
+    }
+    // #endregion
     const [editableState, setEditableState] = useState<EditableTaskState | null>(null);
     const [selectedGroup, setSelectedGroup] = useState<RoomGroup | null>(null);
     const [isEditMode, setIsEditMode] = useState(false);
@@ -392,11 +398,15 @@ export function TaskDetailDialog({
                 }
 
                 const guestOptions = getGuestCountOptionsFromRoom(selectedRoom);
-                nextState.capacityId = selectedRoom?.group_type === 'OTHER'
-                    ? 'a' // Default to 'a' for OTHER rooms
-                    : guestOptions.length > 0
+                if (selectedRoom?.group_type === 'OTHER') {
+                    // For OTHER rooms, use numeric capacityId (1, 2, 3, etc.) to match limits table
+                    // Default to '1' for OTHER rooms
+                    nextState.capacityId = '1';
+                } else {
+                    nextState.capacityId = guestOptions.length > 0
                         ? guestOptions[0].value
                         : 'd'; // Default to 'd' (2) if no options
+                }
             }
 
             return nextState;
@@ -469,7 +479,7 @@ export function TaskDetailDialog({
         // #endregion
         
         // Validation: capacityId must be a valid identifier
-        // For OTHER rooms, capacityId can be a numeric string (1, 2, 3, etc.) OR a letter identifier (a, b, c, etc.)
+        // For OTHER rooms, capacityId should be a numeric string (1, 2, 3, etc.) to match limits table
         // For other rooms, capacityId should be in CAPACITY_ID_TO_LABEL (a, b, c, etc.)
         // Also handle composite values that might come from Select component (extract the capacityId part)
         let capacityIdToValidate = editableState.capacityId;
@@ -478,9 +488,18 @@ export function TaskDetailDialog({
             capacityIdToValidate = capacityIdToValidate.split('-')[0];
         }
         
+        // For OTHER rooms, convert letter identifiers to numeric (e.g., 'a' -> '1')
+        if (isOtherRoom && capacityIdToValidate && CAPACITY_ID_TO_LABEL[capacityIdToValidate]) {
+            const label = CAPACITY_ID_TO_LABEL[capacityIdToValidate];
+            // If label is numeric (like "1", "2"), use it; otherwise keep original
+            if (/^\d+$/.test(label)) {
+                capacityIdToValidate = label;
+            }
+        }
+        
         const isValidCapacityId = capacityIdToValidate && (
-            CAPACITY_ID_TO_LABEL[capacityIdToValidate] || // Valid letter identifier
-            (isOtherRoom && /^\d+$/.test(capacityIdToValidate)) // Valid numeric string for OTHER rooms
+            (isOtherRoom && /^\d+$/.test(capacityIdToValidate)) || // Valid numeric string for OTHER rooms
+            (!isOtherRoom && CAPACITY_ID_TO_LABEL[capacityIdToValidate]) // Valid letter identifier for other rooms
         );
         
         // #region agent log

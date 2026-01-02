@@ -582,7 +582,7 @@ export function AddTaskDialog({
 
         const guestOptions = getGuestCountOptionsFromRoom(selectedRoom);
         const defaultGuestCount = selectedRoom.group_type === 'OTHER'
-            ? 'other'  // Use 'other' string for OTHER rooms instead of number 1
+            ? '1'  // Use numeric '1' for OTHER rooms to match limits table
             : guestOptions.length > 0
                 ? guestOptions[0].value
                 : 'd';  // Default to 'd' instead of number 1
@@ -630,11 +630,24 @@ export function AddTaskDialog({
         const normalizedRoomId = String(newTask.roomId).trim();
         let selectedRoom = availableRooms.find(r => String(r.id).trim() === normalizedRoomId);
         
-        // Ensure capacityId is set to "other" for OTHER rooms before submission
+        // Ensure capacityId is set to numeric value (default '1') for OTHER rooms before submission
         if (selectedRoom?.group_type === 'OTHER') {
-            if (newTask.capacityId !== 'other') {
+            let correctedCapacityId = newTask.capacityId;
+            // Convert letter identifiers to numeric for OTHER rooms
+            if (correctedCapacityId && CAPACITY_ID_TO_LABEL[correctedCapacityId]) {
+                const label = CAPACITY_ID_TO_LABEL[correctedCapacityId];
+                if (/^\d+$/.test(label)) {
+                    correctedCapacityId = label;
+                } else {
+                    correctedCapacityId = '1'; // Default to '1' if conversion fails
+                }
+            } else if (!correctedCapacityId || !/^\d+$/.test(correctedCapacityId)) {
+                correctedCapacityId = '1'; // Default to '1' if not numeric
+            }
+            
+            if (newTask.capacityId !== correctedCapacityId) {
                 // Update state and submit with corrected capacityId
-                const correctedTask = { ...newTask, capacityId: 'other' };
+                const correctedTask = { ...newTask, capacityId: correctedCapacityId };
                 await onSubmit(correctedTask);
                 return;
             }

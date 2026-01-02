@@ -1,9 +1,23 @@
 import { z } from 'zod';
 
-// Valid capacity_id values (a, b, c, d, e, f, g, h, and 'other' for OTHER rooms)
-const capacityIdSchema = z.string().regex(/^([a-h]|other)$/, {
-  message: "Capacity ID must be a valid letter identifier (a-h) or 'other'"
-});
+// Valid capacity_id values:
+// - Letter identifiers (a, b, c, d, e, f, g, h) for regular rooms
+// - Numeric strings (1, 2, 3, etc.) for OTHER rooms
+// - Legacy 'other' value is also accepted for backward compatibility
+const capacityIdSchema = z.string().refine(
+  (val) => {
+    // Accept letter identifiers (a-h)
+    if (/^[a-h]$/.test(val)) return true;
+    // Accept numeric strings (for OTHER rooms)
+    if (/^\d+$/.test(val)) return true;
+    // Accept legacy 'other' value
+    if (val === 'other') return true;
+    return false;
+  },
+  {
+    message: "Capacity ID must be a valid letter identifier (a-h), numeric string (1, 2, 3, etc.), or 'other'"
+  }
+);
 
 // Task input validation schemas
 export const taskInputSchema = z.object({

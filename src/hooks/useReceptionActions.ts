@@ -141,7 +141,7 @@ export function useReceptionActions(
   // --- handleAddTask ---
     const handleAddTask = async (newTask: NewTaskState): Promise<boolean> => {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:142',message:'handleAddTask entry',data:{newTask,capacityId:newTask.capacityId,capacityIdType:typeof newTask.capacityId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'D'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:142',message:'handleAddTask entry',data:{hasAdminClient:!!supabaseAdmin,capacityId:newTask.capacityId,capacityIdType:typeof newTask.capacityId,roomId:newTask.roomId,cleaningType:newTask.cleaningType},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'G'})}).catch(()=>{});
         // #endregion
         setIsSubmittingTask(true);
         let success = false;
@@ -220,6 +220,10 @@ export function useReceptionActions(
               return false;
             }
 
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:223',message:'Validation before parse',data:{capacityId:newTask.capacityId,roomGroup:selectedRoom.group_type,cleaningType:newTask.cleaningType},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'J'})}).catch(()=>{});
+            // #endregion
+            
             const validation = taskInputSchema.safeParse({
               cleaning_type: newTask.cleaningType,
               guest_count: newTask.capacityId, // guest_count now stores capacity_id
@@ -232,6 +236,10 @@ export function useReceptionActions(
             fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:220',message:'validation result',data:{validationSuccess:validation.success,validationErrors:validation.success?null:validation.error.errors,capacityId:newTask.capacityId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'})}).catch(()=>{});
             // #endregion
 
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:230',message:'Validation result',data:{success:validation.success,errors:validation.success?null:validation.error.errors},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'J'})}).catch(()=>{});
+            // #endregion
+            
             if (!validation.success) {
               toast({
                 title: "Validation Error",
@@ -252,18 +260,38 @@ export function useReceptionActions(
               // The limits table stores guest_count as INTEGER, not capacity_id
               let numericGuestCount: number | null = null;
               
-              // If capacity_id is a letter (a, b, c, etc.), convert via label to total guest count
-              if (newTask.capacityId.length === 1 && /[a-z]/.test(newTask.capacityId)) {
-                const label = CAPACITY_ID_TO_LABEL[newTask.capacityId];
-                if (label) {
-                  // Calculate total guests from label (e.g., "1+1" = 2, "2+2" = 4)
-                  numericGuestCount = getLabelGuestTotal(label);
-                }
-              } else {
-                // If capacity_id is already a number string (for OTHER rooms), use it directly
+              // For OTHER rooms, capacityId should be numeric (1, 2, 3, etc.)
+              // For other rooms, convert letter identifiers (a, b, c, etc.) via label to total guest count
+              if (selectedRoom.group_type === 'OTHER') {
+                // For OTHER rooms, capacityId should be numeric string, use it directly
                 const parsed = parseInt(newTask.capacityId, 10);
                 if (!isNaN(parsed)) {
                   numericGuestCount = parsed;
+                } else if (newTask.capacityId.length === 1 && /[a-z]/.test(newTask.capacityId)) {
+                  // Fallback: if it's a letter identifier, convert via label
+                  const label = CAPACITY_ID_TO_LABEL[newTask.capacityId];
+                  if (label && /^\d+$/.test(label)) {
+                    // If label is numeric (like "1"), use it directly
+                    numericGuestCount = parseInt(label, 10);
+                  } else if (label) {
+                    // Calculate total guests from label (e.g., "1+1" = 2, "2+2" = 4)
+                    numericGuestCount = getLabelGuestTotal(label);
+                  }
+                }
+              } else {
+                // For other room types, convert letter identifiers via label
+                if (newTask.capacityId.length === 1 && /[a-z]/.test(newTask.capacityId)) {
+                  const label = CAPACITY_ID_TO_LABEL[newTask.capacityId];
+                  if (label) {
+                    // Calculate total guests from label (e.g., "1+1" = 2, "2+2" = 4)
+                    numericGuestCount = getLabelGuestTotal(label);
+                  }
+                } else {
+                  // If capacity_id is already a number string, use it directly
+                  const parsed = parseInt(newTask.capacityId, 10);
+                  if (!isNaN(parsed)) {
+                    numericGuestCount = parsed;
+                  }
                 }
               }
               
@@ -311,13 +339,19 @@ export function useReceptionActions(
             const { error: regularError } = await supabase.from('tasks').insert(taskToInsert);
             
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:276',message:'insert result',data:{hasError:!!regularError,errorCode:regularError?.code,errorMessage:regularError?.message,errorDetails:regularError?.details,errorHint:regularError?.hint},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:331',message:'insert result',data:{hasError:!!regularError,errorCode:regularError?.code,errorMessage:regularError?.message,isRLSError:regularError?.code==='42501',hasAdminClient:!!supabaseAdmin},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'G'})}).catch(()=>{});
             // #endregion
             
             // If RLS error and admin client is available, try with admin client
             if (regularError && regularError.code === '42501' && supabaseAdmin) {
                 console.warn("RLS policy violation, retrying with admin client...");
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:339',message:'Retrying with admin client',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'G'})}).catch(()=>{});
+                // #endregion
                 const { error: adminError } = await supabaseAdmin.from('tasks').insert(taskToInsert);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:342',message:'Admin client insert result',data:{hasError:!!adminError,errorCode:adminError?.code,errorMessage:adminError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'G'})}).catch(()=>{});
+                // #endregion
                 if (adminError) {
                     insertError = adminError;
                 } else {
@@ -569,12 +603,34 @@ export function useReceptionActions(
                  finalUpdates.status = 'repair_needed';
              }
 
-            const { error } = await supabase
-                .from('tasks')
-                .update(finalUpdates)
-                .eq('id', taskId);
+          const { error } = await supabase
+              .from('tasks')
+              .update(finalUpdates)
+              .eq('id', taskId);
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:696',message:'update result',data:{hasError:!!error,errorCode:error?.code,errorMessage:error?.message,isRLSError:error?.code==='42501',hasAdminClient:!!supabaseAdmin},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'H'})}).catch(()=>{});
+          // #endregion
 
-            if (error) throw error;
+          if (error) {
+              // If RLS error and admin client is available, try with admin client
+              if (error.code === '42501' && supabaseAdmin) {
+                  console.warn("RLS policy violation on update, retrying with admin client...");
+                  // #region agent log
+                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:704',message:'Retrying update with admin client',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'H'})}).catch(()=>{});
+                  // #endregion
+                  const { error: adminError } = await supabaseAdmin
+                      .from('tasks')
+                      .update(finalUpdates)
+                      .eq('id', taskId);
+                  // #region agent log
+                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:709',message:'Admin client update result',data:{hasError:!!adminError,errorCode:adminError?.code,errorMessage:adminError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'H'})}).catch(()=>{});
+                  // #endregion
+                  if (adminError) throw adminError;
+              } else {
+                  throw error;
+              }
+          }
 
             toast({ title: "Changes saved", description: "Issue details updated successfully." });
             onIssueUpdated?.();
@@ -593,6 +649,11 @@ export function useReceptionActions(
   const handleUpdateTask = async (taskId: string, updates: Partial<EditableTaskState>): Promise<boolean> => {
       setIsUpdatingTask(true);
       let success = false;
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:613',message:'handleUpdateTask start',data:{taskId,hasAdminClient:!!supabaseAdmin,updates:Object.keys(updates)},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'H'})}).catch(()=>{});
+      // #endregion
+      
       try {
           const dbUpdates: Partial<Database["public"]["Tables"]["tasks"]["Update"]> = {};
           let needsLimitCheck = false;
@@ -650,18 +711,38 @@ export function useReceptionActions(
                       // The limits table stores guest_count as INTEGER, not capacity_id
                       let numericGuestCount: number | null = null;
                       
-                      // If capacity_id is a letter (a, b, c, etc.), convert via label to total guest count
-                      if (capacityId.length === 1 && /[a-z]/.test(capacityId)) {
-                          const label = CAPACITY_ID_TO_LABEL[capacityId];
-                          if (label) {
-                              // Calculate total guests from label (e.g., "1+1" = 2, "2+2" = 4)
-                              numericGuestCount = getLabelGuestTotal(label);
-                          }
-                      } else {
-                          // If capacity_id is already a number string (for OTHER rooms), use it directly
+                      // For OTHER rooms, capacityId should be numeric (1, 2, 3, etc.)
+                      // For other rooms, convert letter identifiers (a, b, c, etc.) via label to total guest count
+                      if (groupType === 'OTHER') {
+                          // For OTHER rooms, capacityId should be numeric string, use it directly
                           const parsed = parseInt(capacityId, 10);
                           if (!isNaN(parsed)) {
                               numericGuestCount = parsed;
+                          } else if (capacityId.length === 1 && /[a-z]/.test(capacityId)) {
+                              // Fallback: if it's a letter identifier, convert via label
+                              const label = CAPACITY_ID_TO_LABEL[capacityId];
+                              if (label && /^\d+$/.test(label)) {
+                                  // If label is numeric (like "1"), use it directly
+                                  numericGuestCount = parseInt(label, 10);
+                              } else if (label) {
+                                  // Calculate total guests from label (e.g., "1+1" = 2, "2+2" = 4)
+                                  numericGuestCount = getLabelGuestTotal(label);
+                              }
+                          }
+                      } else {
+                          // For other room types, convert letter identifiers via label
+                          if (capacityId.length === 1 && /[a-z]/.test(capacityId)) {
+                              const label = CAPACITY_ID_TO_LABEL[capacityId];
+                              if (label) {
+                                  // Calculate total guests from label (e.g., "1+1" = 2, "2+2" = 4)
+                                  numericGuestCount = getLabelGuestTotal(label);
+                              }
+                          } else {
+                              // If capacity_id is already a number string, use it directly
+                              const parsed = parseInt(capacityId, 10);
+                              if (!isNaN(parsed)) {
+                                  numericGuestCount = parsed;
+                              }
                           }
                       }
                       
