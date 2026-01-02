@@ -2,7 +2,7 @@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Check, Info } from "lucide-react";
+import { Check, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { CAPACITY_ID_TO_LABEL } from "@/lib/capacity-utils";
@@ -129,19 +129,6 @@ export function TaskCard({
 
         {/* Housekeeping Note Display */}
         {task.housekeeping_notes && (<p className="text-xs text-muted-foreground mt-1 italic"><strong>Twoja Notatka:</strong> {task.housekeeping_notes}</p>)}
-
-        {/* Issue Display */}
-        {task.issue_flag && (
-          <div className="mt-1 p-2 rounded-md border border-red-200 bg-red-50 text-xs text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-200">
-            <p className="font-semibold flex items-center mb-1"><AlertTriangle className="h-3 w-3 mr-1 inline" /> Problem Konserwacyjny</p>
-            {task.issue_description && <p className="mb-1">"{task.issue_description}"</p>}
-            {task.issue_photo && (
-              <a href={task.issue_photo} target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80" onClick={(e) => e.stopPropagation()}>
-                <img src={task.issue_photo} alt="Issue photo" className="h-10 w-10 object-cover rounded border" /> <span className="sr-only">Zobacz zdjęcie problemu</span>
-              </a>
-            )}
-          </div>
-        )}
       </CardContent>
 
       {/* Footer with Actions */}

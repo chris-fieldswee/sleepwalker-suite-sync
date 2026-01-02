@@ -18,6 +18,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { renderCapacityIconPattern, LABEL_TO_CAPACITY_ID, CAPACITY_ID_TO_LABEL, normalizeCapacityLabel } from "@/lib/capacity-utils";
 
+type Issue = Database["public"]["Tables"]["issues"]["Row"];
+type IssueStatus = Database["public"]["Enums"]["issue_status"];
+type IssuePriority = Database["public"]["Enums"]["issue_priority"];
+
+interface TaskIssue extends Issue {
+    reported_by?: { id: string; name: string; first_name: string | null; last_name: string | null } | null;
+}
+
 type CleaningType = Database["public"]["Enums"]["cleaning_type"];
 type RoomGroup = Database["public"]["Enums"]["room_group"];
 
@@ -294,6 +302,7 @@ export function TaskDetailDialog({
     const [selectedGroup, setSelectedGroup] = useState<RoomGroup | null>(null);
     const [isEditMode, setIsEditMode] = useState(false);
     const [availableStaffOptions, setAvailableStaffOptions] = useState<Staff[]>([]);
+    const [taskIssues, setTaskIssues] = useState<TaskIssue[]>([]);
     const housekeepingStaff = useMemo(
         () => allStaff.filter(staff => staff.role === 'housekeeping'),
         [allStaff]
@@ -402,6 +411,46 @@ export function TaskDetailDialog({
         fetchAvailableStaffForTask();
     }, [isOpen, editableState?.date, editableState?.timeLimit, housekeepingStaff, task?.time_limit]);
 
+    // Fetch issues for this task
+    useEffect(() => {
+        if (!isOpen || !task?.id) {
+            setTaskIssues([]);
+            return;
+        }
+
+        const fetchTaskIssues = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('issues')
+                    .select(`
+                        *,
+                        reported_by:users!issues_reported_by_user_id_fkey(id, name, first_name, last_name)
+                    `)
+                    .eq('task_id', task.id)
+                    .order('reported_at', { ascending: false });
+
+                if (error) throw error;
+
+                const formattedIssues = (data || []).map((issue: any) => ({
+                    ...issue,
+                    reported_by: issue.reported_by ? {
+                        ...issue.reported_by,
+                        name: issue.reported_by.first_name && issue.reported_by.last_name
+                            ? `${issue.reported_by.first_name} ${issue.reported_by.last_name}`
+                            : issue.reported_by.name
+                    } : null,
+                })) as TaskIssue[];
+
+                setTaskIssues(formattedIssues);
+            } catch (error) {
+                console.error('Error fetching task issues:', error);
+                setTaskIssues([]);
+            }
+        };
+
+        fetchTaskIssues();
+    }, [isOpen, task?.id]);
+
     const staffOptions = useMemo(() => {
         const baseOptions = availableStaffOptions.length > 0 ? availableStaffOptions : housekeepingStaff;
         const assignedId = editableState?.staffId;
@@ -504,6 +553,12 @@ export function TaskDetailDialog({
 
         if (!editableState.roomId) {
             toast({ title: "Błąd Walidacji", description: "Pokój nie może być pusty.", variant: "destructive" });
+            return;
+        }
+        
+        // Validation: Check if staffId is set and not "unassigned"
+        if (!editableState.staffId || editableState.staffId === "unassigned") {
+            toast({ title: "Błąd Walidacji", description: "Proszę przypisać zadanie do pracownika.", variant: "destructive" });
             return;
         }
         
@@ -760,6 +815,36 @@ export function TaskDetailDialog({
 
     const todayDateString = new Date().toISOString().split("T")[0];
 
+    // Helper functions for issue display
+    const getIssueStatusBadge = (status: IssueStatus) => {
+        const config: Record<IssueStatus, { label: string; className: string }> = {
+            open: { label: 'Otwarte', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
+            in_progress: { label: 'W trakcie', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
+            resolved: { label: 'Rozwiązane', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
+            closed: { label: 'Zamknięte', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200' },
+        };
+        const { label, className } = config[status] || { label: status, className: '' };
+        return <Badge className={className}>{label}</Badge>;
+    };
+
+    const getIssuePriorityBadge = (priority: IssuePriority) => {
+        const config: Record<IssuePriority, { label: string; className: string }> = {
+            low: { label: 'Niski', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' },
+            medium: { label: 'Średni', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
+            high: { label: 'Wysoki', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' },
+            urgent: { label: 'Pilny', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
+        };
+        const { label, className } = config[priority];
+        return <Badge className={className}>{label}</Badge>;
+    };
+
+    const formatIssueDate = (dateString: string | null) => {
+        if (!dateString) return "N/A";
+        return new Date(dateString).toLocaleDateString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric'
+        });
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
@@ -797,11 +882,6 @@ export function TaskDetailDialog({
                                 )}
                             </div>
                         </div>
-                        {task.issue_flag && (
-                            <Badge variant="destructive" className="flex items-center gap-1">
-                                <AlertTriangle className="h-3 w-3" /> Zgłoszono Problem
-                            </Badge>
-                        )}
                     </div>
                 </DialogHeader>
 
@@ -954,7 +1034,7 @@ export function TaskDetailDialog({
                             )}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="detail-assignStaff" className="flex items-center gap-1 text-muted-foreground"><User className="h-4 w-4" />Assigned Staff</Label>
+                            <Label htmlFor="detail-assignStaff" className="flex items-center gap-1 text-muted-foreground"><User className="h-4 w-4" />Przypisany Personel*</Label>
                             {isEditMode ? (
                                 <Select
                                     value={editableState.staffId}
@@ -962,10 +1042,10 @@ export function TaskDetailDialog({
                                     disabled={isUpdating}
                                 >
                                     <SelectTrigger id="detail-assignStaff">
-                                        <SelectValue placeholder="Select staff..." />
+                                        <SelectValue placeholder="Wybierz personel..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                                        <SelectItem value="unassigned">Nieprzypisane</SelectItem>
                                         {staffOptions.map(staff => (
                                             <SelectItem key={staff.id} value={staff.id}>
                                                 {staff.name}
@@ -974,7 +1054,7 @@ export function TaskDetailDialog({
                                     </SelectContent>
                                 </Select>
                             )
-                                : (<p className="text-sm border p-2 rounded bg-muted/30">{task.user?.name || 'Unassigned'}</p>)}
+                                : (<p className="text-sm border p-2 rounded bg-muted/30">{task.user?.name || 'Nieprzypisane'}</p>)}
                         </div>
                         <div className="space-y-1">
                             <Label htmlFor="detail-notes" className="flex items-center gap-1 text-muted-foreground"><StickyNote className="h-4 w-4" />Reception Notes</Label>
@@ -1049,30 +1129,46 @@ export function TaskDetailDialog({
                             </div>
                         )}
 
-                        {/* Issue Details */}
-                        {task.issue_flag && (
-                            <Card className="border-red-500 bg-red-50 dark:bg-red-900/20">
-                                <CardHeader className="p-3">
-                                    <CardTitle className="text-base flex items-center gap-1 text-red-700 dark:text-red-300"><AlertTriangle className="h-4 w-4" />Issue Details</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-3 pt-0 space-y-2">
-                                    {task.issue_description && <p className="text-sm">{task.issue_description}</p>}
-                                    {task.issue_photo && (
-                                        <a href={task.issue_photo} target="_blank" rel="noopener noreferrer" className="block w-fit">
-                                            <img src={task.issue_photo} alt="Issue evidence" className="max-h-24 w-auto object-contain rounded border hover:opacity-80 transition-opacity" />
-                                            <span className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"><ImageIcon className="h-3 w-3" /> View Photo</span>
-                                        </a>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        )}
-                        {/* Add a placeholder if no issue and in view mode */}
-                        {!task.issue_flag && !isEditMode && (
-                            <div className="space-y-1">
-                                <Label className="flex items-center gap-1 text-muted-foreground"><AlertTriangle className="h-4 w-4" />Issue</Label>
-                                <p className="text-sm border p-2 rounded bg-muted/30 italic text-muted-foreground/70">No issue reported for this task.</p>
-                            </div>
-                        )}
+                        {/* Reported Issues */}
+                        <div className="space-y-1">
+                            <Label className="flex items-center gap-1 text-muted-foreground"><AlertTriangle className="h-4 w-4" />Zgłoszone Problemy</Label>
+                            {taskIssues.length > 0 ? (
+                                <div className="space-y-3">
+                                    {taskIssues.map((issue) => (
+                                        <Card key={issue.id} className="border-red-500 bg-red-50 dark:bg-red-900/20">
+                                            <CardHeader className="p-3 pb-2">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <CardTitle className="text-base flex items-center gap-2 text-red-700 dark:text-red-300">
+                                                        <AlertTriangle className="h-4 w-4" />
+                                                        {issue.title}
+                                                    </CardTitle>
+                                                    <div className="flex gap-2 flex-shrink-0">
+                                                        {getIssueStatusBadge(issue.status)}
+                                                        {getIssuePriorityBadge(issue.priority)}
+                                                    </div>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="p-3 pt-0 space-y-2">
+                                                <p className="text-sm">{issue.description}</p>
+                                                {issue.reported_by && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Zgłoszono przez: {issue.reported_by.name} ({formatIssueDate(issue.reported_at)})
+                                                    </p>
+                                                )}
+                                                {issue.photo_url && (
+                                                    <a href={issue.photo_url} target="_blank" rel="noopener noreferrer" className="block w-fit">
+                                                        <img src={issue.photo_url} alt="Issue evidence" className="max-h-24 w-auto object-contain rounded border hover:opacity-80 transition-opacity" />
+                                                        <span className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"><ImageIcon className="h-3 w-3" /> Zobacz Zdjęcie</span>
+                                                    </a>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm border p-2 rounded bg-muted/30 italic text-muted-foreground/70">Brak zgłoszonych problemów dla tego zadania.</p>
+                            )}
+                        </div>
                     </div>
                 </div>
 
