@@ -21,6 +21,17 @@ export function IssueReportDialog({ task, onReport, onClose }: IssueReportDialog
   const [isReporting, setIsReporting] = useState(false);
   const { toast } = useToast();
 
+  // Reset form when dialog opens
+  useEffect(() => {
+    setIssueDescription("");
+    setIssuePhoto(null);
+    if (issuePhotoPreview) {
+      URL.revokeObjectURL(issuePhotoPreview);
+    }
+    setIssuePhotoPreview(null);
+    setIsReporting(false);
+  }, [task.id]); // Reset when task changes or dialog reopens
+
   // Clean up preview URL on unmount
   useEffect(() => {
     // Only revoke if it's an object URL (starts with blob:)

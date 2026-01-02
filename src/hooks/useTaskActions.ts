@@ -172,46 +172,47 @@ export function useTaskActions(
       return false;
     }
 
-    // Get current user's id from users table (not just auth_id)
-    let currentUserId: string | null = null;
-    if (userId) {
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_id', userId)
-        .maybeSingle();
-      
-      if (userError) {
-        console.error("Error fetching user:", userError);
-        toast({ 
-          title: "Błąd", 
-          description: "Nie udało się pobrać danych użytkownika.", 
-          variant: "destructive" 
-        });
-        return false;
+    // userId from useAuth() is already the users.id from public.users table
+    // If not available, try to get it from the auth session as fallback
+    let currentUserId: string | null = userId;
+    
+    if (!currentUserId) {
+      console.warn("userId not available from auth context, trying to fetch from auth session");
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const authUserId = authData?.user?.id;
+        
+        if (authUserId) {
+          // Look up the user in public.users table
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('auth_id', authUserId)
+            .maybeSingle();
+          
+          if (userError) {
+            console.error("Error fetching user:", userError);
+          } else if (userData?.id) {
+            currentUserId = userData.id;
+            console.log("Fetched user ID from auth session:", currentUserId);
+          }
+        }
+      } catch (error) {
+        console.error("Error getting user from auth session:", error);
       }
-      
-      if (!userData || !userData.id) {
-        console.error("User not found in users table for auth_id:", userId);
-        toast({ 
-          title: "Błąd", 
-          description: "Nie znaleziono użytkownika w bazie danych.", 
-          variant: "destructive" 
-        });
-        return false;
-      }
-      
-      currentUserId = userData.id;
-      console.log("Found user ID for issue reporting:", currentUserId, "for auth_id:", userId);
-    } else {
-      console.error("No userId available from auth context");
+    }
+    
+    if (!currentUserId) {
+      console.error("No userId available from auth context or auth session");
       toast({ 
         title: "Błąd", 
-        description: "Brak identyfikatora użytkownika.", 
+        description: "Brak identyfikatora użytkownika. Proszę się wylogować i zalogować ponownie.", 
         variant: "destructive" 
       });
       return false;
     }
+    
+    console.log("Using user ID for issue reporting:", currentUserId);
 
     // Upload photo if provided
     let photoUrl: string | null = null;
