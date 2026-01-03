@@ -211,9 +211,9 @@ export default function Housekeeping() {
   }, [userId]);
 
   // Get today's date for comparison (used for progress calculation)
+  // Use local date instead of UTC to avoid timezone issues
   const todayDate = useMemo(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+    return format(new Date(), 'yyyy-MM-dd');
   }, []);
 
   // Open tasks: tasks with status todo, in_progress, paused, or repair_needed (all dates)
@@ -276,18 +276,9 @@ export default function Housekeeping() {
       <header className="sticky top-0 z-50 bg-card border-b shadow-sm">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            {/* Logo */}
-            <div className="flex items-center gap-3">
-              <img 
-                src="/hotel-logo.svg" 
-                alt="SleepWalker Logo" 
-                className="h-8 w-auto"
-              />
-            </div>
-            
-            {/* Greeting - Centered */}
-            <div className="flex-1 text-center">
-              <span className="text-sm font-medium text-foreground">
+            {/* Greeting - Left side */}
+            <div className="flex-1">
+              <span className="text-base font-medium text-foreground">
                 {userName ? (
                   <>Hej, <strong className="text-status-todo">{userName}</strong>!</>
                 ) : (
@@ -296,8 +287,17 @@ export default function Housekeeping() {
               </span>
             </div>
             
-            {/* Actions */}
-            <div className="flex gap-2">
+            {/* Logo - Centered */}
+            <div className="flex-1 flex justify-center">
+              <img 
+                src="/hotel-logo.svg" 
+                alt="SleepWalker Logo" 
+                className="h-8 w-auto brightness-0"
+              />
+            </div>
+            
+            {/* Actions - Right side */}
+            <div className="flex-1 flex justify-end gap-2">
               <Button
                 variant="ghost"
                 size="icon"

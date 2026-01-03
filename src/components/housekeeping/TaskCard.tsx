@@ -83,10 +83,10 @@ export function TaskCard({
     <Card
       key={task.id}
       className={cn(
-        "overflow-hidden transition-all duration-300 cursor-pointer border-l-4",
+        "overflow-hidden transition-all duration-300 cursor-pointer",
         isActive 
-          ? `ring-2 ring-offset-2 ring-status-todo shadow-lg border-l-status-todo` 
-          : 'shadow-sm hover:shadow-md border-l-transparent hover:border-l-status-todo/30',
+          ? `ring-2 ring-offset-2 ring-status-todo shadow-lg` 
+          : 'shadow-sm hover:shadow-md',
       )}
       onClick={() => {
         // #region agent log
