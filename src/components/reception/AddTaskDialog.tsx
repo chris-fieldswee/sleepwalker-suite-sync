@@ -294,8 +294,6 @@ interface AddTaskDialogProps {
     triggerButton?: React.ReactNode;
 }
 
-const getTodayDateString = () => new Date().toISOString().split("T")[0];
-
 // Helper function to check if a room allows multiple tasks on the same date
 // These rooms are: pralnia (including "Pralnia + Magazyn"), śniadania, and przerwa śniadaniowa
 const isSpecialRoomAllowingMultipleTasks = (roomName: string | null | undefined): boolean => {
@@ -321,17 +319,11 @@ export function AddTaskDialog({
     const [selectedGroup, setSelectedGroup] = useState<RoomGroup | null>(null);
     const [newTask, setNewTask] = useState<NewTaskState>(initialState);
     const prevIsOpen = useRef(isOpen);
-    const [todayDateString, setTodayDateString] = useState<string>('');
     // State to store room IDs that already have a task on the selected date
     const [assignedRoomIds, setAssignedRoomIds] = useState<Set<string>>(new Set());
     const [availableStaff, setAvailableStaff] = useState<Staff[]>([]);
     const [availabilityData, setAvailabilityData] = useState<any[]>([]);
     const [taskTimeLimit, setTaskTimeLimit] = useState<number | null>(null);
-
-    // Set today's date string once on mount
-    useEffect(() => {
-        setTodayDateString(getTodayDateString());
-    }, []);
 
     // Fetch assigned rooms for the selected date
     useEffect(() => {
@@ -652,11 +644,7 @@ export function AddTaskDialog({
             console.log("Dialog opened, resetting state.");
             const resetState = { ...initialState };
 
-            // Ensure the date is set to today
-            if (!resetState.date || resetState.date < todayDateString) {
-                resetState.date = todayDateString;
-            }
-
+            // Don't set a default date - let user choose
             setNewTask(resetState);
             setSelectedGroup(null); // Reset group selection
             setAssignedRoomIds(new Set()); // Clear assigned rooms initially
@@ -666,7 +654,7 @@ export function AddTaskDialog({
             setTaskTimeLimit(null); // Clear task time limit
         }
         prevIsOpen.current = isOpen;
-    }, [isOpen, initialState, todayDateString]);
+    }, [isOpen, initialState]);
 
     // Handle group change
     const handleGroupChange = (group: RoomGroup) => {
@@ -1057,24 +1045,24 @@ export function AddTaskDialog({
 
                     {/* Staff Select */}
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="assignStaff-modal" className="text-right">Assign Staff*</Label>
+                        <Label htmlFor="assignStaff-modal" className="text-right">Przypisz Personel*</Label>
                         <Select
                             value={newTask.staffId}
                             onValueChange={(value) => setNewTask(prev => ({ ...prev, staffId: value }))}
                             disabled={isSubmitting || !newTask.roomId} // Disable until room is selected
                         >
                             <SelectTrigger id="assignStaff-modal" className="col-span-3">
-                                <SelectValue placeholder={newTask.roomId ? "Select staff" : "Select room first"} />
+                                <SelectValue placeholder={newTask.roomId ? "Wybierz personel" : "Najpierw wybierz pokój"} />
                             </SelectTrigger>
                             <SelectContent>
                                 {!newTask.roomId && (
                                     <SelectItem value="select-room" disabled>
-                                        Please select a room first
+                                        Najpierw wybierz pokój
                                     </SelectItem>
                                 )}
                                 {availableStaff.length === 0 && taskTimeLimit && (
                                     <SelectItem value="no-staff" disabled>
-                                        No staff available for this task ({taskTimeLimit} min)
+                                        Brak dostępnego personelu dla tego zadania ({taskTimeLimit} min)
                                     </SelectItem>
                                 )}
                                 {availableStaff.map(staff => {
@@ -1089,10 +1077,10 @@ export function AddTaskDialog({
                                                 <span>{staff.name}</span>
                                                 {staff.role !== 'admin' && (
                                                     <span className="text-xs text-muted-foreground ml-2">
-                                                        {availableHours.toFixed(1)}h available
+                                                        {availableHours.toFixed(1)}h dostępne
                                                         {requiredHours > 0 && (
                                                             <span className="text-green-600 ml-1">
-                                                                (needs {requiredHours.toFixed(1)}h)
+                                                                (wymaga {requiredHours.toFixed(1)}h)
                                                             </span>
                                                         )}
                                                     </span>

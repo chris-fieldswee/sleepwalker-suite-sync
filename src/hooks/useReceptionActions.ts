@@ -35,15 +35,13 @@ export interface EditableTaskState {
     status?: string;
 }
 
-const getTodayDateString = () => new Date().toISOString().split("T")[0];
-
 const initialNewTaskState: NewTaskState = {
     roomId: "",
     cleaningType: "W",
     capacityId: "d", // Default to 'd' (2)
     staffId: "", // Required field - must be selected
     notes: "",
-    date: getTodayDateString(),
+    date: "", // No default date - user must select
 };
 
 export function useReceptionActions(
