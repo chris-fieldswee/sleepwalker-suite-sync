@@ -785,15 +785,33 @@ export const TaskTimerDisplay: React.FC<TaskTimerDisplayProps> = ({ task }) => {
 
   // Display for 'done' tasks
   if (task.status === 'done') {
-    // Use actual_time if available and valid, otherwise display placeholder
-    const displayTime = (task.actual_time !== null && task.actual_time !== undefined && task.actual_time >= 0) ? `${task.actual_time} m` : '-';
-    // Use difference if available and valid (check for both null and undefined)
-    const displayDiff = (task.difference !== null && task.difference !== undefined) ? `(${task.difference > 0 ? '+' : ''}${task.difference}m)` : '';
-    const diffColor = (task.difference ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400";
+    // Calculate actual_time: use stored value if available, otherwise calculate from start/stop times
+    let calculatedActualTime = task.actual_time;
+    if ((calculatedActualTime === null || calculatedActualTime === undefined) && task.start_time && task.stop_time) {
+      try {
+        const start = new Date(task.start_time).getTime();
+        const stop = new Date(task.stop_time).getTime();
+        const totalPauseMinutes = task.total_pause || 0;
+        if (!isNaN(start) && !isNaN(stop)) {
+          calculatedActualTime = Math.max(0, Math.floor((stop - start) / 60000) - totalPauseMinutes);
+        }
+      } catch (e) {
+        // Fallback to stored value or null
+      }
+    }
+    const displayTime = (calculatedActualTime !== null && calculatedActualTime !== undefined && calculatedActualTime >= 0) ? `${calculatedActualTime} m` : '-';
+    
+    // Calculate difference: use stored value if available, otherwise calculate from actual_time and time_limit
+    let calculatedDifference = task.difference;
+    if ((calculatedDifference === null || calculatedDifference === undefined) && calculatedActualTime !== null && calculatedActualTime !== undefined && task.time_limit !== null) {
+      calculatedDifference = calculatedActualTime - task.time_limit;
+    }
+    const displayDiff = (calculatedDifference !== null && calculatedDifference !== undefined) ? `(${calculatedDifference > 0 ? '+' : ''}${calculatedDifference}m)` : '';
+    const diffColor = (calculatedDifference ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400";
 
     return (
       <div className="text-xs text-muted-foreground flex flex-wrap justify-between items-center gap-x-4 mt-1">
-        <span>Rzeczywisty: <span className={cn("font-medium", (task.difference ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{displayTime}</span></span>
+        <span>Rzeczywisty: <span className={cn("font-medium", (calculatedDifference ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{displayTime}</span></span>
         {timeLimit !== null && ( // Only show limit info if it exists
           <span>Limit: {timeLimit}m <span className={cn("font-medium", diffColor)}>{displayDiff}</span></span>
         )}

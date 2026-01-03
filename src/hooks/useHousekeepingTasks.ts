@@ -34,8 +34,8 @@ export function useHousekeepingTasks() {
       .from("tasks")
       .select(`
         id, date, status, cleaning_type, guest_count, time_limit, start_time,
-        pause_start, pause_stop, total_pause, stop_time, housekeeping_notes,
-        reception_notes, issue_flag, issue_description, issue_photo, created_at,
+        pause_start, pause_stop, total_pause, stop_time, actual_time, difference,
+        housekeeping_notes, reception_notes, issue_flag, issue_description, issue_photo, created_at,
         room:rooms!inner(id, name, group_type, color),
         user:users(id, name)
       `)

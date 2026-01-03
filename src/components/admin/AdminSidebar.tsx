@@ -5,7 +5,8 @@ import {
   Users,
   DoorOpen,
   Calendar,
-  LogOut
+  LogOut,
+  BarChart
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ const receptionNavItems = [
 ];
 
 const adminNavItems = [
+  { title: "Raporty", url: "/admin/reports", icon: BarChart },
   { title: "Użytkownicy", url: "/admin/users", icon: Users },
   { title: "Pokoje", url: "/admin/rooms", icon: DoorOpen },
   { title: "Dostępność personelu", url: "/admin/availability", icon: Calendar },

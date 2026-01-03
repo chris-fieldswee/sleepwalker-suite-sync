@@ -12,6 +12,7 @@ import Tasks from "./reception/Tasks";
 import Issues from "./reception/Issues";
 
 // Import admin pages
+import Reports from "./admin/Reports";
 import Users from "./admin/Users";
 import Rooms from "./admin/Rooms";
 import Availability from "./admin/Availability";
@@ -105,6 +106,7 @@ export default function Admin() {
               />
 
               {/* Admin-specific routes */}
+              <Route path="reports" element={<Reports />} />
               <Route path="users" element={<Users />} />
               <Route path="rooms" element={<Rooms />} />
               <Route path="availability" element={<Availability />} />

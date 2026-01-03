@@ -1,7 +1,7 @@
 // src/components/reception/NewIssueDetailDialog.tsx
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -207,9 +207,6 @@ export function IssueDetailDialog({
                     <div className="flex justify-between items-start">
                         <div>
                             <DialogTitle>Szczegóły problemu - {issue.room.name}</DialogTitle>
-                            <DialogDescription>
-                                {formatDate(issue.reported_at)} · {issue.title}
-                            </DialogDescription>
                         </div>
                         <div className="flex gap-2 items-center">
                             {getStatusBadge(isEditMode ? status : issue.status)}
