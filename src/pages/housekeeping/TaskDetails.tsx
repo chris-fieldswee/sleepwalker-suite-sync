@@ -169,26 +169,33 @@ export default function TaskDetails() {
 
     return (
         <div className="min-h-screen bg-background pb-24">
-            {/* Header with Back and Sign Out */}
-            <header className="sticky top-0 z-50 bg-card border-b shadow-sm">
+            {/* Header with Branding, Back and Sign Out */}
+            <header className="sticky top-0 z-50 bg-card border-b-2 border-status-todo/20 shadow-sm">
                 <div className="container mx-auto px-4 py-3 flex items-center justify-between">
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => navigate("/housekeeping")}
-                        className="h-10 w-10"
+                        className="h-10 w-10 hover:bg-status-todo/10"
                     >
                         <ArrowLeft className="h-5 w-5" />
                         <span className="sr-only">Wróć</span>
                     </Button>
 
-                    <h1 className="text-lg font-semibold">Szczegóły zadania</h1>
+                    <div className="flex items-center gap-2 flex-1 justify-center">
+                        <img 
+                            src="/hotel-logo.svg" 
+                            alt="SleepWalker Logo" 
+                            className="h-6 w-auto"
+                        />
+                        <h1 className="text-lg font-semibold text-foreground">Szczegóły zadania</h1>
+                    </div>
 
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={signOut}
-                        className="h-10 w-10"
+                        className="h-10 w-10 hover:bg-status-todo/10"
                     >
                         <LogOut className="h-5 w-5" />
                         <span className="sr-only">Wyloguj</span>
@@ -325,7 +332,7 @@ export default function TaskDetails() {
                     {canStart && (
                         <Button
                             size="lg"
-                            className="w-full h-16 text-lg"
+                            className="w-full h-16 text-lg bg-status-todo hover:bg-status-todo/90 text-white"
                             onClick={() => taskActions.handleStart(task.id)}
                         >
                             <Play className="mr-2 h-6 w-6" />
@@ -337,7 +344,7 @@ export default function TaskDetails() {
                         <Button
                             size="lg"
                             variant="secondary"
-                            className="w-full h-16 text-lg"
+                            className="w-full h-16 text-lg border-status-paused/30 text-status-paused hover:bg-status-paused/10"
                             onClick={() => taskActions.handlePause(task.id)}
                         >
                             <Pause className="mr-2 h-6 w-6" />
@@ -348,7 +355,7 @@ export default function TaskDetails() {
                     {canResume && (
                         <Button
                             size="lg"
-                            className="w-full h-16 text-lg"
+                            className="w-full h-16 text-lg bg-status-todo hover:bg-status-todo/90 text-white"
                             onClick={() => taskActions.handleResume(task.id)}
                         >
                             <Play className="mr-2 h-6 w-6" />

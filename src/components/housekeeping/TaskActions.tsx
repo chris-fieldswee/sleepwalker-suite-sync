@@ -23,7 +23,7 @@ export function TaskActions({ task, activeTaskId, onStart, onPause, onResume, on
     <div className="flex gap-2 flex-wrap">
       {/* Show Start button for 'todo' or 'repair_needed' tasks, only if no other task is active */}
       {(task.status === "todo" || task.status === "repair_needed") && (
-        <Button size="sm" onClick={() => onStart(task.id)} disabled={!!activeTaskId} className="bg-green-600 hover:bg-green-700 text-white">
+        <Button size="sm" onClick={() => onStart(task.id)} disabled={!!activeTaskId} className="bg-status-todo hover:bg-status-todo/90 text-white">
           <Play className="mr-1 h-4 w-4" /> Start
         </Button>
       )}
@@ -44,7 +44,7 @@ export function TaskActions({ task, activeTaskId, onStart, onPause, onResume, on
       {task.status === "paused" && (
         <>
           {/* Resume is enabled if no other task is active */}
-          <Button size="sm" onClick={() => onResume(task.id)} disabled={!!activeTaskId} className="bg-green-600 hover:bg-green-700 text-white">
+          <Button size="sm" onClick={() => onResume(task.id)} disabled={!!activeTaskId} className="bg-status-todo hover:bg-status-todo/90 text-white">
             <Play className="mr-1 h-4 w-4" /> Wznów
           </Button>
           {/* Stop can also be pressed when paused, no active task check needed here as pausing implies it was active */}

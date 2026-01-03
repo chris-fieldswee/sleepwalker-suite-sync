@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +19,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown, Filter } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Import the new hooks and components
 import { useHousekeepingTasks } from '@/hooks/useHousekeepingTasks';
@@ -178,6 +178,7 @@ export default function Housekeeping() {
   const [activeTab, setActiveTab] = useState<'open' | 'all'>('open');
   const [dateFilter, setDateFilter] = useState<string>(''); // For date filtering
   const [userName, setUserName] = useState<string>('');
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(false);
 
   // Fetch user first name
   useEffect(() => {
@@ -271,6 +272,55 @@ export default function Housekeeping() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
+      {/* Sticky Header with Branding */}
+      <header className="sticky top-0 z-50 bg-card border-b shadow-sm">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            {/* Logo */}
+            <div className="flex items-center gap-3">
+              <img 
+                src="/hotel-logo.svg" 
+                alt="SleepWalker Logo" 
+                className="h-8 w-auto"
+              />
+            </div>
+            
+            {/* Greeting - Centered */}
+            <div className="flex-1 text-center">
+              <span className="text-sm font-medium text-foreground">
+                {userName ? (
+                  <>Hej, <strong className="text-status-todo">{userName}</strong>!</>
+                ) : (
+                  <span className="text-muted-foreground">{user?.email || ''}</span>
+                )}
+              </span>
+            </div>
+            
+            {/* Actions */}
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-full hover:bg-status-todo/10"
+                onClick={fetchTasks}
+                title="Odśwież zadania"
+              >
+                <RefreshCw className="h-5 w-5" />
+                <span className="sr-only">Odśwież</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-full hover:bg-status-todo/10"
+                onClick={signOut}
+              >
+                <LogOut className="h-5 w-5" />
+                <span className="sr-only">Wyloguj</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
 
       {/* Main Content with Tabs */}
       <main className="container mx-auto p-4">
@@ -282,57 +332,48 @@ export default function Housekeeping() {
         {/* #endregion */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-status-todo border-t-transparent" />
             <span className="ml-2">Ładowanie zadań...</span>
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'open' | 'all')} className="space-y-4">
-            {/* Header: Greeting & Actions */}
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-muted-foreground pl-1">
-                {userName ? (
-                  <>Hej, <strong>{userName}</strong>!</>
-                ) : (
-                  user?.email || ''
-                )}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-full"
-                  onClick={fetchTasks}
-                  title="Odśwież zadania"
-                >
-                  <RefreshCw className="h-5 w-5" />
-                  <span className="sr-only">Odśwież</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-full"
-                  onClick={signOut}
-                >
-                  <LogOut className="h-5 w-5" />
-                  <span className="sr-only">Wyloguj</span>
-                </Button>
-              </div>
-            </div>
 
-            {/* Centered Tabs List */}
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
-              <TabsTrigger value="open" className="relative">
+            {/* Centered Tabs List with Brand Colors */}
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 bg-muted/50">
+              <TabsTrigger 
+                value="open" 
+                className={cn(
+                  "relative data-[state=active]:bg-status-todo data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+                )}
+              >
                 Zadania otwarte
                 {openTasks.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 h-5 min-w-5 px-1 text-xs">
+                  <Badge 
+                    variant="secondary" 
+                    className={cn(
+                      "ml-2 h-5 min-w-5 px-1 text-xs",
+                      activeTab === 'open' && "bg-white/20 text-white"
+                    )}
+                  >
                     {openTasks.length}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="all" className="relative">
+              <TabsTrigger 
+                value="all" 
+                className={cn(
+                  "relative data-[state=active]:bg-status-todo data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+                )}
+              >
                 Wszystkie zadania
                 {tasks.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 h-5 min-w-5 px-1 text-xs">
+                  <Badge 
+                    variant="secondary" 
+                    className={cn(
+                      "ml-2 h-5 min-w-5 px-1 text-xs",
+                      activeTab === 'all' && "bg-white/20 text-white"
+                    )}
+                  >
                     {tasks.length}
                   </Badge>
                 )}
@@ -341,94 +382,120 @@ export default function Housekeeping() {
 
             {/* Open Tasks Tab */}
             <TabsContent value="open" className="space-y-4 mt-4">
-              {/* Filters for Open Tasks */}
-              <Card className="p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Date Filter */}
-                  <div className="w-full">
-                    <Label htmlFor="open-date-filter" className="text-sm mb-2 block">
-                      Data
-                    </Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          id="open-date-filter"
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal h-9",
-                            !dateFilter && "text-muted-foreground",
-                            dateFilter && "border-[#7d212b]"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {dateFilter ? (
-                            format(new Date(dateFilter), "PPP", { locale: pl })
-                          ) : (
-                            <span>Wszystkie daty</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={dateFilter ? new Date(dateFilter) : undefined}
-                          onSelect={(date) => {
-                            if (date) {
-                              setDateFilter(format(date, 'yyyy-MM-dd'));
-                            } else {
-                              setDateFilter('');
-                            }
-                          }}
-                          initialFocus
-                          locale={pl}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Status Filter */}
-                  <div className="w-full">
-                    <Label htmlFor="open-status-filter" className="text-sm mb-2 block">
-                      Status
-                    </Label>
-                    <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value as TaskStatusFilter)}>
-                      <SelectTrigger 
-                        id="open-status-filter" 
-                        className={cn(
-                          "h-9",
-                          statusFilter !== 'all' && "border-[#7d212b]"
+              {/* Collapsible Filters for Open Tasks */}
+              <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+                <CollapsibleTrigger asChild>
+                  <Card className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Filter className={cn(
+                          "h-4 w-4",
+                          (dateFilter || statusFilter !== 'all') ? "text-status-todo" : "text-muted-foreground"
+                        )} />
+                        <span className="font-medium text-sm">Filtry</span>
+                        {(dateFilter || statusFilter !== 'all') && (
+                          <Badge variant="secondary" className="h-5 px-1.5 text-xs bg-status-todo/10 text-status-todo border-status-todo/20">
+                            Aktywne
+                          </Badge>
                         )}
-                      >
-                        <SelectValue placeholder="Wybierz status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statusFilters.map(status => (
-                          <SelectItem key={status} value={status}>
-                            {status === 'all' ? 'Wszystkie otwarte' : getStatusLabel(status as Task['status'])}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Clear Filters Button */}
-                  {(dateFilter || statusFilter !== 'all') && (
-                    <div className="col-span-2 flex justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setDateFilter('');
-                          setStatusFilter('all');
-                        }}
-                        className="h-9"
-                      >
-                        Wyczyść Filtry
-                      </Button>
+                      </div>
+                      <ChevronDown className={cn(
+                        "h-4 w-4 text-muted-foreground transition-transform",
+                        filtersOpen && "transform rotate-180"
+                      )} />
                     </div>
-                  )}
-                </div>
-              </Card>
+                  </Card>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <Card className="p-4 mt-2 border-t-0 rounded-t-none">
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Date Filter */}
+                      <div className="w-full">
+                        <Label htmlFor="open-date-filter" className="text-sm mb-2 block">
+                          Data
+                        </Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              id="open-date-filter"
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal h-9",
+                                !dateFilter && "text-muted-foreground",
+                                dateFilter && "border-status-todo text-status-todo"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {dateFilter ? (
+                                format(new Date(dateFilter), "PPP", { locale: pl })
+                              ) : (
+                                <span>Wszystkie daty</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={dateFilter ? new Date(dateFilter) : undefined}
+                              onSelect={(date) => {
+                                if (date) {
+                                  setDateFilter(format(date, 'yyyy-MM-dd'));
+                                } else {
+                                  setDateFilter('');
+                                }
+                              }}
+                              initialFocus
+                              locale={pl}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      {/* Status Filter */}
+                      <div className="w-full">
+                        <Label htmlFor="open-status-filter" className="text-sm mb-2 block">
+                          Status
+                        </Label>
+                        <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value as TaskStatusFilter)}>
+                          <SelectTrigger 
+                            id="open-status-filter" 
+                            className={cn(
+                              "h-9",
+                              statusFilter !== 'all' && "border-status-todo text-status-todo"
+                            )}
+                          >
+                            <SelectValue placeholder="Wybierz status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {statusFilters.map(status => (
+                              <SelectItem key={status} value={status}>
+                                {status === 'all' ? 'Wszystkie otwarte' : getStatusLabel(status as Task['status'])}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Clear Filters Button */}
+                      {(dateFilter || statusFilter !== 'all') && (
+                        <div className="col-span-2 flex justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setDateFilter('');
+                              setStatusFilter('all');
+                            }}
+                            className="h-9"
+                          >
+                            Wyczyść Filtry
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                </CollapsibleContent>
+              </Collapsible>
 
               {/* Task List */}
               {filteredTasks.length === 0 ? (
@@ -464,94 +531,120 @@ export default function Housekeeping() {
 
             {/* All Tasks Tab */}
             <TabsContent value="all" className="space-y-4 mt-4">
-              {/* Filters for All Tasks */}
-              <Card className="p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Date Filter */}
-                  <div className="w-full">
-                    <Label htmlFor="all-date-filter" className="text-sm mb-2 block">
-                      Data
-                    </Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          id="all-date-filter"
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal h-9",
-                            !dateFilter && "text-muted-foreground",
-                            dateFilter && "border-[#7d212b]"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {dateFilter ? (
-                            format(new Date(dateFilter), "PPP", { locale: pl })
-                          ) : (
-                            <span>Wszystkie daty</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={dateFilter ? new Date(dateFilter) : undefined}
-                          onSelect={(date) => {
-                            if (date) {
-                              setDateFilter(format(date, 'yyyy-MM-dd'));
-                            } else {
-                              setDateFilter('');
-                            }
-                          }}
-                          initialFocus
-                          locale={pl}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Status Filter */}
-                  <div className="w-full">
-                    <Label htmlFor="all-status-filter" className="text-sm mb-2 block">
-                      Status
-                    </Label>
-                    <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value as TaskStatusFilter)}>
-                      <SelectTrigger 
-                        id="all-status-filter" 
-                        className={cn(
-                          "h-9",
-                          statusFilter !== 'all' && "border-[#7d212b]"
+              {/* Collapsible Filters for All Tasks */}
+              <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+                <CollapsibleTrigger asChild>
+                  <Card className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Filter className={cn(
+                          "h-4 w-4",
+                          (dateFilter || statusFilter !== 'all') ? "text-status-todo" : "text-muted-foreground"
+                        )} />
+                        <span className="font-medium text-sm">Filtry</span>
+                        {(dateFilter || statusFilter !== 'all') && (
+                          <Badge variant="secondary" className="h-5 px-1.5 text-xs bg-status-todo/10 text-status-todo border-status-todo/20">
+                            Aktywne
+                          </Badge>
                         )}
-                      >
-                        <SelectValue placeholder="Wybierz status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statusFilters.map(status => (
-                          <SelectItem key={status} value={status}>
-                            {status === 'all' ? 'Wszystkie' : getStatusLabel(status as Task['status'])}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Clear Filters Button */}
-                  {(dateFilter || statusFilter !== 'all') && (
-                    <div className="col-span-2 flex justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setDateFilter('');
-                          setStatusFilter('all');
-                        }}
-                        className="h-9"
-                      >
-                        Wyczyść Filtry
-                      </Button>
+                      </div>
+                      <ChevronDown className={cn(
+                        "h-4 w-4 text-muted-foreground transition-transform",
+                        filtersOpen && "transform rotate-180"
+                      )} />
                     </div>
-                  )}
-                </div>
-              </Card>
+                  </Card>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <Card className="p-4 mt-2 border-t-0 rounded-t-none">
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Date Filter */}
+                      <div className="w-full">
+                        <Label htmlFor="all-date-filter" className="text-sm mb-2 block">
+                          Data
+                        </Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              id="all-date-filter"
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal h-9",
+                                !dateFilter && "text-muted-foreground",
+                                dateFilter && "border-status-todo text-status-todo"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {dateFilter ? (
+                                format(new Date(dateFilter), "PPP", { locale: pl })
+                              ) : (
+                                <span>Wszystkie daty</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={dateFilter ? new Date(dateFilter) : undefined}
+                              onSelect={(date) => {
+                                if (date) {
+                                  setDateFilter(format(date, 'yyyy-MM-dd'));
+                                } else {
+                                  setDateFilter('');
+                                }
+                              }}
+                              initialFocus
+                              locale={pl}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      {/* Status Filter */}
+                      <div className="w-full">
+                        <Label htmlFor="all-status-filter" className="text-sm mb-2 block">
+                          Status
+                        </Label>
+                        <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value as TaskStatusFilter)}>
+                          <SelectTrigger 
+                            id="all-status-filter" 
+                            className={cn(
+                              "h-9",
+                              statusFilter !== 'all' && "border-status-todo text-status-todo"
+                            )}
+                          >
+                            <SelectValue placeholder="Wybierz status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {statusFilters.map(status => (
+                              <SelectItem key={status} value={status}>
+                                {status === 'all' ? 'Wszystkie' : getStatusLabel(status as Task['status'])}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Clear Filters Button */}
+                      {(dateFilter || statusFilter !== 'all') && (
+                        <div className="col-span-2 flex justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setDateFilter('');
+                              setStatusFilter('all');
+                            }}
+                            className="h-9"
+                          >
+                            Wyczyść Filtry
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                </CollapsibleContent>
+              </Collapsible>
 
               {/* Task List */}
               {filteredTasks.length === 0 ? (
@@ -588,15 +681,21 @@ export default function Housekeeping() {
       </main>
 
       {/* Fixed Bottom Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-lg z-40">
+      <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-status-todo/20 shadow-lg z-40">
         <div className="container mx-auto px-4 pt-3 pb-8">
           {/* Progress Bar */}
-          <div className="mb-2">
-            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-              <span>Postęp</span>
-              <span className="font-medium">{progress.count}/{progress.total} ({progress.percentage}%)</span>
+          <div className="mb-3">
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="font-medium text-foreground">Postęp</span>
+              <span className="font-semibold text-status-todo">{progress.count}/{progress.total} ({progress.percentage}%)</span>
             </div>
-            <Progress value={progress.percentage} className="h-2" aria-label={`Postęp zadań ${progress.percentage}% `} />
+            <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-muted">
+              <div 
+                className="h-full bg-status-todo transition-all duration-300"
+                style={{ width: `${progress.percentage}%` }}
+                aria-label={`Postęp zadań ${progress.percentage}%`}
+              />
+            </div>
           </div>
 
           {/* Time Information */}

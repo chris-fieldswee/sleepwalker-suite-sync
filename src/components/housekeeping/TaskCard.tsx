@@ -83,8 +83,10 @@ export function TaskCard({
     <Card
       key={task.id}
       className={cn(
-        "overflow-hidden transition-shadow duration-300 cursor-pointer",
-        isActive ? `ring-2 ring-offset-2 ring-[hsl(var(--status-${task.status}))] shadow-lg` : 'shadow-sm hover:shadow-md',
+        "overflow-hidden transition-all duration-300 cursor-pointer border-l-4",
+        isActive 
+          ? `ring-2 ring-offset-2 ring-status-todo shadow-lg border-l-status-todo` 
+          : 'shadow-sm hover:shadow-md border-l-transparent hover:border-l-status-todo/30',
       )}
       onClick={() => {
         // #region agent log
@@ -93,11 +95,11 @@ export function TaskCard({
         navigate(`/housekeeping/task/${task.id}`)
       }}
     >
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 pt-3 px-4">
-        <div>
-          <CardTitle className="text-lg font-semibold">{task.room?.name || 'Nieznany Pokój'}</CardTitle>
-          <p className="text-xs text-muted-foreground pt-1">
-            Typ: <span className="font-bold">{getCleaningTypeLabel(task.cleaning_type)}</span> / Goście: <span className="font-bold inline-flex items-center">{renderCapacityIconPattern(CAPACITY_ID_TO_LABEL[task.guest_count] || task.guest_count)}</span> / Limit: <span className="font-bold">{task.time_limit ? `${task.time_limit}m` : 'N/A'}</span>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3 pt-4 px-4">
+        <div className="flex-1 min-w-0 pr-2">
+          <CardTitle className="text-lg font-semibold text-foreground">{task.room?.name || 'Nieznany Pokój'}</CardTitle>
+          <p className="text-xs text-muted-foreground pt-1.5 leading-relaxed">
+            Typ: <span className="font-semibold text-foreground">{getCleaningTypeLabel(task.cleaning_type)}</span> / Goście: <span className="font-semibold text-foreground inline-flex items-center">{renderCapacityIconPattern(CAPACITY_ID_TO_LABEL[task.guest_count] || task.guest_count)}</span> / Limit: <span className="font-semibold text-foreground">{task.time_limit ? `${task.time_limit}m` : 'N/A'}</span>
           </p>
           {/* #region agent log */}
           {(() => {
@@ -107,11 +109,11 @@ export function TaskCard({
           {/* #endregion */}
         </div>
         {/* Apply status color utility */}
-        <Badge className={cn(getStatusColor(task.status), "text-xs ml-2 flex-shrink-0 text-white")}>
+        <Badge className={cn(getStatusColor(task.status), "text-xs ml-2 flex-shrink-0 text-white font-medium px-2 py-0.5")}>
           {getStatusLabel(task.status)}
         </Badge>
       </CardHeader>
-      <CardContent className="px-4 pb-3 pt-1 space-y-2">
+      <CardContent className="px-4 pb-3 pt-1 space-y-3">
         {/* Conditionally render timer only if task has started */}
         {(task.start_time) && (
           <TaskTimerDisplay task={task} />
@@ -144,12 +146,13 @@ export function TaskCard({
       </CardContent>
 
       {/* Footer with Actions */}
-      <CardFooter className="flex flex-wrap gap-2 pt-2 pb-3 px-4 justify-between items-center bg-muted/30 border-t dark:bg-muted/10">
+      <CardFooter className="flex flex-wrap gap-2 pt-3 pb-4 px-4 justify-between items-center bg-muted/20 border-t border-border/50">
         {/* Primary actions */}
         {(task.status === 'todo' || task.status === 'repair_needed') ? (
           <Button
             size="sm"
             variant="outline"
+            className="border-status-todo/30 text-status-todo hover:bg-status-todo/10 hover:border-status-todo"
             onClick={(e) => {
               e.stopPropagation();
               // #region agent log
