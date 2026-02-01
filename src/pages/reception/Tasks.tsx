@@ -263,6 +263,7 @@ export default function Tasks({
               <TableHead className="font-semibold text-center w-[60px]">Typ</TableHead>
               <TableHead className="font-semibold text-center w-[80px]">Goście</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Limit</TableHead>
+              <TableHead className="font-semibold text-center w-[60px]">Rzeczywisty</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Problem</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Notatki</TableHead>
               <TableHead className="font-semibold text-right w-[100px]">Akcje</TableHead>

@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { renderCapacityIconPattern, LABEL_TO_CAPACITY_ID, CAPACITY_ID_TO_LABEL, normalizeCapacityLabel } from "@/lib/capacity-utils";
+import { ActualTimeDialog } from "./ActualTimeDialog";
 
 type Issue = Database["public"]["Tables"]["issues"]["Row"];
 type IssueStatus = Database["public"]["Enums"]["issue_status"];
@@ -283,6 +284,7 @@ interface EditableTaskState {
     date: string;
     timeLimit: number | null;
     status: string;
+    actualTime: number | null;
 }
 
 interface TaskDetailDialogProps {
@@ -311,6 +313,8 @@ export function TaskDetailDialog({
     const [isEditMode, setIsEditMode] = useState(false);
     const [availableStaffOptions, setAvailableStaffOptions] = useState<Staff[]>([]);
     const [taskIssues, setTaskIssues] = useState<TaskIssue[]>([]);
+    const [isActualTimeDialogOpen, setIsActualTimeDialogOpen] = useState(false);
+    const [pendingUpdates, setPendingUpdates] = useState<Partial<EditableTaskState> | null>(null);
     const housekeepingStaff = useMemo(
         () => allStaff.filter(staff => staff.role === 'housekeeping'),
         [allStaff]
@@ -365,6 +369,7 @@ export function TaskDetailDialog({
                 date: task.date,
                 timeLimit: task.time_limit,
                 status: task.status,
+                actualTime: task.actual_time ?? null,
             });
             setSelectedGroup((selectedRoom?.group_type ?? task.room.group_type) as RoomGroup);
             setIsEditMode(false);
@@ -546,6 +551,7 @@ export function TaskDetailDialog({
             date: task.date,
             timeLimit: task.time_limit,
             status: task.status,
+            actualTime: task.actual_time ?? null,
         });
         setSelectedGroup((selectedRoom?.group_type ?? task.room.group_type) as RoomGroup);
         setIsEditMode(false);
@@ -611,6 +617,11 @@ export function TaskDetailDialog({
             toast({ title: "Błąd Walidacji", description: "Limit czasu nie może być ujemny.", variant: "destructive" });
             return;
         }
+        const canEditActualTime = userRole === 'admin' && task.status === 'done';
+        if (canEditActualTime && editableState.actualTime !== null && editableState.actualTime < 0) {
+            toast({ title: "Błąd Walidacji", description: "Rzeczywisty czas nie może być ujemny.", variant: "destructive" });
+            return;
+        }
 
         const updates: Partial<EditableTaskState> = {};
         let changed = false;
@@ -624,10 +635,23 @@ export function TaskDetailDialog({
         if (editableState.date !== task.date) { updates.date = editableState.date; changed = true; }
         if (editableState.timeLimit !== task.time_limit) { updates.timeLimit = editableState.timeLimit; changed = true; }
         if (editableState.status !== task.status) { updates.status = editableState.status; changed = true; }
+        // Admin can edit actualTime when task is done
+        if (canEditActualTime && editableState.actualTime !== task.actual_time) {
+            updates.actualTime = editableState.actualTime;
+            changed = true;
+        }
 
         if (!changed) {
             toast({ title: "Brak Zmian", description: "Żadne szczegóły nie zostały zmienione." });
             setIsEditMode(false);
+            return;
+        }
+
+        // Flow B: Admin changed status to done - show ActualTimeDialog to get actual time
+        const statusChangingToDone = editableState.status === 'done' && task.status !== 'done';
+        if (statusChangingToDone && userRole === 'admin') {
+            setPendingUpdates(updates);
+            setIsActualTimeDialogOpen(true);
             return;
         }
 
@@ -643,6 +667,8 @@ export function TaskDetailDialog({
                         cleaning_type,
                         guest_count,
                         time_limit,
+                        actual_time,
+                        difference,
                         reception_notes,
                         room:rooms(id, name, group_type, color),
                         user:users(id, name, first_name, last_name)
@@ -669,6 +695,8 @@ export function TaskDetailDialog({
                         task.reception_notes = refreshedTask.reception_notes;
                         task.date = refreshedTask.date;
                         task.status = refreshedTask.status;
+                        task.actual_time = refreshedTask.actual_time;
+                        task.difference = refreshedTask.difference;
                         task.user = updatedUser
                             ? {
                                 id: updatedUser.id,
@@ -688,6 +716,7 @@ export function TaskDetailDialog({
                         date: refreshedTask.date,
                         timeLimit: refreshedTask.time_limit,
                         status: refreshedTask.status,
+                        actualTime: refreshedTask.actual_time ?? null,
                     });
                     setSelectedGroup((updatedRoom?.group_type ?? task.room.group_type) as RoomGroup);
                 } else {
@@ -699,6 +728,70 @@ export function TaskDetailDialog({
             }
 
             setIsEditMode(false);
+        }
+    };
+
+    const handleActualTimeConfirm = async (actualTime: number | null) => {
+        if (!task || !pendingUpdates) return;
+        const updates = { ...pendingUpdates, actualTime };
+        const success = await onUpdate(task.id, updates);
+        if (success) {
+            try {
+                const { data: refreshedTask, error } = await supabase
+                    .from('tasks')
+                    .select(`
+                        id, date, status, cleaning_type, guest_count, time_limit,
+                        actual_time, difference, reception_notes,
+                        room:rooms(id, name, group_type, color),
+                        user:users(id, name, first_name, last_name)
+                    `)
+                    .eq('id', task.id)
+                    .single();
+
+                if (!error && refreshedTask) {
+                    const updatedRoom = refreshedTask.room;
+                    const updatedUser = refreshedTask.user;
+                    if (task) {
+                        if (updatedRoom) {
+                            task.room = {
+                                id: updatedRoom.id,
+                                name: updatedRoom.name,
+                                group_type: updatedRoom.group_type,
+                                color: updatedRoom.color,
+                            };
+                        }
+                        task.cleaning_type = refreshedTask.cleaning_type as CleaningType;
+                        task.guest_count = refreshedTask.guest_count;
+                        task.time_limit = refreshedTask.time_limit;
+                        task.actual_time = refreshedTask.actual_time;
+                        task.difference = refreshedTask.difference;
+                        task.reception_notes = refreshedTask.reception_notes;
+                        task.date = refreshedTask.date;
+                        task.status = refreshedTask.status;
+                        task.user = updatedUser
+                            ? {
+                                id: updatedUser.id,
+                                name: updatedUser.first_name && updatedUser.last_name
+                                    ? `${updatedUser.first_name} ${updatedUser.last_name}`
+                                    : updatedUser.name,
+                            }
+                            : null;
+                    }
+                    setEditableState(prev => prev ? {
+                        ...prev,
+                        ...updates,
+                        actualTime: refreshedTask.actual_time ?? null,
+                    } : prev);
+                }
+            } catch (fetchError) {
+                console.error("Error fetching updated task details:", fetchError);
+            }
+            setIsActualTimeDialogOpen(false);
+            setPendingUpdates(null);
+            setIsEditMode(false);
+            onOpenChange(false);
+        } else {
+            toast({ title: "Błąd", description: "Nie udało się zapisać czasu.", variant: "destructive" });
         }
     };
 
@@ -778,6 +871,7 @@ export function TaskDetailDialog({
 
     const isTaskClosed = task.status === 'done';
     const canEditTimeLimit = isTaskClosed;
+    const canEditActualTime = userRole === 'admin' && task.status === 'done';
 
     const getStatusLabel = (status: string) => {
         // ... (keep existing getStatusLabel) ...
@@ -837,6 +931,7 @@ export function TaskDetailDialog({
     };
 
     return (
+        <>
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
@@ -1073,38 +1168,47 @@ export function TaskDetailDialog({
                         </div>
 
                         {/* ** MODIFICATION START: Simplified Time Display Card ** */}
-                        {(task.start_time || task.actual_time !== null) && ( // Show if started or completed
-                            <Card className="bg-muted/30">
-                                <CardHeader className="p-3">
-                                    <CardTitle className="text-base flex items-center gap-1"><Timer className="h-4 w-4" />Timing</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-3 pt-0 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                                    {/* Start Time */}
-                                    <div className="flex items-center gap-1">
-                                        <PlayCircle className="h-3 w-3 text-muted-foreground" />
-                                        <span className="text-muted-foreground">Start:</span> {formatDisplayTime(task.start_time)}
-                                    </div>
-                                    {/* Stop Time */}
-                                    <div className="flex items-center gap-1">
-                                        <Square className="h-3 w-3 text-muted-foreground" />
-                                        <span className="text-muted-foreground">Stop:</span> {formatDisplayTime(task.stop_time)}
-                                    </div>
-                                    {/* Actual Time */}
-                                    {task.actual_time !== null && (
-                                        <div className="col-span-1 mt-1">
-                                            <span className="text-muted-foreground">Actual:</span> {task.actual_time} min
-                                        </div>
+                        <Card className="bg-muted/30">
+                            <CardHeader className="p-3">
+                                <CardTitle className="text-base flex items-center gap-1"><Timer className="h-4 w-4" />Timing</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-3 pt-0 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                {/* Start Time */}
+                                <div className="flex items-center gap-1">
+                                    <PlayCircle className="h-3 w-3 text-muted-foreground" />
+                                    <span className="text-muted-foreground">Start:</span> {formatDisplayTime(task.start_time)}
+                                </div>
+                                {/* Stop Time */}
+                                <div className="flex items-center gap-1">
+                                    <Square className="h-3 w-3 text-muted-foreground" />
+                                    <span className="text-muted-foreground">Stop:</span> {formatDisplayTime(task.stop_time)}
+                                </div>
+                                {/* Actual Time - always visible; editable for admin when task is done */}
+                                <div className="col-span-1 mt-1">
+                                    <span className="text-muted-foreground">Actual:</span>{' '}
+                                    {userRole === 'admin' && isEditMode ? (
+                                        <>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                value={editableState?.actualTime ?? ''}
+                                                onChange={(e) => handleFieldChange('actualTime', e.target.value ? parseInt(e.target.value, 10) : null)}
+                                                className="inline-block w-20 h-7 text-sm"
+                                                disabled={isUpdating || !canEditActualTime}
+                                            />
+                                            <span className="ml-1 text-muted-foreground">min</span>
+                                            {!canEditActualTime && <span className="ml-1 text-xs text-muted-foreground">(zamknij zadanie, aby edytować)</span>}
+                                        </>
+                                    ) : (
+                                        `${task.actual_time ?? '-'} min`
                                     )}
-                                    {/* Difference */}
-                                    {task.difference !== null && (
-                                        <div className={cn("col-span-1 mt-1 font-medium", task.difference > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400")}>
-                                            <span className="text-muted-foreground font-normal">Diff:</span> {task.difference > 0 ? '+' : ''}{task.difference} min
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        )}
-                        {/* ** MODIFICATION END ** */}
+                                </div>
+                                {/* Difference - always visible in preview */}
+                                <div className={cn("col-span-1 mt-1", task.difference !== null && (task.difference > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"))}>
+                                    <span className="text-muted-foreground">Diff:</span> {task.difference !== null ? `${task.difference > 0 ? '+' : ''}${task.difference} min` : '-'}
+                                </div>
+                            </CardContent>
+                        </Card>
 
                         {/* Housekeeping Note */}
                         {task.housekeeping_notes && (
@@ -1181,5 +1285,16 @@ export function TaskDetailDialog({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        <ActualTimeDialog
+            isOpen={isActualTimeDialogOpen}
+            onOpenChange={(open) => {
+                setIsActualTimeDialogOpen(open);
+                if (!open) setPendingUpdates(null);
+            }}
+            onConfirm={handleActualTimeConfirm}
+            initialValue={task?.actual_time ?? null}
+            isSubmitting={isUpdating}
+        />
+        </>
     );
 }

@@ -33,6 +33,7 @@ export interface EditableTaskState {
     date: string;
     timeLimit: number | null;
     status?: string;
+    actualTime?: number | null;
 }
 
 const initialNewTaskState: NewTaskState = {
@@ -709,7 +710,19 @@ export function useReceptionActions(
           if (updates.notes !== undefined) { dbUpdates.reception_notes = updates.notes || null; }
           if (updates.date !== undefined) { dbUpdates.date = updates.date; }
           if (updates.status !== undefined) { dbUpdates.status = updates.status as Database["public"]["Enums"]["task_status"]; }
-          
+
+          if (updates.actualTime !== undefined) {
+              dbUpdates.actual_time = updates.actualTime;
+              let timeLimitForDiff: number | null = updates.timeLimit ?? null;
+              if (timeLimitForDiff === null) {
+                  const { data } = await supabase.from('tasks').select('time_limit').eq('id', taskId).single();
+                  timeLimitForDiff = data?.time_limit ?? null;
+              }
+              dbUpdates.difference = (updates.actualTime !== null && timeLimitForDiff !== null)
+                  ? updates.actualTime - timeLimitForDiff
+                  : null;
+          }
+
           if (updates.timeLimit !== undefined) {
              dbUpdates.time_limit = updates.timeLimit;
           } else if (needsLimitCheck) {
