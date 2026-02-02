@@ -874,10 +874,12 @@ export function useReceptionActions(
               return true;
           }
 
-          const { error } = await supabase
+          const { data, error } = await supabase
               .from('tasks')
               .update(dbUpdates)
-              .eq('id', taskId);
+              .eq('id', taskId)
+              .select()
+              .single();
 
           if (error) throw error;
 
