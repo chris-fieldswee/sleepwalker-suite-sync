@@ -108,3 +108,4 @@ END $$;
 COMMENT ON COLUMN public.tasks.guest_count IS 'Capacity identifier (a, b, c, d, e, f, g, h) corresponding to visual patterns: a=1, b=1+1, c=1+1+1, d=2, e=2+1, f=2+2, g=2+2+1, h=2+2+2';
 COMMENT ON COLUMN public.limits.guest_count IS 'Capacity identifier (a, b, c, d, e, f, g, h) corresponding to visual patterns';
 
+

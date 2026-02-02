@@ -75,3 +75,4 @@ FROM public.users
 WHERE auth_id IS NOT NULL
 ORDER BY created_at DESC;
 
+

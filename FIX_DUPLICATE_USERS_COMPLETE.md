@@ -201,3 +201,4 @@ WHERE tgname = 'on_auth_user_created';
 -- Should show UNIQUE constraint on auth_id
 ```
 
+

@@ -88,3 +88,4 @@ After applying fixes, test:
 - SVG support requires the migration to be applied
 - The query change from `!inner` to regular join ensures issues are visible even if room data has issues
 
+

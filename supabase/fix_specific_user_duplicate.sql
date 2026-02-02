@@ -72,3 +72,4 @@ FROM public.users
 WHERE auth_id = '36262746-28f7-484a-ac09-6f76ba8405db';
 -- Should return exactly 1 row
 
+

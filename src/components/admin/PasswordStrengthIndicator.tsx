@@ -42,3 +42,4 @@ export function PasswordStrengthIndicator({ password, minLength = 8 }: PasswordS
     </div>
   );
 }
+

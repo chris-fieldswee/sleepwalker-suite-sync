@@ -40,3 +40,4 @@ GRANT EXECUTE ON FUNCTION cleanup_past_availability() TO authenticated;
 COMMENT ON FUNCTION cleanup_past_availability() IS 'Deletes all staff availability records with dates before today';
 COMMENT ON FUNCTION check_availability_date() IS 'Prevents inserting or updating availability records with past dates';
 
+

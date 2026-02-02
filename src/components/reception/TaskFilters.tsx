@@ -1,10 +1,13 @@
 // src/components/reception/TaskFilters.tsx
 import { useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { X, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { pl } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Staff, Room } from '@/hooks/useReceptionData'; // Import Room type
 import type { Database } from "@/integrations/supabase/types"; // Import Database types
@@ -50,6 +53,11 @@ interface TaskFiltersProps {
   showRoomGroupFilter?: boolean;
   allowPastDates?: boolean;
   showDoneStatus?: boolean; // Show "Gotowe" status option (for "all tasks" tab)
+  // Date range mode (for "all tasks" tab): when true, show Od/Do instead of single date
+  showDateRange?: boolean;
+  dateRangeFrom?: string | null;
+  dateRangeTo?: string | null;
+  onDateRangeChange?: (from: string | null, to: string | null) => void;
 }
 
 export const TaskFilters = ({
@@ -72,6 +80,10 @@ export const TaskFilters = ({
   showRoomGroupFilter = true,
   allowPastDates = false,
   showDoneStatus = false,
+  showDateRange = false,
+  dateRangeFrom = null,
+  dateRangeTo = null,
+  onDateRangeChange,
 }: TaskFiltersProps) => {
   // Filter available rooms based on selected room group
   const filteredRooms = useMemo(() => {
@@ -89,8 +101,23 @@ export const TaskFilters = ({
     return baseFilterableStatuses;
   }, [showDoneStatus]);
 
-  const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onDateChange(e.target.value || null);
+  const handleDateSelect = (date: Date | undefined) => {
+    onDateChange(date ? format(date, "yyyy-MM-dd") : null);
+  };
+
+  const handleDateRangeFromSelect = (date: Date | undefined) => {
+    onDateRangeChange?.(date ? format(date, "yyyy-MM-dd") : null, dateRangeTo);
+  };
+
+  const handleDateRangeToSelect = (date: Date | undefined) => {
+    onDateRangeChange?.(dateRangeFrom, date ? format(date, "yyyy-MM-dd") : null);
+  };
+
+  const handleClearFilters = () => {
+    onClearFilters();
+    if (showDateRange && onDateRangeChange) {
+      onDateRangeChange(null, null);
+    }
   };
 
   const handleRoomGroupChange = (value: RoomGroup | 'all') => {
@@ -116,22 +143,101 @@ export const TaskFilters = ({
   };
 
   return (
-    <div className={`grid gap-4 md:grid-cols-2 ${showRoomGroupFilter ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} mb-4 items-end`}>
-      {/* Date Filter */}
-      <div className="space-y-1">
-        <Label htmlFor="date-filter">Data</Label>
-        <Input
-          id="date-filter"
-          type="date"
-          value={date ?? ''}
-          onChange={handleDateInputChange}
-          min={allowPastDates ? undefined : new Date().toISOString().split('T')[0]} // Allow past dates if allowPastDates is true
-          className={cn(
-            "bg-card h-9 text-sm",
-            date && "border-[#7d212b]"
-          )}
-        />
-      </div>
+    <div className={`grid gap-4 md:grid-cols-2 ${showRoomGroupFilter ? (showDateRange ? 'lg:grid-cols-7' : 'lg:grid-cols-6') : (showDateRange ? 'lg:grid-cols-6' : 'lg:grid-cols-5')} mb-4 items-end`}>
+      {/* Date Filter: single date or date range (Od / Do) with calendar picker */}
+      {showDateRange ? (
+        <>
+          <div className="space-y-1">
+            <Label>Od</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal h-9 text-sm bg-card",
+                    !dateRangeFrom && "text-muted-foreground",
+                    dateRangeFrom && "border-[#7d212b]"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRangeFrom
+                    ? format(new Date(dateRangeFrom + "T12:00:00"), "d MMMM yyyy", { locale: pl })
+                    : "Wybierz datę"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateRangeFrom ? new Date(dateRangeFrom + "T12:00:00") : undefined}
+                  onSelect={(d) => handleDateRangeFromSelect(d)}
+                  locale={pl}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-1">
+            <Label>Do</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal h-9 text-sm bg-card",
+                    !dateRangeTo && "text-muted-foreground",
+                    dateRangeTo && "border-[#7d212b]"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRangeTo
+                    ? format(new Date(dateRangeTo + "T12:00:00"), "d MMMM yyyy", { locale: pl })
+                    : "Wybierz datę"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateRangeTo ? new Date(dateRangeTo + "T12:00:00") : undefined}
+                  onSelect={(d) => handleDateRangeToSelect(d)}
+                  locale={pl}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </>
+      ) : (
+        <div className="space-y-1">
+          <Label>Data</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal h-9 text-sm bg-card",
+                  !date && "text-muted-foreground",
+                  date && "border-[#7d212b]"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {date
+                  ? format(new Date(date + "T12:00:00"), "d MMMM yyyy", { locale: pl })
+                  : "Wybierz datę"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={date ? new Date(date + "T12:00:00") : undefined}
+                onSelect={(d) => handleDateSelect(d)}
+                disabled={allowPastDates ? undefined : (d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                locale={pl}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
 
       {/* Status Filter */}
       <div className="space-y-1">
@@ -235,7 +341,7 @@ export const TaskFilters = ({
       {/* Clear Button */}
       <Button
         variant="outline"
-        onClick={onClearFilters}
+        onClick={handleClearFilters}
         className="w-full h-9 text-sm"
       >
         <X className="mr-1.5 h-4 w-4" />

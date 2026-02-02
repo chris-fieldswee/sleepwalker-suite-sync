@@ -87,6 +87,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             // No rows returned or timeout - user exists in auth but not in public.users
             console.warn("User profile not found in public.users table or query timed out");
           }
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:90',message:'AUTH ERROR - setting userId/userRole to null',data:{errorCode:error.code,errorMessage:error.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
           setUserRole(null);
           setUserId(null);
           setLoading(false);
@@ -99,6 +102,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUserId(profile.id);
         } else {
           console.warn("User profile found but inactive or null:", profile);
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:102',message:'AUTH INACTIVE - setting userId/userRole to null',data:{hasProfile:!!profile,isActive:profile?.active},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
           setUserRole(null);
           setUserId(null);
         }
@@ -111,6 +117,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             clearTimeout(timeoutId);
             timeoutId = null;
           }
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:114',message:'AUTH UNEXPECTED ERROR - setting userId/userRole to null',data:{errorMessage:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
           setUserRole(null);
           setUserId(null);
           setLoading(false);
@@ -125,6 +134,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     timeoutId = setTimeout(() => {
       if (mounted) {
         console.warn("Auth profile fetch safety timeout - forcing loading to false (query likely hung)");
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:128',message:'AUTH TIMEOUT - setting userId/userRole to null',data:{timeoutMs:7000},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         setUserRole(null);
         setUserId(null);
         setLoading(false);
@@ -155,6 +167,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session?.user) {
           await fetchUserProfile(session.user.id);
         } else {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:158',message:'AUTH NO SESSION - setting userId/userRole to null',data:{event:event},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
           setUserRole(null);
           setUserId(null);
           setRequiresPasswordChange(false);

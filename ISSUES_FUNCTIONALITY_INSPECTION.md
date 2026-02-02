@@ -135,3 +135,4 @@ This document summarizes the current state of the issues functionality and ident
 4. **Medium-term**: Allow admin to assign issues to housekeeping staff
 5. **Low-priority**: Standardize storage bucket names
 
+

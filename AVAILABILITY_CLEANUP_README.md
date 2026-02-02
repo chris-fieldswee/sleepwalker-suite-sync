@@ -70,3 +70,4 @@ SELECT cleanup_past_availability();
 - Users cannot add or import availability for past dates
 - The database trigger provides an additional layer of protection
 
+

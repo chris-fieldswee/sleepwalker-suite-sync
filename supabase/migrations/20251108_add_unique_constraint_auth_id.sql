@@ -43,3 +43,4 @@ EXCEPTION
     RAISE EXCEPTION 'Error adding constraint: %', SQLERRM;
 END $$;
 
+

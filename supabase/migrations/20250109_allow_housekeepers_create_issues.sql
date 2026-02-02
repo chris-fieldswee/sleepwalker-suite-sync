@@ -9,3 +9,4 @@ CREATE POLICY "Housekeepers can create issues"
     has_role(auth.uid(), 'housekeeping'::app_role)
   );
 
+

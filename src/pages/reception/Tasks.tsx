@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableHeader, TableRow, TableHead } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Download } from "lucide-react";
+import { CAPACITY_ID_TO_LABEL } from "@/lib/capacity-utils";
 import { TaskFilters, type RoomGroupOption } from "@/components/reception/TaskFilters";
 import { TaskTableRow } from "@/components/reception/TaskTableRow";
 import { AddTaskDialog } from "@/components/reception/AddTaskDialog";
@@ -88,6 +89,58 @@ const allRoomGroups: RoomGroupOption[] = [
   { value: 'OTHER', label: 'Inne Przestrzenie' },
 ];
 
+// Labels for CSV export (aligned with TaskTableRow)
+const statusLabels: Record<string, string> = {
+  todo: "Do sprzątania",
+  in_progress: "W trakcie",
+  paused: "Wstrzymane",
+  done: "Gotowe",
+  repair_needed: "Naprawa",
+};
+const cleaningTypeLabels: Record<string, string> = {
+  W: "Wyjazd",
+  P: "Przyjazd",
+  T: "Trakt",
+  O: "Odświeżenie",
+  G: "Generalne",
+  S: "Standard",
+};
+
+const escapeCsvCell = (value: string): string => {
+  if (/[",\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+};
+
+function tasksToCsv(tasks: Task[]): string {
+  const headers = ["Status", "Pokój", "Personel", "Data", "Typ", "Goście", "Limit", "Rzeczywisty", "Problem", "Notatki"];
+  const rows = tasks.map((task) => {
+    const status = statusLabels[task.status] ?? task.status;
+    const room = task.room?.name ?? "";
+    const staff = task.user?.name ?? "";
+    const date = task.date ?? "";
+    const type = cleaningTypeLabels[task.cleaning_type] ?? task.cleaning_type;
+    const guests = CAPACITY_ID_TO_LABEL[task.guest_count] ?? task.guest_count;
+    const limit = task.time_limit != null ? String(task.time_limit) : "";
+    const actual = task.actual_time != null ? String(task.actual_time) : "";
+    const issue = task.issue_flag ? (task.issue_description ? `Tak: ${task.issue_description}` : "Tak") : "Nie";
+    const notes = [task.housekeeping_notes, task.reception_notes].filter(Boolean).join("; ") || "";
+    return [status, room, staff, date, type, guests, limit, actual, issue, notes].map(escapeCsvCell).join(",");
+  });
+  return [headers.join(","), ...rows].join("\n");
+}
+
+function downloadCsv(csvContent: string, filename: string): void {
+  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 interface TasksProps {
   tasks: Task[];
   allStaff: Staff[];
@@ -150,6 +203,8 @@ export default function Tasks({
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"open" | "all">("open");
+  const [dateRangeFrom, setDateRangeFrom] = useState<string | null>(null);
+  const [dateRangeTo, setDateRangeTo] = useState<string | null>(null);
 
   // Always fetch all tasks when on tasks page, filter client-side
   useEffect(() => {
@@ -183,21 +238,27 @@ export default function Tasks({
   // We need to apply the tab-specific date filter here
   const filteredTasks = useMemo(() => {
     let result = tasks;
-    
-    // Apply date filter if a specific date is selected
-    if (filters.date) {
-      result = result.filter(task => task.date === filters.date);
-    } else {
-      // When no date is selected, apply tab-specific default behavior
-      if (activeTab === 'open') {
+
+    if (activeTab === 'open') {
+      // Apply date filter if a specific date is selected
+      if (filters.date) {
+        result = result.filter(task => task.date === filters.date);
+      } else {
         // For "open" tab, show all tasks from current and future dates
         result = result.filter(task => task.date >= todayDate);
       }
-      // For "all" tab with no date filter, show all tasks (no additional filtering)
+    } else {
+      // "all" tab: apply date range filter when at least one bound is set
+      if (dateRangeFrom != null || dateRangeTo != null) {
+        const from = dateRangeFrom ?? '0000-01-01';
+        const to = dateRangeTo ?? '9999-12-31';
+        result = result.filter(task => task.date >= from && task.date <= to);
+      }
+      // When both null on "all" tab, show all tasks (no additional filtering)
     }
-    
+
     return result;
-  }, [activeTab, tasks, todayDate, filters.date]);
+  }, [activeTab, tasks, todayDate, filters.date, dateRangeFrom, dateRangeTo]);
 
   // Calculate counts for tab labels - use all tasks regardless of current filter
   const openTasksCount = useMemo(() => {
@@ -344,7 +405,7 @@ export default function Tasks({
 
           <Card>
             <CardHeader>
-              <CardTitle>Zadania otwarte dla {getDisplayDate(filters.date)}</CardTitle>
+              <CardTitle>Zadania otwarte dla {getDisplayDate(filters.date)} ({filteredTasks.length} zadań)</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {renderTaskTable(
@@ -381,20 +442,46 @@ export default function Tasks({
                 showRoomGroupFilter={true}
                 allowPastDates={true}
                 showDoneStatus={true}
+                showDateRange={true}
+                dateRangeFrom={dateRangeFrom}
+                dateRangeTo={dateRangeTo}
+                onDateRangeChange={(from, to) => {
+                  setDateRangeFrom(from);
+                  setDateRangeTo(to);
+                }}
               />
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Wszystkie zadania dla {getDisplayDate(filters.date)}</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle>
+                {dateRangeFrom != null || dateRangeTo != null
+                  ? `Wszystkie zadania w okresie ${getDisplayDate(dateRangeFrom)} – ${getDisplayDate(dateRangeTo)} (${filteredTasks.length} zadań)`
+                  : `Wszystkie zadania dla ${getDisplayDate(filters.date)} (${filteredTasks.length} zadań)`}
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const filename = dateRangeFrom && dateRangeTo
+                    ? `zadania-${dateRangeFrom}-${dateRangeTo}.csv`
+                    : `zadania-export-${getTodayDateString()}.csv`;
+                  downloadCsv(tasksToCsv(filteredTasks), filename);
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Eksportuj CSV
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               {renderTaskTable(
                 filteredTasks,
-                filters.date
-                  ? `Nie znaleziono zadań dla ${getDisplayDate(filters.date)} z obecnymi filtrami`
-                  : "Nie znaleziono zadań z obecnymi filtrami"
+                dateRangeFrom != null || dateRangeTo != null
+                  ? `Nie znaleziono zadań w wybranym okresie z obecnymi filtrami`
+                  : filters.date
+                    ? `Nie znaleziono zadań dla ${getDisplayDate(filters.date)} z obecnymi filtrami`
+                    : "Nie znaleziono zadań z obecnymi filtrami"
               )}
             </CardContent>
           </Card>

@@ -99,3 +99,4 @@ supabase migration up
 3. `src/components/reception/NewIssueDetailDialog.tsx`
 4. `src/hooks/useReceptionActions.ts`
 
+

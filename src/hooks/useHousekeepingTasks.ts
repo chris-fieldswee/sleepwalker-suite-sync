@@ -15,7 +15,13 @@ export function useHousekeepingTasks() {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchTasks = useCallback(async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:17',message:'fetchTasks entry',data:{userId:userId,userRole:userRole},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     if (!userId) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:18',message:'fetchTasks early return - no userId',data:{userId:userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       setLoading(false);
       return;
     }
@@ -99,16 +105,22 @@ export function useHousekeepingTasks() {
       });
       setLoading(false);
     }
-  }, [userId, toast]); // Include toast in dependencies
+  }, [userId, toast]); // Keep toast - useToast should return stable reference
 
   // ✅ Stable effect – only runs when userId or role changes
   useEffect(() => {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:54',message:'useEffect triggered',data:{userId:userId,userRole:userRole,hasChannel:!!channelRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:105',message:'useEffect triggered',data:{userId:userId,userRole:userRole,hasChannel:!!channelRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    // #region agent log
+    setTasks(currentTasks => {
+      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:109',message:'useEffect guard check - BEFORE clearing',data:{userRole:userRole,userId:userId,currentTaskCount:currentTasks.length,willClear:userRole !== "housekeeping" || !userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+      return currentTasks;
+    });
     // #endregion
     if (userRole !== "housekeeping" || !userId) {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:57',message:'clearing tasks - invalid role/user',data:{userRole:userRole,userId:userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useHousekeepingTasks.ts:112',message:'CLEARING TASKS - invalid role/user',data:{userRole:userRole,userId:userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
       // #endregion
       setTasks([]);
       setLoading(false);
@@ -199,7 +211,7 @@ export function useHousekeepingTasks() {
         channelRef.current = null;
       }
     };
-  }, [userId, userRole, fetchTasks, toast]);
+  }, [userId, userRole, fetchTasks]); // Remove toast from dependencies - fetchTasks is already stable
 
   return { tasks, loading, activeTaskId, setActiveTaskId, fetchTasks };
 }

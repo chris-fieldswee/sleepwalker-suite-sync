@@ -28,3 +28,4 @@ SELECT id, guest_count, room_id, cleaning_type
 FROM public.tasks
 LIMIT 5;
 
+

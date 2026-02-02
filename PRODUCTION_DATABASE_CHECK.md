@@ -89,3 +89,4 @@ The validation schema in `src/lib/validation.ts` has been updated to accept nume
 
 The code now handles both INTEGER and TEXT guest_count columns in the limits table for backward compatibility.
 
+

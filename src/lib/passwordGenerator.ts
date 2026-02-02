@@ -74,3 +74,4 @@ export function generatePassword(options: PasswordGeneratorOptions = {}): string
 
   return password;
 }
+

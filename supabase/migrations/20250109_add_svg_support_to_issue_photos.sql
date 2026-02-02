@@ -6,3 +6,4 @@ UPDATE storage.buckets
 SET allowed_mime_types = ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml']
 WHERE id = 'issue-photos';
 
+
