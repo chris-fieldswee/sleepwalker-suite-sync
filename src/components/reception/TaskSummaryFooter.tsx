@@ -1,40 +1,20 @@
 // src/components/reception/TaskSummaryFooter.tsx
 import { Clock, Timer, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatMinutesAsHm, formatDifferenceAsHm } from "@/lib/utils";
 
 interface TaskSummaryFooterProps {
   totalLimit: number | null;
   totalActual: number | null;
   totalDifference: number | null;
   visibleTaskCount: number;
-  showActual?: boolean; // New prop to control whether to show actual metric
-  showDifference?: boolean; // New prop to control whether to show difference metric
+  showActual?: boolean;
+  showDifference?: boolean;
 }
 
 export function TaskSummaryFooter({ totalLimit, totalActual, totalDifference, visibleTaskCount, showActual = true, showDifference = false }: TaskSummaryFooterProps) {
-  // Only render if there are visible tasks
   if (visibleTaskCount === 0) {
     return null;
   }
-
-  const formatMinutes = (minutes: number | null): string => {
-    if (minutes === null || minutes < 0) return "-";
-    return `${minutes} min`;
-  };
-
-  const formatHours = (minutes: number | null): string => {
-    if (minutes === null || minutes < 0) return "-";
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    
-    if (hours === 0) {
-      return `${remainingMinutes}m`;
-    }
-    if (remainingMinutes === 0) {
-      return `${hours}h`;
-    }
-    return `${hours}h ${remainingMinutes}m`;
-  };
 
   return (
     <footer className="fixed bottom-0 left-0 right-0 z-5 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -42,7 +22,7 @@ export function TaskSummaryFooter({ totalLimit, totalActual, totalDifference, vi
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
           <span className="text-muted-foreground">Całkowity Limit:</span>
-          <span className="font-medium">{formatHours(totalLimit)}</span>
+          <span className="font-medium">{formatMinutesAsHm(totalLimit)}</span>
         </div>
         {showActual && (
           <div className="flex items-center gap-2">
@@ -56,7 +36,7 @@ export function TaskSummaryFooter({ totalLimit, totalActual, totalDifference, vi
                   : "text-green-600 dark:text-green-400"
               )}
             >
-              {formatMinutes(totalActual)}
+              {formatMinutesAsHm(totalActual)}
             </span>
           </div>
         )}
@@ -74,7 +54,7 @@ export function TaskSummaryFooter({ totalLimit, totalActual, totalDifference, vi
                     : "text-muted-foreground"
               )}
             >
-              {totalDifference !== null ? `${totalDifference > 0 ? '+' : ''}${totalDifference} min` : '-'}
+              {formatDifferenceAsHm(totalDifference)}
             </span>
           </div>
         )}

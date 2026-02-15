@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { User, Eye, Trash2, AlertTriangle, MessageSquare, CalendarDays } from "lucide-react"; // Added CalendarDays
-import { cn } from "@/lib/utils";
+import { cn, formatMinutesAsHm, formatDifferenceAsHm } from "@/lib/utils";
 import { CAPACITY_ID_TO_LABEL, renderCapacityIconPattern } from "@/lib/capacity-utils";
 import {
   AlertDialog,
@@ -152,10 +152,12 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
         {renderGuestIcons(task.guest_count)}
       </TableCell>
       {/* Limit */}
-      <TableCell className="p-2 align-middle text-center">{task.time_limit ?? '-'}</TableCell>
+      <TableCell className="p-2 align-middle text-center tabular-nums">
+        {formatMinutesAsHm(task.time_limit)}
+      </TableCell>
       {/* Actual - Always visible between Limit and Problem */}
-      <TableCell className="p-2 align-middle text-center">
-        {task.actual_time !== null ? task.actual_time : "-"}
+      <TableCell className="p-2 align-middle text-center tabular-nums">
+        {formatMinutesAsHm(task.actual_time)}
       </TableCell>
       {/* Difference */}
       <TableCell
@@ -166,9 +168,7 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
           (task.difference === null || task.difference === 0) && "text-muted-foreground"
         )}
       >
-        {task.difference !== null
-          ? `${task.difference > 0 ? "+" : ""}${task.difference}`
-          : "-"}
+        {formatDifferenceAsHm(task.difference)}
       </TableCell>
       {/* Issue */}
       <TableCell className="p-2 align-middle text-center">
