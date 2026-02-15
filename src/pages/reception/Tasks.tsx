@@ -114,7 +114,7 @@ const escapeCsvCell = (value: string): string => {
 };
 
 function tasksToCsv(tasks: Task[]): string {
-  const headers = ["Status", "Pokój", "Personel", "Data", "Typ", "Goście", "Limit", "Rzeczywisty", "Problem", "Notatki"];
+  const headers = ["Status", "Pokój", "Personel", "Data", "Typ", "Goście", "Limit", "Rzeczywisty", "Różnica", "Problem", "Notatki"];
   const rows = tasks.map((task) => {
     const status = statusLabels[task.status] ?? task.status;
     const room = task.room?.name ?? "";
@@ -124,9 +124,10 @@ function tasksToCsv(tasks: Task[]): string {
     const guests = CAPACITY_ID_TO_LABEL[task.guest_count] ?? task.guest_count;
     const limit = task.time_limit != null ? String(task.time_limit) : "";
     const actual = task.actual_time != null ? String(task.actual_time) : "";
+    const diff = task.difference != null ? (task.difference > 0 ? "+" : "") + String(task.difference) : "";
     const issue = task.issue_flag ? (task.issue_description ? `Tak: ${task.issue_description}` : "Tak") : "Nie";
     const notes = [task.housekeeping_notes, task.reception_notes].filter(Boolean).join("; ") || "";
-    return [status, room, staff, date, type, guests, limit, actual, issue, notes].map(escapeCsvCell).join(",");
+    return [status, room, staff, date, type, guests, limit, actual, diff, issue, notes].map(escapeCsvCell).join(",");
   });
   return [headers.join(","), ...rows].join("\n");
 }
@@ -293,9 +294,13 @@ export default function Tasks({
       }
     });
 
+    const totalDifference =
+      totalLimit !== null && totalActual !== null ? totalActual - totalLimit : null;
+
     return {
       totalLimit: limitIsNull ? null : totalLimit,
       totalActual: actualIsNull ? null : totalActual,
+      totalDifference,
       visibleTaskCount: tasksToSum.length
     };
   }, [filteredTasks]);
@@ -325,6 +330,7 @@ export default function Tasks({
               <TableHead className="font-semibold text-center w-[80px]">Goście</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Limit</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Rzeczywisty</TableHead>
+              <TableHead className="font-semibold text-center w-[70px]">Różnica</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Problem</TableHead>
               <TableHead className="font-semibold text-center w-[60px]">Notatki</TableHead>
               <TableHead className="font-semibold text-right w-[100px]">Akcje</TableHead>
@@ -503,10 +509,10 @@ export default function Tasks({
       <TaskSummaryFooter
         totalLimit={taskTotals.totalLimit}
         totalActual={taskTotals.totalActual}
-        totalDifference={null}
+        totalDifference={taskTotals.totalDifference}
         visibleTaskCount={taskTotals.visibleTaskCount}
-        showActual={false}
-        showDifference={false}
+        showActual={true}
+        showDifference={true}
       />
     </div>
   );

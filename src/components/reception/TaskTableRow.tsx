@@ -157,6 +157,19 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
       <TableCell className="p-2 align-middle text-center">
         {task.actual_time !== null ? task.actual_time : "-"}
       </TableCell>
+      {/* Difference */}
+      <TableCell
+        className={cn(
+          "p-2 align-middle text-center tabular-nums",
+          task.difference !== null && task.difference > 0 && "text-red-600 dark:text-red-400",
+          task.difference !== null && task.difference < 0 && "text-green-600 dark:text-green-400",
+          (task.difference === null || task.difference === 0) && "text-muted-foreground"
+        )}
+      >
+        {task.difference !== null
+          ? `${task.difference > 0 ? "+" : ""}${task.difference}`
+          : "-"}
+      </TableCell>
       {/* Issue */}
       <TableCell className="p-2 align-middle text-center">
         {task.issue_flag ? (
