@@ -89,6 +89,8 @@ const allRoomGroups: RoomGroupOption[] = [
   { value: 'OTHER', label: 'Inne Przestrzenie' },
 ];
 
+const OPEN_TASK_STATUSES = new Set(["todo", "in_progress", "paused"]);
+
 // Labels for CSV export (aligned with TaskTableRow)
 const statusLabels: Record<string, string> = {
   todo: "Do sprzątania",
@@ -173,6 +175,7 @@ interface TasksProps {
   isUpdatingTask: boolean;
   isDeletingTask: boolean;
   onSetFetchAllTasks: (fetchAll: boolean) => void; // New prop to control fetching all tasks
+  allTasksTotalCount: number;
 }
 
 export default function Tasks({
@@ -200,6 +203,7 @@ export default function Tasks({
   isUpdatingTask,
   isDeletingTask,
   onSetFetchAllTasks,
+  allTasksTotalCount,
 }: TasksProps) {
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -207,14 +211,15 @@ export default function Tasks({
   const [dateRangeFrom, setDateRangeFrom] = useState<string | null>(null);
   const [dateRangeTo, setDateRangeTo] = useState<string | null>(null);
 
-  // Always fetch all tasks when on tasks page, filter client-side
+  // Fetch strategy is tab-specific:
+  // - "open": fetch only current/future by backend date filter
+  // - "all": fetch all dates for historical browsing
   useEffect(() => {
-    onSetFetchAllTasks(true);
-    // Cleanup: reset to false when component unmounts (optional, but good practice)
+    onSetFetchAllTasks(activeTab === "all");
     return () => {
       onSetFetchAllTasks(false);
     };
-  }, [onSetFetchAllTasks]);
+  }, [activeTab, onSetFetchAllTasks]);
 
   const handleViewDetails = (task: Task) => {
     setSelectedTaskForDetail(task);
@@ -241,6 +246,7 @@ export default function Tasks({
     let result = tasks;
 
     if (activeTab === 'open') {
+      result = result.filter(task => OPEN_TASK_STATUSES.has(task.status));
       // Apply date filter if a specific date is selected
       if (filters.date) {
         result = result.filter(task => task.date === filters.date);
@@ -263,13 +269,14 @@ export default function Tasks({
 
   // Calculate counts for tab labels - use all tasks regardless of current filter
   const openTasksCount = useMemo(() => {
-    return tasks.filter(task => task.date >= todayDate).length;
+    return tasks.filter(task => task.date === todayDate && OPEN_TASK_STATUSES.has(task.status)).length;
   }, [tasks, todayDate]);
 
   // Calculate all tasks count - this should always show the total
   const allTasksCount = useMemo(() => {
-    return tasks.length;
-  }, [tasks]);
+    const count = allTasksTotalCount;
+    return count;
+  }, [allTasksTotalCount, filters.staffId, filters.status, filters.roomGroup, filters.roomId]);
 
   // Calculate totals based on the filtered tasks
   const taskTotals = useMemo(() => {
@@ -411,7 +418,11 @@ export default function Tasks({
 
           <Card>
             <CardHeader>
-              <CardTitle>Zadania otwarte dla {getDisplayDate(filters.date)} ({filteredTasks.length} zadań)</CardTitle>
+              <CardTitle>
+                {filters.date
+                  ? `Zadania otwarte dla ${getDisplayDate(filters.date)} (${filteredTasks.length} zadań)`
+                  : `Zadania otwarte (${filteredTasks.length} zadań)`}
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {renderTaskTable(

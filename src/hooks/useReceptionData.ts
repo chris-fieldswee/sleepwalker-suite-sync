@@ -60,6 +60,12 @@ const getTodayDateString = () => new Date().toISOString().split("T")[0];
 
 // Define active statuses for the 'all' filter and stats calculation
 const ACTIVE_TASK_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'paused'];
+type DashboardTaskCounts = {
+  total: number;
+  todo: number;
+  inProgress: number;
+  done: number;
+};
 
 export function useReceptionData() {
   const { toast } = useToast();
@@ -69,6 +75,13 @@ export function useReceptionData() {
   const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
   const [openIssuesCount, setOpenIssuesCount] = useState<number>(0); // Count of open issues
+  const [allTasksTotalCount, setAllTasksTotalCount] = useState<number>(0);
+  const [dashboardTaskCounts, setDashboardTaskCounts] = useState<DashboardTaskCounts>({
+    total: 0,
+    todo: 0,
+    inProgress: 0,
+    done: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -257,16 +270,69 @@ export function useReceptionData() {
     }
   }, [toast]);
 
-  // Fetch count of open issues for repair metric
+  const fetchAllTasksTotalCount = useCallback(async () => {
+    try {
+      const { count, error } = await supabase
+        .from("tasks")
+        .select("*", { count: "exact", head: true });
+      if (error) {
+        console.error("Error fetching all tasks total count:", error);
+        return 0;
+      }
+      const safeCount = count || 0;
+      if (isMountedRef.current) {
+        setAllTasksTotalCount(safeCount);
+      }
+      return safeCount;
+    } catch (error) {
+      console.error("Error in fetchAllTasksTotalCount:", error);
+      return 0;
+    }
+  }, []);
+
+  const fetchDashboardTaskCounts = useCallback(async () => {
+    try {
+      const today = getTodayDateString();
+      const [totalRes, todoRes, inProgressRes, doneRes] = await Promise.all([
+        supabase.from("tasks").select("*", { count: "exact", head: true }).gte("date", today).in("status", ACTIVE_TASK_STATUSES),
+        supabase.from("tasks").select("*", { count: "exact", head: true }).gte("date", today).eq("status", "todo"),
+        supabase.from("tasks").select("*", { count: "exact", head: true }).gte("date", today).eq("status", "in_progress"),
+        supabase.from("tasks").select("*", { count: "exact", head: true }),
+      ]);
+
+      const firstError = totalRes.error || todoRes.error || inProgressRes.error || doneRes.error;
+      if (firstError) {
+        console.error("Error fetching dashboard task counts:", firstError);
+        return { total: 0, todo: 0, inProgress: 0, done: 0 };
+      }
+
+      const nextCounts = {
+        total: totalRes.count || 0,
+        todo: todoRes.count || 0,
+        inProgress: inProgressRes.count || 0,
+        done: doneRes.count || 0,
+      };
+
+      if (isMountedRef.current) {
+        setDashboardTaskCounts(nextCounts);
+      }
+      return nextCounts;
+    } catch (error) {
+      console.error("Error in fetchDashboardTaskCounts:", error);
+      return { total: 0, todo: 0, inProgress: 0, done: 0 };
+    }
+  }, []);
+
+  // Fetch count of reported issues for repair metric ("Zgłoszone")
   const fetchOpenIssuesCount = useCallback(async () => {
     try {
-      const { data, error, count } = await supabase
+      const { error, count } = await supabase
         .from("issues")
         .select("*", { count: "exact", head: true })
-        .in("status", ["open", "in_progress"]);
+        .eq("status", "reported");
 
       if (error) {
-        console.error("Error fetching open issues count:", error);
+        console.error("Error fetching reported issues count:", error);
         return 0;
       }
 
@@ -293,13 +359,15 @@ export function useReceptionData() {
         fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId, fetchAllTasks),
         fetchWorkLogs(filterDate || getTodayDateString()),
         fetchAllTasksForStats(), // Fetch all tasks for stats
-        fetchOpenIssuesCount() // Fetch open issues count
-    ]).then(([, , tasksData, workLogsData, allTasksData, issuesCount]) => {
+        fetchOpenIssuesCount(), // Fetch open issues count
+        fetchAllTasksTotalCount(),
+        fetchDashboardTaskCounts()
+    ]).then(([, , tasksData, workLogsData, allTasksData, issuesCount, totalTasksCount]) => {
         if (isMounted) {
             setTasks(tasksData || []);
             setWorkLogs(workLogsData || []);
             // allTasksData and issuesCount are handled by their respective functions setting state
-            console.log(`[INIT] Initial fetch complete: ${tasksData?.length || 0} filtered tasks, ${allTasksData?.length || 0} all tasks for stats, ${issuesCount || 0} open issues`);
+            console.log(`[INIT] Initial fetch complete: ${tasksData?.length || 0} filtered tasks, ${allTasksData?.length || 0} all tasks for stats, ${issuesCount || 0} open issues, ${totalTasksCount || 0} total tasks`);
             
             // If allTasksForStats is still empty after fetch, log a warning
             if (!allTasksData || allTasksData.length === 0) {
@@ -356,6 +424,8 @@ export function useReceptionData() {
                });
                // Also refresh stats data
                fetchAllTasksForStats();
+               fetchAllTasksTotalCount();
+               fetchDashboardTaskCounts();
            }
         }
       )
@@ -412,7 +482,7 @@ export function useReceptionData() {
         if (issuesChannel) supabase.removeChannel(issuesChannel).catch(err => console.error("Error removing issues channel:", err));
     };
   // Re-run effect if any filter changes
-  }, [filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId, fetchAllTasks, fetchStaff, fetchRooms, fetchTasks, fetchWorkLogs, fetchAllTasksForStats, fetchOpenIssuesCount, toast]); // Include all dependencies
+  }, [filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId, fetchAllTasks, fetchStaff, fetchRooms, fetchTasks, fetchWorkLogs, fetchAllTasksForStats, fetchOpenIssuesCount, fetchAllTasksTotalCount, fetchDashboardTaskCounts, toast]); // Include all dependencies
 
   // --- Actions ---
   const handleRefresh = async () => {
@@ -427,7 +497,9 @@ export function useReceptionData() {
             fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId, fetchAllTasks),
             fetchWorkLogs(currentSelectedDate),
             fetchAllTasksForStats(), // Refresh stats data
-            fetchOpenIssuesCount() // Refresh issues count
+            fetchOpenIssuesCount(), // Refresh issues count
+            fetchAllTasksTotalCount(),
+            fetchDashboardTaskCounts()
         ]);
 
         if (isMountedRef.current) {
@@ -461,6 +533,18 @@ export function useReceptionData() {
                 // fetchOpenIssuesCount handles its own state update
             } else {
                 console.error("Refresh failed for open issues count:", results[5].reason);
+                refreshError = true;
+            }
+            if (results[6].status === 'fulfilled') {
+                // fetchAllTasksTotalCount handles its own state update
+            } else {
+                console.error("Refresh failed for all tasks total count:", results[6].reason);
+                refreshError = true;
+            }
+            if (results[7].status === 'fulfilled') {
+                // fetchDashboardTaskCounts handles its own state update
+            } else {
+                console.error("Refresh failed for dashboard task counts:", results[7].reason);
                 refreshError = true;
             }
 
@@ -524,37 +608,20 @@ export function useReceptionData() {
 
     console.log(`[STATS] Calculating stats: ${allTasks.length} total tasks fetched, ${currentAndFutureTasks.length} from today/future (${today}), date: ${relevantDate}`);
 
-    // For debugging: if no tasks from today/future, show all tasks count temporarily
     if (currentAndFutureTasks.length === 0 && allTasks.length > 0) {
       console.log(`[STATS] WARNING: No tasks from today/future, but ${allTasks.length} total tasks exist. Today is: ${today}`);
       console.log(`[STATS] Task dates:`, allTasks.map(t => ({ date: t.date, status: t.status })).slice(0, 10));
-      // TEMPORARY: Show all tasks if none from today/future (for debugging)
-      const useAllTasks = allTasks.length > 0 && currentAndFutureTasks.length === 0;
-      if (useAllTasks) {
-        console.log(`[STATS] TEMPORARY FIX: Using all tasks instead of filtered tasks`);
-        const todoCount = allTasks.filter((t) => t.status === "todo").length;
-        const inProgressCount = allTasks.filter((t) => t.status === "in_progress").length;
-        const doneCount = allTasks.filter((t) => t.status === "done").length;
-        
-        return {
-          total: allTasks.length,
-          todo: todoCount,
-          inProgress: inProgressCount,
-          done: doneCount,
-          repair: openIssuesCount,
-        };
-      }
     }
 
-    const todoCount = currentAndFutureTasks.filter((t) => t.status === "todo").length;
-    const inProgressCount = currentAndFutureTasks.filter((t) => t.status === "in_progress").length;
-    const doneCount = currentAndFutureTasks.filter((t) => t.status === "done" && t.date === relevantDate).length;
+    const todoCount = dashboardTaskCounts.todo;
+    const inProgressCount = dashboardTaskCounts.inProgress;
+    const doneCount = dashboardTaskCounts.done;
 
     console.log(`[STATS] Results - total: ${currentAndFutureTasks.length}, todo: ${todoCount}, inProgress: ${inProgressCount}, done: ${doneCount}, repair: ${openIssuesCount}`);
 
     return {
       // Total count of ALL tasks (all statuses) from today and future dates
-      total: currentAndFutureTasks.length,
+      total: dashboardTaskCounts.total,
 
       // Count of ALL tasks with 'todo' status (from today and future)
       todo: todoCount,
@@ -568,7 +635,7 @@ export function useReceptionData() {
       // Count of open issues (from issues table, not task issue_flag)
       repair: openIssuesCount,
     };
-  }, [allTasksForStats, openIssuesCount]); // Recalculate when unfiltered tasks or issues count changes
+  }, [allTasksForStats, openIssuesCount, dashboardTaskCounts, allTasksTotalCount, tasks]); // Recalculate when sources change
 
 
   return {
@@ -577,6 +644,7 @@ export function useReceptionData() {
     filterSetters: { setDate: setFilterDate, setStatus: setFilterStatus, setStaffId: setFilterStaffId, setRoomGroup: setFilterRoomGroup, setRoomId: setFilterRoomId, setFetchAllTasks: setFetchAllTasks },
     actions: { refresh: handleRefresh, clearFilters: handleClearFilters },
     stats,
+    allTasksTotalCount,
     fetchWorkLogs // Expose fetchWorkLogs if needed by other components
   };
 }

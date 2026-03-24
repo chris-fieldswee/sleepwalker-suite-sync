@@ -15,7 +15,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
     return (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
             <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Wszystkie zadania</CardTitle></CardHeader>
+                <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Otwarte zadania</CardTitle></CardHeader>
                 <CardContent><div className="text-2xl font-bold">{stats.total}</div></CardContent>
             </Card>
             <Card>
@@ -27,7 +27,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
                 <CardContent><div className="text-2xl font-bold text-status-in-progress">{stats.inProgress}</div></CardContent>
             </Card>
             <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Ukończone</CardTitle></CardHeader>
+                <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Wszystkie</CardTitle></CardHeader>
                 <CardContent><div className="text-2xl font-bold text-status-done">{stats.done}</div></CardContent>
             </Card>
             <Card>

@@ -25,6 +25,7 @@ export default function Reception() {
     filterSetters,
     actions: dataActions,
     stats,
+    allTasksTotalCount,
     fetchWorkLogs
   } = useReceptionData();
 
@@ -108,6 +109,7 @@ export default function Reception() {
                     isUpdatingTask={isUpdatingTask}
                     isDeletingTask={isDeletingTask}
                     onSetFetchAllTasks={filterSetters.setFetchAllTasks}
+                    allTasksTotalCount={allTasksTotalCount}
                   />
                 }
               />
