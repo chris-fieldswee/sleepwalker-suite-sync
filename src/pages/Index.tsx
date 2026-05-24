@@ -19,7 +19,7 @@ const Index = () => {
           navigate("/housekeeping", { replace: true });
         } else if (userRole === "reception") {
           navigate("/reception", { replace: true });
-        } else if (userRole === "admin") {
+        } else if (userRole === "admin" || userRole === "manager") {
           navigate("/admin", { replace: true });
         }
       } else if (!user) {

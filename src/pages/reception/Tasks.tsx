@@ -80,6 +80,13 @@ const getDisplayDate = (dateStr: string | null) => {
   }
 };
 
+const getDateRangeLabel = (from: string | null, to: string | null) => {
+  if (from && to) return `${getDisplayDate(from)} - ${getDisplayDate(to)}`;
+  if (from) return `od ${getDisplayDate(from)}`;
+  if (to) return `do ${getDisplayDate(to)}`;
+  return "";
+};
+
 const allRoomGroups: RoomGroupOption[] = [
   { value: 'all', label: 'Wszystkie grupy' },
   { value: 'P1', label: 'Pokoje P1' },
@@ -474,8 +481,8 @@ export default function Tasks({
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle>
                 {dateRangeFrom != null || dateRangeTo != null
-                  ? `Wszystkie zadania w okresie ${getDisplayDate(dateRangeFrom)} – ${getDisplayDate(dateRangeTo)} (${filteredTasks.length} zadań)`
-                  : `Wszystkie zadania dla ${getDisplayDate(filters.date)} (${filteredTasks.length} zadań)`}
+                  ? `Wszystkie zadania w okresie ${getDateRangeLabel(dateRangeFrom, dateRangeTo)} (${filteredTasks.length} zadań)`
+                  : `Wszystkie zadania (${filteredTasks.length} zadań)`}
               </CardTitle>
               <Button
                 variant="outline"

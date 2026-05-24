@@ -239,6 +239,7 @@ export const StaffAvailabilityManager: React.FC = () => {
                   <SelectItem value="all">Wszystkie Role</SelectItem>
                   <SelectItem value="housekeeping">Sprzątanie</SelectItem>
                   <SelectItem value="reception">Recepcja</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="admin">Administrator</SelectItem>
                 </SelectContent>
               </Select>

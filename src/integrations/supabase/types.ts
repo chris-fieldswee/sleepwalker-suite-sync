@@ -378,13 +378,13 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "reception" | "housekeeping"
+      app_role: "admin" | "manager" | "reception" | "housekeeping"
       cleaning_type: "W" | "P" | "T" | "O" | "G" | "S"
       issue_priority: "low" | "medium" | "high" | "urgent"
       issue_status: "open" | "in_progress" | "resolved" | "closed" | "reported"
       room_group: "P1" | "P2" | "A1S" | "A2S" | "OTHER"
       task_status: "todo" | "in_progress" | "paused" | "done" | "repair_needed"
-      user_role: "admin" | "reception" | "housekeeping"
+      user_role: "admin" | "manager" | "reception" | "housekeeping"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -512,13 +512,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "reception", "housekeeping"],
+      app_role: ["admin", "manager", "reception", "housekeeping"],
       cleaning_type: ["W", "P", "T", "O", "G", "S"],
       issue_priority: ["low", "medium", "high", "urgent"],
       issue_status: ["open", "in_progress", "resolved", "closed", "reported"],
       room_group: ["P1", "P2", "A1S", "A2S", "OTHER"],
       task_status: ["todo", "in_progress", "paused", "done", "repair_needed"],
-      user_role: ["admin", "reception", "housekeeping"],
+      user_role: ["admin", "manager", "reception", "housekeeping"],
     },
   },
 } as const

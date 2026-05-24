@@ -158,14 +158,6 @@ export function useTaskTimer(task: Task | null): number | null {
 
 // --- Main Component ---
 export default function Housekeeping() {
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Housekeeping.tsx:160',message:'Housekeeping component mounted',data:{timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
-    return () => {
-      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Housekeeping.tsx:160',message:'Housekeeping component UNMOUNTED',data:{timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'NAV'})}).catch(()=>{});
-    };
-  }, []);
-  // #endregion
   const { signOut, userId, user } = useAuth();
 
   // Destructure fetchTasks from the hook
@@ -228,9 +220,6 @@ export default function Housekeeping() {
 
   // Filtered Tasks Memo - applies to whichever tab is active
   const filteredTasks = useMemo(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Housekeeping.tsx:221',message:'filteredTasks memo recalculating',data:{activeTab:activeTab,totalTasks:tasks.length,openTasks:openTasks.length,dateFilter:dateFilter,statusFilter:statusFilter},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     let baseTasks = activeTab === 'open' ? openTasks : tasks;
 
     // Apply date filter if selected
@@ -245,9 +234,6 @@ export default function Housekeeping() {
 
     // For open tab, 'all' means all open statuses (already filtered in openTasks)
     // For all tab, show all tasks regardless of status
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Housekeeping.tsx:237',message:'filteredTasks memo result',data:{filteredCount:baseTasks.length,taskIds:baseTasks.map(t=>t.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     return baseTasks;
   }, [activeTab, openTasks, tasks, statusFilter, dateFilter]);
 
@@ -324,12 +310,6 @@ export default function Housekeeping() {
 
       {/* Main Content with Tabs */}
       <main className="container mx-auto p-4">
-        {/* #region agent log */}
-        {(() => {
-          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Housekeeping.tsx:263',message:'render - checking loading state',data:{loading:loading,tasksCount:tasks.length,filteredCount:filteredTasks.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-          return null;
-        })()}
-        {/* #endregion */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-status-todo border-t-transparent" />

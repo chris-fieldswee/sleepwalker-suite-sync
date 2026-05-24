@@ -25,6 +25,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useZgloszoneIssues } from "@/hooks/useZgloszoneIssues";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AdminSidebarProps {
   onSignOut: () => void;
@@ -38,14 +39,16 @@ const receptionNavItems = [
 
 const adminNavItems = [
   { title: "Raporty", url: "/admin/reports", icon: BarChart },
-  { title: "Użytkownicy", url: "/admin/users", icon: Users },
-  { title: "Pokoje", url: "/admin/rooms", icon: DoorOpen },
+  { title: "Użytkownicy", url: "/admin/users", icon: Users, adminOnly: true },
+  { title: "Pokoje", url: "/admin/rooms", icon: DoorOpen, adminOnly: true },
   { title: "Dostępność personelu", url: "/admin/availability", icon: Calendar },
 ];
 
 export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
   const { open } = useSidebar();
   const { hasZgloszoneIssues } = useZgloszoneIssues();
+  const { userRole } = useAuth();
+  const visibleAdminNavItems = adminNavItems.filter((item) => userRole === "admin" || !item.adminOnly);
 
   return (
     <Sidebar collapsible="icon">
@@ -104,7 +107,7 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
           <SidebarGroupLabel>Administracja</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {adminNavItems.map((item) => (
+              {visibleAdminNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink

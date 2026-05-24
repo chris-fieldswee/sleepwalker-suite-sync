@@ -57,6 +57,7 @@ export interface WorkLog {
 }
 
 const getTodayDateString = () => new Date().toISOString().split("T")[0];
+const TASK_FETCH_PAGE_SIZE = 1000;
 
 // Define active statuses for the 'all' filter and stats calculation
 const ACTIVE_TASK_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'paused'];
@@ -134,49 +135,87 @@ export function useReceptionData() {
       fetchAllTasks: boolean = false // New parameter to fetch all tasks regardless of date (status filter still applies)
     ) => {
      console.log('fetchTasks called with:', { date, status, staffId, roomGroup, roomId, fetchAllTasks });
-     let query = supabase.from("tasks")
-      .select(`
+     const taskSelect = `
         id, date, status, cleaning_type, guest_count, time_limit, actual_time,
         difference, issue_flag, housekeeping_notes, reception_notes, start_time,
         stop_time, issue_description, issue_photo, pause_start, pause_stop, total_pause, created_at,
         room:rooms!inner(id, name, group_type, color),
         user:users(id, name, first_name, last_name)
-      `)
-      .order("created_at", { ascending: true });
+      `;
 
-     // Apply date filter
-     if (fetchAllTasks) {
-       // Fetch all tasks regardless of date
-       // Don't apply date filter
-     } else {
-       // Apply date filter based on date parameter
-       if (date === null) {
-          query = query.gte('date', getTodayDateString());
+     const buildTasksQuery = (from?: number, to?: number) => {
+       let query = supabase.from("tasks")
+        .select(taskSelect)
+        .order("created_at", { ascending: true });
+
+       // Apply date filter
+       if (fetchAllTasks) {
+         // Fetch all tasks regardless of date
+         // Don't apply date filter
        } else {
-          query = query.eq("date", date);
+         // Apply date filter based on date parameter
+         if (date === null) {
+            query = query.gte('date', getTodayDateString());
+         } else {
+            query = query.eq("date", date);
+         }
        }
-     }
 
-     // Apply Status Filter
-     // Note: fetchAllTasks only affects date filter, status filter should always be applied
-     if (status === "all") {
-       // When status is "all", fetch all statuses (not just active ones)
-       // Don't apply status filter - get all statuses
-     } else {
-       // Apply specific status filter
-       query = query.eq("status", status);
-     }
+       // Apply Status Filter
+       // Note: fetchAllTasks only affects date filter, status filter should always be applied
+       if (status === "all") {
+         // When status is "all", fetch all statuses (not just active ones)
+         // Don't apply status filter - get all statuses
+       } else {
+         // Apply specific status filter
+         query = query.eq("status", status);
+       }
 
-     // Apply Staff Filter
-     if (staffId !== "all") {
-        if (staffId === "unassigned") query = query.is("user_id", null);
-        else query = query.eq("user_id", staffId);
-     }
+       // Apply Staff Filter
+       if (staffId !== "all") {
+          if (staffId === "unassigned") query = query.is("user_id", null);
+          else query = query.eq("user_id", staffId);
+       }
 
-     // Apply Room ID Filter - now applied client-side after group filtering
-     // Room Group filter is applied client-side after fetch
+       if (from !== undefined && to !== undefined) {
+         query = query.range(from, to);
+       }
 
-    const { data, error } = await query;
+       return query;
+     };
+
+    let data: any[] | null = null;
+    let error: any = null;
+
+    // Apply Room ID Filter - now applied client-side after group filtering
+    // Room Group filter is applied client-side after fetch
+
+    if (fetchAllTasks) {
+      const allRows: any[] = [];
+      for (let offset = 0; ; offset += TASK_FETCH_PAGE_SIZE) {
+        const { data: pageData, error: pageError } = await buildTasksQuery(
+          offset,
+          offset + TASK_FETCH_PAGE_SIZE - 1
+        );
+
+        if (pageError) {
+          error = pageError;
+          break;
+        }
+
+        const pageRows = pageData || [];
+        allRows.push(...pageRows);
+
+        if (pageRows.length < TASK_FETCH_PAGE_SIZE) {
+          break;
+        }
+      }
+      data = allRows;
+    } else {
+      const result = await buildTasksQuery();
+      data = result.data;
+      error = result.error;
+    }
 
     if (error) {
         console.error("Error fetching tasks:", error);

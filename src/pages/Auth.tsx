@@ -34,7 +34,7 @@ export default function Auth() {
     if (!loading && user && userRole && !requiresPasswordChange) {
       if (passwordChanged) {
         // After password change, redirect based on role
-        if (userRole === "admin") {
+        if (userRole === "admin" || userRole === "manager") {
           navigate("/admin", { replace: true });
         } else if (userRole === "reception") {
           navigate("/reception", { replace: true });
@@ -43,7 +43,7 @@ export default function Auth() {
         }
       } else {
         // Normal redirect for already authenticated users
-        if (userRole === "admin") {
+        if (userRole === "admin" || userRole === "manager") {
           navigate("/admin", { replace: true });
         } else if (userRole === "reception") {
           navigate("/reception", { replace: true });

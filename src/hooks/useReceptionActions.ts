@@ -15,6 +15,16 @@ type TaskStatus = Database["public"]["Enums"]["task_status"];
 
 const OPEN_TASK_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'paused', 'repair_needed'];
 
+const isMultipleAssignmentLocation = (roomName: string | null | undefined): boolean => {
+  if (!roomName) return false;
+
+  const normalizedName = roomName.trim().toLowerCase();
+  return normalizedName.includes('pralnia') ||
+    normalizedName === 'śniadania' ||
+    normalizedName.includes('przerwa śniadaniowa') ||
+    normalizedName.includes('przerwa sniadaniowa');
+};
+
 export interface NewTaskState {
     roomId: string;
     cleaningType: CleaningType;
@@ -211,7 +221,10 @@ export function useReceptionActions(
               throw new Error("Configuration error: Resolved room ID is empty. Please select a room again.");
             }
 
-            // Ensure there is no other open task for this room on the same date
+            const allowsMultipleAssignments = isMultipleAssignmentLocation(selectedRoom.name);
+
+            // Ensure there is no other open task for this location on the same date,
+            // except for locations that can be split across multiple housekeepers.
             const { data: existingOpenTasks, error: existingOpenTasksError } = await supabase
                 .from('tasks')
                 .select('id')
@@ -224,7 +237,7 @@ export function useReceptionActions(
               throw new Error("Could not verify existing tasks. Please try again.");
             }
 
-            if (existingOpenTasks && existingOpenTasks.length > 0) {
+            if (!allowsMultipleAssignments && existingOpenTasks && existingOpenTasks.length > 0) {
               toast({
                 title: "Room Already Assigned",
                 description: "An open task already exists for this room on the selected date. Close it before creating another.",

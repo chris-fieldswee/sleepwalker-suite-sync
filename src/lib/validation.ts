@@ -53,6 +53,6 @@ export const userCreationSchema = z.object({
   password: z.string().min(8, "Hasło musi mieć co najmniej 8 znaków"),
   first_name: z.string().optional(),
   last_name: z.string().optional(),
-  role: z.enum(['admin', 'reception', 'housekeeping']),
+  role: z.enum(['admin', 'manager', 'reception', 'housekeeping']),
   active: z.boolean().default(true),
 });

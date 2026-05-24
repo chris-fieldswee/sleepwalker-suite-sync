@@ -136,7 +136,7 @@ export default function Users() {
     return matchesSearch && matchesRole;
   }).sort((a, b) => {
     if (roleSortDirection === null) return 0;
-    const roleOrder = { admin: 0, reception: 1, housekeeping: 2 };
+    const roleOrder = { admin: 0, manager: 1, reception: 2, housekeeping: 3 };
     const aOrder = roleOrder[a.role] ?? 999;
     const bOrder = roleOrder[b.role] ?? 999;
     return roleSortDirection === "asc"
@@ -383,6 +383,7 @@ export default function Users() {
   const getRoleBadge = (role: UserRole) => {
     const config = {
       admin: { label: "Administrator", className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200" },
+      manager: { label: "Manager", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200" },
       reception: { label: "Recepcja", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200" },
       housekeeping: { label: "Personel Sprzątający", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200" },
     };
@@ -578,6 +579,7 @@ export default function Users() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Administrator</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
                       <SelectItem value="reception">Recepcja</SelectItem>
                       <SelectItem value="housekeeping">Personel Sprzątający</SelectItem>
                     </SelectContent>
@@ -643,6 +645,7 @@ export default function Users() {
                 <SelectContent>
                   <SelectItem value="all">Wszystkie Role</SelectItem>
                   <SelectItem value="admin">Administrator</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="reception">Recepcja</SelectItem>
                   <SelectItem value="housekeeping">Personel Sprzątający</SelectItem>
                 </SelectContent>
@@ -758,14 +761,8 @@ export default function Users() {
             </DialogDescription>
             {!adminClientAvailable && (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                <p>Aktualizacje profilu i ról działają bez klucza serwisowego. Możesz zaktualizować własne hasło,
-                  ale resetowanie haseł innych użytkowników wymaga klucza serwisowego lub panelu Supabase.</p>
-                <div className="mt-2 text-xs font-mono bg-amber-100 p-2 rounded">
-                  Debug Info:<br />
-                  Mode: {import.meta.env.MODE}<br />
-                  Key Present: {import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ? 'Yes' : 'No'}<br />
-                  Admin Client: {adminClientAvailable ? 'Available' : 'Unavailable'}
-                </div>
+                Aktualizacje profilu i ról działają bez klucza serwisowego. Możesz zaktualizować własne hasło,
+                ale resetowanie haseł innych użytkowników wymaga klucza serwisowego lub panelu Supabase.
               </div>
             )}
           </DialogHeader>
@@ -817,6 +814,7 @@ export default function Users() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Administrator</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="reception">Recepcja</SelectItem>
                   <SelectItem value="housekeeping">Personel Sprzątający</SelectItem>
                 </SelectContent>

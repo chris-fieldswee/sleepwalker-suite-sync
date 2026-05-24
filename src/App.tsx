@@ -31,7 +31,7 @@ const App = () => (
             <Route
               path="/reception/*" // Use /* to match nested paths
               element={
-                <ProtectedRoute allowedRoles={["reception", "admin"]}>
+                <ProtectedRoute allowedRoles={["reception", "admin", "manager"]}>
                   <Reception />
                   {/* Outlet will render nested route components if defined */}
                   {/* We will handle view switching within Reception.tsx for now */}
@@ -42,7 +42,7 @@ const App = () => (
             <Route
               path="/admin/*"
               element={
-                <ProtectedRoute allowedRoles={["admin"]}>
+                <ProtectedRoute allowedRoles={["admin", "manager"]}>
                   <Admin />
                 </ProtectedRoute>
               }

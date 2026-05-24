@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,8 +18,9 @@ import Rooms from "./admin/Rooms";
 import Availability from "./admin/Availability";
 
 export default function Admin() {
-  const { signOut } = useAuth();
+  const { signOut, userRole } = useAuth();
   const { toast } = useToast();
+  const canManageUsersAndRooms = userRole === "admin";
 
   // Use the same data hooks as reception
   const receptionData = useReceptionData();
@@ -108,8 +109,8 @@ export default function Admin() {
 
               {/* Admin-specific routes */}
               <Route path="reports" element={<Reports />} />
-              <Route path="users" element={<Users />} />
-              <Route path="rooms" element={<Rooms />} />
+              <Route path="users" element={canManageUsersAndRooms ? <Users /> : <Navigate to="/unauthorized" replace />} />
+              <Route path="rooms" element={canManageUsersAndRooms ? <Rooms /> : <Navigate to="/unauthorized" replace />} />
               <Route path="availability" element={<Availability />} />
             </Routes>
           </div>
