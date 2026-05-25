@@ -373,6 +373,20 @@ export function useReceptionActions(
                 ? null 
                 : newTask.staffId;
 
+            const todayStr = new Date().toISOString().split('T')[0];
+            let display_order: number | null = null;
+            if (newTask.date === todayStr) {
+              const { data: maxRow } = await supabase
+                .from('tasks')
+                .select('display_order')
+                .eq('date', todayStr)
+                .not('display_order', 'is', null)
+                .order('display_order', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              display_order = (maxRow?.display_order ?? 0) + 1;
+            }
+
             const taskToInsert = {
                 date: newTask.date,
                 room_id: resolvedRoomId,
@@ -382,6 +396,7 @@ export function useReceptionActions(
                 reception_notes: newTask.notes || null,
                 user_id: userId,
                 status: 'todo' as const,
+                display_order,
             };
 
             // #region agent log

@@ -1,4 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
-import { CalendarIcon, ChevronDown, ChevronRight, Plus, Trash2, Users } from "lucide-react";
+import { CalendarIcon, ChevronDown, ChevronRight, GripVertical, Plus, Trash2, Users } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import type { Room, Staff } from '@/hooks/useReceptionData';
 import type { NewTaskState } from '@/hooks/useReceptionActions';
@@ -104,9 +107,14 @@ interface TaskRowProps {
     onRemove: () => void;
     onToggle: () => void;
     isSubmitting: boolean;
+    dragListeners?: Record<string, unknown>;
+    dragAttributes?: React.HTMLAttributes<HTMLElement>;
+    innerRef?: React.Ref<HTMLDivElement>;
+    dragStyle?: React.CSSProperties;
+    isDragging?: boolean;
 }
 
-function TaskRow({ task, groupId, availableRooms, roomGroupType, onRoomGroupChange, onUpdate, onRemove, onToggle, isSubmitting }: TaskRowProps) {
+function TaskRow({ task, groupId, availableRooms, roomGroupType, onRoomGroupChange, onUpdate, onRemove, onToggle, isSubmitting, dragListeners, dragAttributes, innerRef, dragStyle, isDragging }: TaskRowProps) {
     const filteredRooms = useMemo(
         () => roomGroupType ? availableRooms.filter(r => r.group_type === roomGroupType) : [],
         [availableRooms, roomGroupType]
@@ -127,12 +135,20 @@ function TaskRow({ task, groupId, availableRooms, roomGroupType, onRoomGroupChan
     const statusColor = task.status === 'success' ? 'bg-green-100 text-green-800' : task.status === 'error' ? 'bg-red-100 text-red-800' : '';
 
     return (
-        <div className={cn("border rounded-md", task.status === 'error' && "border-red-400", task.status === 'success' && "border-green-400")}>
+        <div
+          ref={innerRef}
+          style={{ ...dragStyle, opacity: isDragging ? 0.5 : undefined }}
+          {...(dragAttributes || {})}
+          className={cn("border rounded-md", task.status === 'error' && "border-red-400", task.status === 'success' && "border-green-400")}
+        >
             <div
                 className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted/30"
                 onClick={onToggle}
             >
                 <div className="flex items-center gap-2 text-sm font-medium">
+                    <span className="cursor-grab touch-none text-muted-foreground" {...(dragListeners as any || {})} onClick={e => e.stopPropagation()}>
+                        <GripVertical className="h-4 w-4" />
+                    </span>
                     {task.expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                     <span>{collapsedLabel}</span>
                     {task.status !== 'idle' && task.status !== 'submitting' && (
@@ -267,6 +283,20 @@ function TaskRow({ task, groupId, availableRooms, roomGroupType, onRoomGroupChan
     );
 }
 
+function SortableTaskRowWrapper(props: Omit<TaskRowProps, 'dragListeners' | 'dragAttributes' | 'innerRef' | 'dragStyle' | 'isDragging'>) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.task.id });
+    return (
+        <TaskRow
+            {...props}
+            innerRef={setNodeRef as React.Ref<HTMLDivElement>}
+            dragStyle={{ transform: CSS.Transform.toString(transform), transition }}
+            dragListeners={listeners as Record<string, unknown>}
+            dragAttributes={attributes}
+            isDragging={isDragging}
+        />
+    );
+}
+
 // ─── Group section ───────────────────────────────────────────────────────────
 
 interface GroupSectionProps {
@@ -281,14 +311,29 @@ interface GroupSectionProps {
     onRemoveTask: (taskId: string) => void;
     onUpdateTask: (taskId: string, updates: Partial<BatchTask>) => void;
     onToggleTask: (taskId: string) => void;
+    onReorderTasks: (newTaskIds: string[]) => void;
     isSubmitting: boolean;
 }
 
 function GroupSection({
     group, allStaff, availableRooms, taskRoomGroups,
     onRoomGroupChange, onToggle, onRemove, onAddTask,
-    onRemoveTask, onUpdateTask, onToggleTask, isSubmitting,
+    onRemoveTask, onUpdateTask, onToggleTask, onReorderTasks, isSubmitting,
 }: GroupSectionProps) {
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        const ids = group.tasks.map(t => t.id);
+        const oldIndex = ids.indexOf(active.id as string);
+        const newIndex = ids.indexOf(over.id as string);
+        if (oldIndex === -1 || newIndex === -1) return;
+        onReorderTasks(arrayMove(ids, oldIndex, newIndex));
+    };
     const staffName = group.staffId === 'unassigned'
         ? 'Nieprzypisane'
         : allStaff.find(s => s.id === group.staffId)?.name ?? group.staffId;
@@ -324,20 +369,26 @@ function GroupSection({
 
             {group.expanded && (
                 <div className="px-4 pb-4 space-y-2 border-t pt-3">
-                    {group.tasks.map(task => (
-                        <TaskRow
-                            key={task.id}
-                            task={task}
-                            groupId={group.id}
-                            availableRooms={availableRooms}
-                            roomGroupType={taskRoomGroups[task.id] ?? ''}
-                            onRoomGroupChange={gt => onRoomGroupChange(task.id, gt)}
-                            onUpdate={updates => onUpdateTask(task.id, updates)}
-                            onRemove={() => onRemoveTask(task.id)}
-                            onToggle={() => onToggleTask(task.id)}
-                            isSubmitting={isSubmitting}
-                        />
-                    ))}
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={group.tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                            <div className="space-y-2">
+                                {group.tasks.map(task => (
+                                    <SortableTaskRowWrapper
+                                        key={task.id}
+                                        task={task}
+                                        groupId={group.id}
+                                        availableRooms={availableRooms}
+                                        roomGroupType={taskRoomGroups[task.id] ?? ''}
+                                        onRoomGroupChange={gt => onRoomGroupChange(task.id, gt)}
+                                        onUpdate={updates => onUpdateTask(task.id, updates)}
+                                        onRemove={() => onRemoveTask(task.id)}
+                                        onToggle={() => onToggleTask(task.id)}
+                                        isSubmitting={isSubmitting}
+                                    />
+                                ))}
+                            </div>
+                        </SortableContext>
+                    </DndContext>
                     <Button
                         type="button"
                         variant="outline"
@@ -456,6 +507,7 @@ export function BatchTaskWizard({ availableRooms, allStaff, onSubmit, isSubmitti
                                     onRemoveTask={taskId => wizard.removeTask(group.id, taskId)}
                                     onUpdateTask={(taskId, updates) => wizard.updateTask(group.id, taskId, updates)}
                                     onToggleTask={taskId => wizard.toggleTaskExpanded(group.id, taskId)}
+                                    onReorderTasks={newTaskIds => wizard.reorderTasks(group.id, newTaskIds)}
                                     isSubmitting={isSubmitting}
                                 />
                             ))}

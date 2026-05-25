@@ -1,8 +1,9 @@
 // src/components/reception/TaskTableRow.tsx
+import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { User, Eye, Trash2, AlertTriangle, MessageSquare, CalendarDays } from "lucide-react"; // Added CalendarDays
+import { User, Eye, Trash2, AlertTriangle, MessageSquare, CalendarDays, GripVertical } from "lucide-react";
 import { cn, formatMinutesAsHm, formatDifferenceAsHm } from "@/lib/utils";
 import { CAPACITY_ID_TO_LABEL, renderCapacityIconPattern } from "@/lib/capacity-utils";
 import {
@@ -52,13 +53,21 @@ interface Staff {
 
 interface TaskTableRowProps {
   task: Task;
-  staff: Staff[]; // Keep staff prop if it might be used for something else later, even if name comes from task.user
+  staff: Staff[];
   onViewDetails: (task: Task) => void;
-  onDeleteTask: (taskId: string) => Promise<void>; // Consistent return type
+  onDeleteTask: (taskId: string) => Promise<void>;
   isDeleting: boolean;
+  innerRef?: React.Ref<HTMLTableRowElement>;
+  dragStyle?: React.CSSProperties;
+  dragListeners?: Record<string, unknown>;
+  dragAttributes?: React.HTMLAttributes<HTMLElement>;
+  showDragHandle?: boolean;
 }
 
-export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDeleting }: TaskTableRowProps) => {
+export const TaskTableRow = ({
+  task, staff, onViewDetails, onDeleteTask, isDeleting,
+  innerRef, dragStyle, dragListeners, dragAttributes, showDragHandle,
+}: TaskTableRowProps) => {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -126,7 +135,17 @@ export const TaskTableRow = ({ task, staff, onViewDetails, onDeleteTask, isDelet
   const notesTooltip = `Housekeeping: ${task.housekeeping_notes || '-'}\nReception: ${task.reception_notes || '-'}`;
 
   return (
-    <TableRow className="border-b hover:bg-muted/50 transition-colors text-sm">
+    <TableRow
+      ref={innerRef}
+      style={dragStyle}
+      {...(dragAttributes || {})}
+      className="border-b hover:bg-muted/50 transition-colors text-sm"
+    >
+      {showDragHandle && (
+        <TableCell className="w-8 p-2 cursor-grab touch-none" {...(dragListeners as any || {})}>
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </TableCell>
+      )}
       {/* Status */}
       <TableCell className="p-2 align-middle">
         <Badge className={cn(getStatusColor(task.status), "whitespace-nowrap text-xs px-2 py-0.5")}>

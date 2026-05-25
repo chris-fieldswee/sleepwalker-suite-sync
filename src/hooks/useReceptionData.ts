@@ -138,7 +138,7 @@ export function useReceptionData() {
      console.log('fetchTasks called with:', { date, status, staffId, roomGroup, roomId, taskFetchScope });
      const taskSelect = `
         id, date, status, cleaning_type, guest_count, time_limit, actual_time,
-        difference, issue_flag, housekeeping_notes, reception_notes, start_time,
+        difference, display_order, issue_flag, housekeeping_notes, reception_notes, start_time,
         stop_time, issue_description, issue_photo, pause_start, pause_stop, total_pause, created_at,
         room:rooms!inner(id, name, group_type, color),
         user:users(id, name, first_name, last_name)
