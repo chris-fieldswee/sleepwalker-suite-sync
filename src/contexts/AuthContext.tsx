@@ -77,11 +77,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (error) {
           console.error("Error fetching user profile:", error);
-          if (error.code === 'PGRST116' || error.code === '42703' || error.message?.includes('timeout')) {
-            console.warn("User profile not found in public.users table or query timed out");
-          }
-          setUserRole(null);
-          setUserId(null);
+          // Transient error (network, timeout) — keep the existing role rather than
+          // wiping it; the user's role hasn't changed just because a query was slow.
           setLoading(false);
           return;
         }
@@ -104,8 +101,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             clearTimeout(timeoutId);
             timeoutId = null;
           }
-          setUserRole(null);
-          setUserId(null);
           setLoading(false);
         }
       } finally {
