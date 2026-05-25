@@ -140,6 +140,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setRequiresPasswordChange(false);
         }
 
+        // Token refresh only changes the JWT — role and profile are unchanged.
+        // Re-fetching here causes role to flicker to null if the query is slow.
+        if (event === 'TOKEN_REFRESHED') return;
+
         if (session?.user) {
           await fetchUserProfile(session.user.id);
         } else {
