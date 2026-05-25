@@ -386,7 +386,7 @@ export default function Tasks({
       <Tabs defaultValue="today" value={activeTab} onValueChange={(value) => setActiveTab(value as "today" | "open" | "archive")} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="today">Dzisiaj ({todayCount})</TabsTrigger>
-          <TabsTrigger value="open">Otwarte ({openCount})</TabsTrigger>
+          <TabsTrigger value="open">Zaplanowane ({openCount})</TabsTrigger>
           <TabsTrigger value="archive">Archiwum</TabsTrigger>
         </TabsList>
 

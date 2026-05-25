@@ -895,7 +895,7 @@ export function TaskDetailDialog({
     return (
         <>
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col" onInteractOutside={(e) => e.preventDefault()}>
                 <DialogHeader>
                     {/* ... (keep existing header) ... */}
                     <div className="flex justify-between items-start">

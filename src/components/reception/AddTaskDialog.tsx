@@ -321,6 +321,7 @@ export function AddTaskDialog({
     const prevIsOpen = useRef(isOpen);
     // State to store room IDs that already have a task on the selected date
     const [assignedRoomIds, setAssignedRoomIds] = useState<Set<string>>(new Set());
+    const [datePickerOpen, setDatePickerOpen] = useState(false);
     const availableStaff = useMemo(
         () => allStaff.filter(staff => staff.role === 'housekeeping'),
         [allStaff]
@@ -734,7 +735,7 @@ export function AddTaskDialog({
                 </DialogTrigger>
             )}
 
-            <DialogContent className="sm:max-w-[520px]">
+            <DialogContent className="sm:max-w-[520px]" onInteractOutside={(e) => e.preventDefault()}>
                 <DialogHeader>
                     <DialogTitle>Dodaj Nowe Zadanie Sprzątania</DialogTitle>
                     <DialogDescription>
@@ -745,7 +746,7 @@ export function AddTaskDialog({
                     {/* Date Input with Calendar Picker */}
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="task-date-modal" className="text-right">Data*</Label>
-                        <Popover>
+                        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                             <PopoverTrigger asChild>
                                 <Button
                                     id="task-date-modal"
@@ -769,6 +770,7 @@ export function AddTaskDialog({
                                     onSelect={(date) => {
                                         if (date) {
                                             setNewTask(prev => ({ ...prev, date: format(date, 'yyyy-MM-dd') }));
+                                            setDatePickerOpen(false);
                                         }
                                     }}
                                     disabled={(date) => {
