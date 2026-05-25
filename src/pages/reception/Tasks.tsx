@@ -245,6 +245,8 @@ export default function Tasks({
   // Get today's date for filtering
   const todayDate = useMemo(() => getTodayDateString(), []);
 
+  const housekeepingStaff = useMemo(() => allStaff.filter(s => s.role === 'housekeeping'), [allStaff]);
+
   const filteredTasks = useMemo(() => {
     let result = tasks;
 
@@ -400,7 +402,7 @@ export default function Tasks({
                 staffId={filters.staffId}
                 roomGroup={filters.roomGroup}
                 roomId={filters.roomId}
-                staff={allStaff}
+                staff={housekeepingStaff}
                 availableRooms={availableRooms}
                 roomGroups={allRoomGroups}
                 onDateChange={onDateChange}
@@ -438,7 +440,7 @@ export default function Tasks({
                 staffId={filters.staffId}
                 roomGroup={filters.roomGroup}
                 roomId={filters.roomId}
-                staff={allStaff}
+                staff={housekeepingStaff}
                 availableRooms={availableRooms}
                 roomGroups={allRoomGroups}
                 onDateChange={onDateChange}
@@ -484,7 +486,7 @@ export default function Tasks({
                 staffId={filters.staffId}
                 roomGroup={filters.roomGroup}
                 roomId={filters.roomId}
-                staff={allStaff}
+                staff={housekeepingStaff}
                 availableRooms={availableRooms}
                 roomGroups={allRoomGroups}
                 onDateChange={onDateChange}
