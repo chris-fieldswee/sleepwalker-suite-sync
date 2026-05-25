@@ -108,7 +108,7 @@ export default function Reception() {
                     onDeleteTask={handleDeleteTask}
                     isUpdatingTask={isUpdatingTask}
                     isDeletingTask={isDeletingTask}
-                    onSetFetchAllTasks={filterSetters.setFetchAllTasks}
+                    onSetTaskFetchScope={filterSetters.setTaskFetchScope}
                     allTasksTotalCount={allTasksTotalCount}
                   />
                 }

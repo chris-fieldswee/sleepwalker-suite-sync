@@ -181,7 +181,7 @@ interface TasksProps {
   onDeleteTask: (taskId: string) => Promise<boolean>; // Changed return type to Promise<boolean> based on useReceptionActions
   isUpdatingTask: boolean;
   isDeletingTask: boolean;
-  onSetFetchAllTasks: (fetchAll: boolean) => void; // New prop to control fetching all tasks
+  onSetTaskFetchScope: (scope: 'upcoming' | 'archive') => void;
   allTasksTotalCount: number;
 }
 
@@ -209,24 +209,21 @@ export default function Tasks({
   onDeleteTask,
   isUpdatingTask,
   isDeletingTask,
-  onSetFetchAllTasks,
+  onSetTaskFetchScope,
   allTasksTotalCount,
 }: TasksProps) {
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"open" | "all">("open");
+  const [activeTab, setActiveTab] = useState<"today" | "open" | "archive">("today");
   const [dateRangeFrom, setDateRangeFrom] = useState<string | null>(null);
   const [dateRangeTo, setDateRangeTo] = useState<string | null>(null);
 
-  // Fetch strategy is tab-specific:
-  // - "open": fetch only current/future by backend date filter
-  // - "all": fetch all dates for historical browsing
   useEffect(() => {
-    onSetFetchAllTasks(activeTab === "all");
+    onSetTaskFetchScope(activeTab === 'archive' ? 'archive' : 'upcoming');
     return () => {
-      onSetFetchAllTasks(false);
+      onSetTaskFetchScope('upcoming');
     };
-  }, [activeTab, onSetFetchAllTasks]);
+  }, [activeTab, onSetTaskFetchScope]);
 
   const handleViewDetails = (task: Task) => {
     setSelectedTaskForDetail(task);
@@ -246,44 +243,30 @@ export default function Tasks({
   // Get today's date for filtering
   const todayDate = useMemo(() => getTodayDateString(), []);
 
-  // Filter tasks based on active tab and date filter
-  // Note: tasks prop is already filtered by status, staff, room group, and room ID from useReceptionData
-  // We need to apply the tab-specific date filter here
   const filteredTasks = useMemo(() => {
     let result = tasks;
 
-    if (activeTab === 'open') {
-      result = result.filter(task => OPEN_TASK_STATUSES.has(task.status));
-      // Apply date filter if a specific date is selected
+    if (activeTab === 'today') {
+      result = result.filter(task => task.date === todayDate);
+    } else if (activeTab === 'open') {
+      result = result.filter(task => task.date > todayDate && OPEN_TASK_STATUSES.has(task.status));
       if (filters.date) {
         result = result.filter(task => task.date === filters.date);
-      } else {
-        // For "open" tab, show all tasks from current and future dates
-        result = result.filter(task => task.date >= todayDate);
       }
     } else {
-      // "all" tab: apply date range filter when at least one bound is set
+      // archive: date < today is already ensured by backend scope
       if (dateRangeFrom != null || dateRangeTo != null) {
         const from = dateRangeFrom ?? '0000-01-01';
         const to = dateRangeTo ?? '9999-12-31';
         result = result.filter(task => task.date >= from && task.date <= to);
       }
-      // When both null on "all" tab, show all tasks (no additional filtering)
     }
 
     return result;
   }, [activeTab, tasks, todayDate, filters.date, dateRangeFrom, dateRangeTo]);
 
-  // Calculate counts for tab labels - use all tasks regardless of current filter
-  const openTasksCount = useMemo(() => {
-    return tasks.filter(task => task.date === todayDate && OPEN_TASK_STATUSES.has(task.status)).length;
-  }, [tasks, todayDate]);
-
-  // Calculate all tasks count - this should always show the total
-  const allTasksCount = useMemo(() => {
-    const count = allTasksTotalCount;
-    return count;
-  }, [allTasksTotalCount, filters.staffId, filters.status, filters.roomGroup, filters.roomId]);
+  const todayCount = useMemo(() => tasks.filter(t => t.date === todayDate).length, [tasks, todayDate]);
+  const openCount = useMemo(() => tasks.filter(t => t.date > todayDate && OPEN_TASK_STATUSES.has(t.status)).length, [tasks, todayDate]);
 
   // Calculate totals based on the filtered tasks
   const taskTotals = useMemo(() => {
@@ -390,11 +373,23 @@ export default function Tasks({
         </div>
       </div>
 
-      <Tabs defaultValue="open" value={activeTab} onValueChange={(value) => setActiveTab(value as "open" | "all")} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="open">Zadania otwarte ({openTasksCount})</TabsTrigger>
-          <TabsTrigger value="all">Wszystkie zadania ({allTasksCount})</TabsTrigger>
+      <Tabs defaultValue="today" value={activeTab} onValueChange={(value) => setActiveTab(value as "today" | "open" | "archive")} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="today">Dzisiaj ({todayCount})</TabsTrigger>
+          <TabsTrigger value="open">Otwarte ({openCount})</TabsTrigger>
+          <TabsTrigger value="archive">Archiwum</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="today" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Zadania dzisiaj ({filteredTasks.length} zadań)</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {renderTaskTable(filteredTasks, "Brak zadań na dzisiaj.")}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="open" className="space-y-4">
           <Card>
@@ -428,21 +423,21 @@ export default function Tasks({
               <CardTitle>
                 {filters.date
                   ? `Zadania otwarte dla ${getDisplayDate(filters.date)} (${filteredTasks.length} zadań)`
-                  : `Zadania otwarte (${filteredTasks.length} zadań)`}
+                  : `Zadania otwarte — przyszłe daty (${filteredTasks.length} zadań)`}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {renderTaskTable(
                 filteredTasks,
                 filters.date
-                  ? `Nie znaleziono otwartych zadań dla ${getDisplayDate(filters.date)} z obecnymi filtrami`
-                  : "Nie znaleziono otwartych zadań z obecnymi filtrami"
+                  ? `Nie znaleziono otwartych zadań dla ${getDisplayDate(filters.date)}`
+                  : "Brak otwartych zadań na przyszłe daty."
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="all" className="space-y-4">
+        <TabsContent value="archive" className="space-y-4">
           <Card>
             <CardHeader className="py-4">
               <CardTitle className="text-lg">Filtry</CardTitle>
@@ -481,8 +476,8 @@ export default function Tasks({
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle>
                 {dateRangeFrom != null || dateRangeTo != null
-                  ? `Wszystkie zadania w okresie ${getDateRangeLabel(dateRangeFrom, dateRangeTo)} (${filteredTasks.length} zadań)`
-                  : `Wszystkie zadania (${filteredTasks.length} zadań)`}
+                  ? `Archiwum ${getDateRangeLabel(dateRangeFrom, dateRangeTo)} (${filteredTasks.length} zadań)`
+                  : `Archiwum (${filteredTasks.length} zadań)`}
               </CardTitle>
               <Button
                 variant="outline"
@@ -490,7 +485,7 @@ export default function Tasks({
                 onClick={() => {
                   const filename = dateRangeFrom && dateRangeTo
                     ? `zadania-${dateRangeFrom}-${dateRangeTo}.csv`
-                    : `zadania-export-${getTodayDateString()}.csv`;
+                    : `zadania-archiwum-${getTodayDateString()}.csv`;
                   downloadCsv(tasksToCsv(filteredTasks), filename);
                 }}
               >
@@ -502,10 +497,8 @@ export default function Tasks({
               {renderTaskTable(
                 filteredTasks,
                 dateRangeFrom != null || dateRangeTo != null
-                  ? `Nie znaleziono zadań w wybranym okresie z obecnymi filtrami`
-                  : filters.date
-                    ? `Nie znaleziono zadań dla ${getDisplayDate(filters.date)} z obecnymi filtrami`
-                    : "Nie znaleziono zadań z obecnymi filtrami"
+                  ? "Nie znaleziono zadań w wybranym okresie."
+                  : "Brak zadań archiwalnych."
               )}
             </CardContent>
           </Card>

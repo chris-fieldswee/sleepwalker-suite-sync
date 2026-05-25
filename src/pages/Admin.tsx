@@ -91,7 +91,7 @@ export default function Admin() {
                     onDeleteTask={receptionActions.handleDeleteTask}
                     isUpdatingTask={receptionActions.isUpdatingTask}
                     isDeletingTask={receptionActions.isDeletingTask}
-                    onSetFetchAllTasks={receptionData.filterSetters.setFetchAllTasks}
+                    onSetTaskFetchScope={receptionData.filterSetters.setTaskFetchScope}
                     allTasksTotalCount={receptionData.allTasksTotalCount}
                   />
                 }
