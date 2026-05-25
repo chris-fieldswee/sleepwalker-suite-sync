@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TaskDetailDialog } from './TaskDetailDialog';
@@ -89,8 +89,14 @@ const baseTask = {
   total_pause: null,
 };
 
+const todayDate = new Date().toISOString().split('T')[0];
+const futureDate = '2099-12-31';
+
 const doneTask = { ...baseTask, status: 'done' };
 const openTask = { ...baseTask, status: 'open', actual_time: null };
+const futureTask = { ...baseTask, date: futureDate, status: 'todo', actual_time: null };
+const todayTask = { ...baseTask, date: todayDate, status: 'todo', actual_time: null };
+const todayInProgressTask = { ...baseTask, date: todayDate, status: 'in_progress', actual_time: null };
 
 function renderDialog(task: typeof doneTask) {
   render(
@@ -107,6 +113,37 @@ function renderDialog(task: typeof doneTask) {
 }
 
 beforeEach(() => vi.clearAllMocks());
+
+describe('TaskDetailDialog future task status lock', () => {
+  it('status options are absent in edit mode for a future task', async () => {
+    mockUseAuth.mockReturnValue({ userRole: 'admin' });
+    renderDialog(futureTask);
+
+    await userEvent.click(screen.getByRole('button', { name: /edit/i }));
+
+    expect(screen.queryByRole('option', { name: 'Gotowe' })).not.toBeInTheDocument();
+  });
+
+  it('status dropdown is available in edit mode for a today task', async () => {
+    mockUseAuth.mockReturnValue({ userRole: 'admin' });
+    renderDialog(todayTask);
+
+    await userEvent.click(screen.getByRole('button', { name: /edit/i }));
+
+    expect(screen.getByRole('option', { name: 'Gotowe' })).toBeInTheDocument();
+  });
+
+  it('status resets to todo when date is changed to a future date', async () => {
+    mockUseAuth.mockReturnValue({ userRole: 'admin' });
+    renderDialog(todayInProgressTask);
+
+    await userEvent.click(screen.getByRole('button', { name: /edit/i }));
+
+    fireEvent.change(screen.getByDisplayValue(todayDate), { target: { value: futureDate } });
+
+    expect(screen.queryByText('W trakcie')).not.toBeInTheDocument();
+  });
+});
 
 describe('TaskDetailDialog actual-time gate', () => {
   it('actual time input is enabled for admin when task is done', async () => {

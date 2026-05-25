@@ -472,6 +472,10 @@ export function TaskDetailDialog({
                 }
             }
 
+            if (field === 'date' && typeof value === 'string' && value > todayDateString && nextState.status !== 'todo') {
+                nextState.status = 'todo';
+            }
+
             return nextState;
         });
     };
@@ -860,6 +864,7 @@ export function TaskDetailDialog({
     };
 
     const todayDateString = new Date().toISOString().split("T")[0];
+    const isFutureTask = (isEditMode ? (editableState?.date ?? task.date) : task.date) > todayDateString;
 
     // Helper functions for issue display
     const getIssueStatusBadge = (status: IssueStatus) => {
@@ -908,7 +913,7 @@ export function TaskDetailDialog({
                             </DialogDescription>
                             <div className="mt-2 flex items-center gap-2">
                                 <span className="text-sm text-muted-foreground">Status:</span>
-                                {isEditMode && (userRole === 'admin' || userRole === 'reception') ? (
+                                {isEditMode && (userRole === 'admin' || userRole === 'reception') && !isFutureTask ? (
                                     <Select
                                         value={editableState?.status || task.status}
                                         onValueChange={(value) => handleFieldChange('status', value)}
@@ -926,7 +931,7 @@ export function TaskDetailDialog({
                                         </SelectContent>
                                     </Select>
                                 ) : (
-                                    <Badge className={cn(getStatusColor(task.status))}>{getStatusLabel(task.status)}</Badge>
+                                    <Badge className={cn(getStatusColor(editableState?.status || task.status))}>{getStatusLabel(editableState?.status || task.status)}</Badge>
                                 )}
                             </div>
                         </div>
