@@ -321,9 +321,10 @@ export function AddTaskDialog({
     const prevIsOpen = useRef(isOpen);
     // State to store room IDs that already have a task on the selected date
     const [assignedRoomIds, setAssignedRoomIds] = useState<Set<string>>(new Set());
-    const [availableStaff, setAvailableStaff] = useState<Staff[]>([]);
-    const [availabilityData, setAvailabilityData] = useState<any[]>([]);
-    const [taskTimeLimit, setTaskTimeLimit] = useState<number | null>(null);
+    const availableStaff = useMemo(
+        () => allStaff.filter(staff => staff.role === 'housekeeping'),
+        [allStaff]
+    );
 
     // Fetch assigned rooms for the selected date
     useEffect(() => {
@@ -355,150 +356,6 @@ export function AddTaskDialog({
         fetchAssignedRooms();
     }, [newTask.date, isOpen]); // Rerun when date changes or dialog opens
 
-    // Get time limit from room's capacity_configurations when room, cleaning type, and guest count are selected
-    useEffect(() => {
-        if (!newTask.roomId || !newTask.cleaningType || !newTask.capacityId || !isOpen) {
-            setTaskTimeLimit(null);
-            return;
-        }
-
-        const selectedRoom = availableRooms.find(r => r.id === newTask.roomId);
-        if (!selectedRoom) {
-            setTaskTimeLimit(null);
-            return;
-        }
-
-        // Get time limit from room's capacity_configurations
-        let timeLimit = getTimeLimitFromRoom(selectedRoom, newTask.capacityId, newTask.cleaningType);
-        
-        // Fallback to global limits table if not found in room config (same logic as handleAddTask)
-        if (timeLimit === null) {
-            // Convert capacity_id to numeric guest_count for limits table query
-            let numericGuestCount: number | null = null;
-            
-            // If capacity_id is a letter (a, b, c, etc.), convert via label to total guest count
-            if (newTask.capacityId.length === 1 && /[a-z]/.test(newTask.capacityId)) {
-                const label = CAPACITY_ID_TO_LABEL[newTask.capacityId];
-                if (label) {
-                    // Calculate total guests from label (e.g., "1+1" = 2, "2+2" = 4)
-                    numericGuestCount = getLabelGuestTotal(label);
-                }
-            } else {
-                // If capacity_id is already a number string (for OTHER rooms), use it directly
-                const parsed = parseInt(newTask.capacityId, 10);
-                if (!isNaN(parsed)) {
-                    numericGuestCount = parsed;
-                }
-            }
-            
-            if (numericGuestCount !== null) {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:370',message:'Fetching time limit from limits table',data:{numericGuestCount,guestCountString:String(numericGuestCount),groupType:selectedRoom.group_type,cleaningType:newTask.cleaningType},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-                // #endregion
-                // Fetch from limits table asynchronously
-                supabase
-                    .from('limits')
-                    .select('time_limit')
-                    .eq('group_type', selectedRoom.group_type)
-                    .eq('cleaning_type', newTask.cleaningType)
-                    .eq('guest_count', String(numericGuestCount))
-                    .maybeSingle()
-                    .then(({ data: limitData, error: limitError }) => {
-                        // #region agent log
-                        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:379',message:'Time limit query result',data:{hasError:!!limitError,error:limitError?.message,hasData:!!limitData,timeLimit:limitData?.time_limit},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-                        // #endregion
-                        if (limitError) {
-                            console.warn(`Could not fetch time limit: ${limitError.message}.`);
-                        } else if (limitData) {
-                            setTaskTimeLimit(limitData.time_limit);
-                            console.log(`Time limit from limits table for ${selectedRoom.name}/${newTask.cleaningType}/${numericGuestCount}: ${limitData.time_limit} minutes`);
-                        }
-                    });
-            }
-        } else {
-            setTaskTimeLimit(timeLimit);
-            console.log(`Time limit from room config for ${selectedRoom.name}/${newTask.cleaningType}/${newTask.capacityId}: ${timeLimit} minutes`);
-        }
-    }, [newTask.roomId, newTask.cleaningType, newTask.capacityId, isOpen, availableRooms]);
-
-    // Fetch available staff for the selected date and task requirements
-    useEffect(() => {
-        if (!newTask.date || !isOpen) return;
-
-        const fetchAvailableStaff = async () => {
-            try {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:401',message:'Fetching staff availability',data:{date:newTask.date,taskTimeLimit},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
-                // #endregion
-                // Get staff availability for the selected date
-                // Note: staff_availability table exists but may not be in TypeScript types yet
-                const { data: availabilityData, error: availabilityError } = await (supabase
-                    .from('staff_availability' as any)
-                    .select(`
-                        staff_id,
-                        available_hours,
-                        staff:users(id, name, first_name, last_name, role)
-                    `)
-                    .eq('date', newTask.date) as any);
-
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:412',message:'Staff availability query result',data:{hasError:!!availabilityError,error:availabilityError?.message,dataCount:availabilityData?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
-                // #endregion
-
-                if (availabilityError) {
-                    console.error('Error fetching staff availability:', availabilityError);
-                    // Fallback to housekeeping staff only if availability check fails
-                    const housekeepingStaff = allStaff.filter(staff =>
-                        staff.role === 'housekeeping'
-                    );
-                    setAvailableStaff(housekeepingStaff);
-                    setAvailabilityData([]);
-                    return;
-                }
-
-                // Store availability data for display
-                setAvailabilityData(availabilityData || []);
-
-                // Convert task time limit from minutes to hours for comparison
-                const requiredHours = taskTimeLimit ? taskTimeLimit / 60 : 0;
-
-                // Filter staff: only housekeeping (no admins)
-                // First filter by role to only include housekeeping
-                const housekeepingStaff = allStaff.filter(staff =>
-                    staff.role === 'housekeeping'
-                );
-
-                // Then filter based on availability and task requirements
-                const filteredStaff = housekeepingStaff.filter(staff => {
-                    // Find availability data for this staff member
-                    const availabilityInfo = availabilityData?.find(item => item.staff_id === staff.id);
-
-                    if (!availabilityInfo) return false; // No availability data
-
-                    // Check if staff has enough available hours for the task
-                    const hasEnoughHours = requiredHours === 0 || availabilityInfo.available_hours >= requiredHours;
-
-                    return hasEnoughHours;
-                });
-
-                console.log('Availability data:', availabilityData);
-                console.log('Task time limit:', taskTimeLimit, 'minutes (', requiredHours, 'hours)');
-                console.log('All staff:', allStaff.map(s => ({ id: s.id, name: s.name, role: s.role })));
-                console.log(`Found ${filteredStaff.length} available staff for ${newTask.date} (requiring ${requiredHours}h)`);
-
-                setAvailableStaff(filteredStaff);
-            } catch (error) {
-                console.error('Error in fetchAvailableStaff:', error);
-                // Fallback to housekeeping staff only
-                const housekeepingStaff = allStaff.filter(staff =>
-                    staff.role === 'housekeeping'
-                );
-                setAvailableStaff(housekeepingStaff);
-            }
-        };
-
-        fetchAvailableStaff();
-    }, [newTask.date, isOpen, allStaff, taskTimeLimit]);
 
     // Get unique room groups from available rooms
     const availableGroups = useMemo(() => {
@@ -648,10 +505,6 @@ export function AddTaskDialog({
             setNewTask(resetState);
             setSelectedGroup(null); // Reset group selection
             setAssignedRoomIds(new Set()); // Clear assigned rooms initially
-            // Initialize with only housekeeping staff
-            setAvailableStaff(allStaff.filter(staff => staff.role === 'housekeeping'));
-            setAvailabilityData([]); // Clear availability data initially
-            setTaskTimeLimit(null); // Clear task time limit
         }
         prevIsOpen.current = isOpen;
     }, [isOpen, initialState]);
@@ -1060,35 +913,11 @@ export function AddTaskDialog({
                                         Najpierw wybierz pokój
                                     </SelectItem>
                                 )}
-                                {availableStaff.length === 0 && taskTimeLimit && (
-                                    <SelectItem value="no-staff" disabled>
-                                        Brak dostępnego personelu dla tego zadania ({taskTimeLimit} min)
+                                {availableStaff.map(staff => (
+                                    <SelectItem key={staff.id} value={staff.id}>
+                                        {staff.name}
                                     </SelectItem>
-                                )}
-                                {availableStaff.map(staff => {
-                                    // Find availability info for this staff member
-                                    const availabilityInfo = availabilityData?.find(item => item.staff_id === staff.id);
-                                    const availableHours = availabilityInfo?.available_hours || 0;
-                                    const requiredHours = taskTimeLimit ? taskTimeLimit / 60 : 0;
-
-                                    return (
-                                        <SelectItem key={staff.id} value={staff.id}>
-                                            <div className="flex justify-between items-center w-full">
-                                                <span>{staff.name}</span>
-                                                {staff.role !== 'admin' && (
-                                                    <span className="text-xs text-muted-foreground ml-2">
-                                                        {availableHours.toFixed(1)}h dostępne
-                                                        {requiredHours > 0 && (
-                                                            <span className="text-green-600 ml-1">
-                                                                (wymaga {requiredHours.toFixed(1)}h)
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </SelectItem>
-                                    );
-                                })}
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>

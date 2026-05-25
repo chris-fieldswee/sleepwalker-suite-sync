@@ -383,45 +383,7 @@ export function TaskDetailDialog({
     useEffect(() => {
         if (!isOpen) return;
 
-        const fetchAvailableStaffForTask = async () => {
-            const baseStaff = housekeepingStaff;
-
-            if (!editableState?.date) {
-                setAvailableStaffOptions(baseStaff);
-                return;
-            }
-
-            const requiredMinutes = editableState.timeLimit ?? task?.time_limit ?? null;
-            const requiredHours = requiredMinutes ? requiredMinutes / 60 : 0;
-
-            try {
-                const { data, error } = await (supabase
-                    .from('staff_availability' as any)
-                    .select('staff_id, available_hours')
-                    .eq('date', editableState.date) as any);
-
-                if (error) {
-                    console.error('Error fetching staff availability for task detail:', error);
-                    setAvailableStaffOptions(baseStaff);
-                    return;
-                }
-
-                const filtered = baseStaff.filter(staff => {
-                    const availabilityInfo = data?.find(item => item.staff_id === staff.id);
-                    if (!availabilityInfo) {
-                        return requiredHours === 0;
-                    }
-                    return requiredHours === 0 || availabilityInfo.available_hours >= requiredHours;
-                });
-
-                setAvailableStaffOptions(filtered.length > 0 ? filtered : baseStaff);
-            } catch (fetchError) {
-                console.error('Unexpected error while fetching available staff for task detail:', fetchError);
-                setAvailableStaffOptions(baseStaff);
-            }
-        };
-
-        fetchAvailableStaffForTask();
+        setAvailableStaffOptions(housekeepingStaff);
     }, [isOpen, editableState?.date, editableState?.timeLimit, housekeepingStaff, task?.time_limit]);
 
     // Fetch issues for this task

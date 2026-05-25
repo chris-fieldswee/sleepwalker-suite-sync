@@ -15,7 +15,6 @@ import Issues from "./reception/Issues";
 import Reports from "./admin/Reports";
 import Users from "./admin/Users";
 import Rooms from "./admin/Rooms";
-import Availability from "./admin/Availability";
 
 export default function Admin() {
   const { signOut, userRole } = useAuth();
@@ -112,7 +111,6 @@ export default function Admin() {
               <Route path="reports" element={<Reports />} />
               <Route path="users" element={canManageUsersAndRooms ? <Users /> : <Navigate to="/unauthorized" replace />} />
               <Route path="rooms" element={canManageUsersAndRooms ? <Rooms /> : <Navigate to="/unauthorized" replace />} />
-              <Route path="availability" element={<Availability />} />
             </Routes>
           </div>
         </main>

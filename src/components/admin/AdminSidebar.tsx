@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Users,
   DoorOpen,
-  Calendar,
   LogOut,
   BarChart
 } from "lucide-react";
@@ -41,7 +40,6 @@ const adminNavItems = [
   { title: "Raporty", url: "/admin/reports", icon: BarChart },
   { title: "Użytkownicy", url: "/admin/users", icon: Users, adminOnly: true },
   { title: "Pokoje", url: "/admin/rooms", icon: DoorOpen, adminOnly: true },
-  { title: "Dostępność personelu", url: "/admin/availability", icon: Calendar },
 ];
 
 export function AdminSidebar({ onSignOut }: AdminSidebarProps) {

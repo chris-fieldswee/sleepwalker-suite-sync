@@ -1,7 +1,7 @@
 // src/pages/reception/Dashboard.tsx
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ClipboardList, AlertTriangle, TrendingUp, Plus, UserPlus, Calendar } from "lucide-react";
+import { ClipboardList, AlertTriangle, TrendingUp, Plus, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatsCards } from "@/components/reception/StatsCards";
 import { AddTaskDialog } from "@/components/reception/AddTaskDialog";
@@ -143,13 +143,6 @@ export default function Dashboard({
             }
           />
           {/* --- End Replacement --- */}
-
-          <Button variant="outline" className="h-20 w-full flex-col gap-1" asChild>
-            <Link to={`${basePath}/availability`}>
-              <Calendar className="h-5 w-5 mb-1" />
-              <span>Dodaj dostępność</span>
-            </Link>
-          </Button>
         </CardContent>
       </Card>
     </div>
