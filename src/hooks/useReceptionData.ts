@@ -136,17 +136,22 @@ export function useReceptionData() {
       taskFetchScope: 'upcoming' | 'archive' = 'upcoming'
     ) => {
      console.log('fetchTasks called with:', { date, status, staffId, roomGroup, roomId, taskFetchScope });
-     const taskSelect = `
+     const baseColumns = `
         id, date, status, cleaning_type, guest_count, time_limit, actual_time,
-        difference, display_order, issue_flag, housekeeping_notes, reception_notes, start_time,
+        difference, issue_flag, housekeeping_notes, reception_notes, start_time,
         stop_time, issue_description, issue_photo, pause_start, pause_stop, total_pause, created_at,
         room:rooms!inner(id, name, group_type, color),
         user:users(id, name, first_name, last_name)
       `;
+     const taskSelect = `id, display_order, date, status, cleaning_type, guest_count, time_limit, actual_time,
+        difference, issue_flag, housekeeping_notes, reception_notes, start_time,
+        stop_time, issue_description, issue_photo, pause_start, pause_stop, total_pause, created_at,
+        room:rooms!inner(id, name, group_type, color),
+        user:users(id, name, first_name, last_name)`;
 
-     const buildTasksQuery = (from?: number, to?: number) => {
+     const buildTasksQuery = (select: string, from?: number, to?: number) => {
        let query = supabase.from("tasks")
-        .select(taskSelect)
+        .select(select)
         .order("date", { ascending: taskFetchScope !== 'archive' })
         .order("created_at", { ascending: true });
 
@@ -176,37 +181,30 @@ export function useReceptionData() {
        return query;
      };
 
-    let data: any[] | null = null;
-    let error: any = null;
+     const runFetch = async (select: string): Promise<{ data: any[] | null; error: any }> => {
+       if (taskFetchScope === 'archive') {
+         const allRows: any[] = [];
+         for (let offset = 0; ; offset += TASK_FETCH_PAGE_SIZE) {
+           const { data: pageData, error: pageError } = await buildTasksQuery(select, offset, offset + TASK_FETCH_PAGE_SIZE - 1);
+           if (pageError) return { data: null, error: pageError };
+           const pageRows = pageData || [];
+           allRows.push(...pageRows);
+           if (pageRows.length < TASK_FETCH_PAGE_SIZE) break;
+         }
+         return { data: allRows, error: null };
+       } else {
+         const result = await buildTasksQuery(select);
+         return { data: result.data, error: result.error };
+       }
+     };
 
-    // Apply Room ID Filter - now applied client-side after group filtering
-    // Room Group filter is applied client-side after fetch
+    let { data, error } = await runFetch(taskSelect);
 
-    if (taskFetchScope === 'archive') {
-      const allRows: any[] = [];
-      for (let offset = 0; ; offset += TASK_FETCH_PAGE_SIZE) {
-        const { data: pageData, error: pageError } = await buildTasksQuery(
-          offset,
-          offset + TASK_FETCH_PAGE_SIZE - 1
-        );
-
-        if (pageError) {
-          error = pageError;
-          break;
-        }
-
-        const pageRows = pageData || [];
-        allRows.push(...pageRows);
-
-        if (pageRows.length < TASK_FETCH_PAGE_SIZE) {
-          break;
-        }
-      }
-      data = allRows;
-    } else {
-      const result = await buildTasksQuery();
-      data = result.data;
-      error = result.error;
+    // Graceful fallback: if display_order column doesn't exist yet (migration pending),
+    // retry without it so the app keeps working.
+    if (error?.message?.includes('display_order')) {
+      console.warn('display_order column not found — apply migration 20260525000100_add_display_order_to_tasks.sql in the Supabase dashboard SQL editor.');
+      ({ data, error } = await runFetch(baseColumns));
     }
 
     if (error) {

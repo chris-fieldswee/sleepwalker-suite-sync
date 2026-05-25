@@ -246,6 +246,31 @@ export function useReceptionActions(
               return false;
             }
 
+            // For multiple-assignment locations, enforce one task per person per day
+            if (allowsMultipleAssignments && userId) {
+              const { data: existingPersonTasks, error: personTasksError } = await supabase
+                .from('tasks')
+                .select('id')
+                .eq('date', newTask.date)
+                .eq('room_id', resolvedRoomId)
+                .eq('user_id', userId)
+                .in('status', OPEN_TASK_STATUSES);
+
+              if (personTasksError) {
+                console.error("Error checking per-person tasks:", personTasksError);
+                throw new Error("Could not verify existing tasks. Please try again.");
+              }
+
+              if (existingPersonTasks && existingPersonTasks.length > 0) {
+                toast({
+                  title: "Zadanie już istnieje",
+                  description: "Ten pracownik ma już zadanie dla tej lokalizacji w tym dniu.",
+                  variant: "destructive",
+                });
+                return false;
+              }
+            }
+
             // #region agent log
             fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:223',message:'Validation before parse',data:{capacityId:newTask.capacityId,roomGroup:selectedRoom.group_type,cleaningType:newTask.cleaningType},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'J'})}).catch(()=>{});
             // #endregion

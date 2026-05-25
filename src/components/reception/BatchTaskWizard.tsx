@@ -519,9 +519,9 @@ export function BatchTaskWizard({ availableRooms, allStaff, onSubmit, isSubmitti
                                 <Label className="text-sm text-muted-foreground">
                                     {wizard.groups.length === 0 ? 'Wybierz osobę, aby zacząć' : 'Dodaj kolejną osobę'}
                                 </Label>
-                                <Select value="" onValueChange={handleAddGroup} disabled={isSubmitting}>
+                                <Select value="" onValueChange={handleAddGroup} disabled={isSubmitting || !wizard.date}>
                                     <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Wybierz osobę..." />
+                                        <SelectValue placeholder={wizard.date ? 'Wybierz osobę...' : 'Najpierw wybierz datę'} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {canAddUnassigned && (
@@ -532,6 +532,9 @@ export function BatchTaskWizard({ availableRooms, allStaff, onSubmit, isSubmitti
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                {!wizard.date && (
+                                    <p className="text-xs text-muted-foreground">Wybierz datę, aby odblokować wybór osoby.</p>
+                                )}
                             </div>
                         )}
                     </div>
