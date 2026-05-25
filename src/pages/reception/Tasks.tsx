@@ -340,7 +340,7 @@ export default function Tasks({
     return source.filter(t => t.date > todayDate && OPEN_TASK_STATUSES.has(t.status)).length;
   }, [cachedUpcomingTasks, tasks, todayDate]);
 
-  const isFilterActive = filters.status !== 'all' || filters.staffId !== '' || filters.roomGroup !== 'all' || filters.roomId !== '';
+  const isFilterActive = filters.status !== 'all' || filters.staffId !== 'all' || filters.roomGroup !== 'all' || filters.roomId !== 'all';
   const canDragToday = activeTab === 'today' && !isFilterActive;
 
   const displayTasks = useMemo(() => {
