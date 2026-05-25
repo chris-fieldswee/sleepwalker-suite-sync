@@ -69,6 +69,7 @@ export default function Admin() {
                 element={
                   <Tasks
                     tasks={receptionData.tasks}
+                    cachedUpcomingTasks={receptionData.cachedUpcomingTasks}
                     allStaff={receptionData.allStaff}
                     availableRooms={receptionData.availableRooms}
                     workLogs={receptionData.workLogs}

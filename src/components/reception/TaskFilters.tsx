@@ -52,12 +52,12 @@ interface TaskFiltersProps {
   onClearFilters: () => void;
   showRoomGroupFilter?: boolean;
   allowPastDates?: boolean;
-  showDoneStatus?: boolean; // Show "Gotowe" status option (for "all tasks" tab)
-  // Date range mode (for "all tasks" tab): when true, show Od/Do instead of single date
+  showDoneStatus?: boolean;
   showDateRange?: boolean;
   dateRangeFrom?: string | null;
   dateRangeTo?: string | null;
   onDateRangeChange?: (from: string | null, to: string | null) => void;
+  lockedDate?: string | null;
 }
 
 export const TaskFilters = ({
@@ -84,6 +84,7 @@ export const TaskFilters = ({
   dateRangeFrom = null,
   dateRangeTo = null,
   onDateRangeChange,
+  lockedDate = null,
 }: TaskFiltersProps) => {
   // Filter available rooms based on selected room group
   const filteredRooms = useMemo(() => {
@@ -206,6 +207,20 @@ export const TaskFilters = ({
             </Popover>
           </div>
         </>
+      ) : lockedDate ? (
+        <div className="space-y-1">
+          <Label>Data</Label>
+          <Button
+            variant="outline"
+            disabled
+            className={cn(
+              "w-full justify-start text-left font-normal h-9 text-sm bg-card border-[#7d212b]"
+            )}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {format(new Date(lockedDate + "T12:00:00"), "d MMMM yyyy", { locale: pl })}
+          </Button>
+        </div>
       ) : (
         <div className="space-y-1">
           <Label>Data</Label>

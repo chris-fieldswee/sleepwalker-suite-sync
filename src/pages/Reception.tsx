@@ -16,6 +16,7 @@ export default function Reception() {
 
   const {
     tasks,
+    cachedUpcomingTasks,
     allStaff,
     availableRooms,
     workLogs,
@@ -86,6 +87,7 @@ export default function Reception() {
                 element={
                   <Tasks
                     tasks={tasks}
+                    cachedUpcomingTasks={cachedUpcomingTasks}
                     allStaff={allStaff}
                     availableRooms={availableRooms}
                     workLogs={workLogs}

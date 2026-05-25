@@ -153,6 +153,7 @@ function downloadCsv(csvContent: string, filename: string): void {
 
 interface TasksProps {
   tasks: Task[];
+  cachedUpcomingTasks?: Task[];
   allStaff: Staff[];
   availableRooms: Room[];
   workLogs: WorkLog[];
@@ -178,7 +179,7 @@ interface TasksProps {
   isSubmittingTask: boolean;
   isSavingLog: boolean;
   onUpdateTask: (taskId: string, updates: any) => Promise<boolean>;
-  onDeleteTask: (taskId: string) => Promise<boolean>; // Changed return type to Promise<boolean> based on useReceptionActions
+  onDeleteTask: (taskId: string) => Promise<boolean>;
   isUpdatingTask: boolean;
   isDeletingTask: boolean;
   onSetTaskFetchScope: (scope: 'upcoming' | 'archive') => void;
@@ -187,6 +188,7 @@ interface TasksProps {
 
 export default function Tasks({
   tasks,
+  cachedUpcomingTasks = [],
   allStaff,
   availableRooms,
   workLogs,
@@ -265,8 +267,14 @@ export default function Tasks({
     return result;
   }, [activeTab, tasks, todayDate, filters.date, dateRangeFrom, dateRangeTo]);
 
-  const todayCount = useMemo(() => tasks.filter(t => t.date === todayDate).length, [tasks, todayDate]);
-  const openCount = useMemo(() => tasks.filter(t => t.date > todayDate && OPEN_TASK_STATUSES.has(t.status)).length, [tasks, todayDate]);
+  const todayCount = useMemo(() => {
+    const source = cachedUpcomingTasks.length > 0 ? cachedUpcomingTasks : tasks;
+    return source.filter(t => t.date === todayDate).length;
+  }, [cachedUpcomingTasks, tasks, todayDate]);
+  const openCount = useMemo(() => {
+    const source = cachedUpcomingTasks.length > 0 ? cachedUpcomingTasks : tasks;
+    return source.filter(t => t.date > todayDate && OPEN_TASK_STATUSES.has(t.status)).length;
+  }, [cachedUpcomingTasks, tasks, todayDate]);
 
   // Calculate totals based on the filtered tasks
   const taskTotals = useMemo(() => {
@@ -381,6 +389,33 @@ export default function Tasks({
         </TabsList>
 
         <TabsContent value="today" className="space-y-4">
+          <Card>
+            <CardHeader className="py-4">
+              <CardTitle className="text-lg">Filtry</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <TaskFilters
+                date={filters.date}
+                status={filters.status}
+                staffId={filters.staffId}
+                roomGroup={filters.roomGroup}
+                roomId={filters.roomId}
+                staff={allStaff}
+                availableRooms={availableRooms}
+                roomGroups={allRoomGroups}
+                onDateChange={onDateChange}
+                onStatusChange={onStatusChange}
+                onStaffChange={onStaffChange}
+                onRoomGroupChange={onRoomGroupChange}
+                onRoomChange={onRoomChange}
+                onClearFilters={onClearFilters}
+                showRoomGroupFilter={true}
+                showDoneStatus={true}
+                lockedDate={todayDate}
+              />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Zadania dzisiaj ({filteredTasks.length} zadań)</CardTitle>

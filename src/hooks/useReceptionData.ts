@@ -71,6 +71,7 @@ type DashboardTaskCounts = {
 export function useReceptionData() {
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [cachedUpcomingTasks, setCachedUpcomingTasks] = useState<Task[]>([]);
   const [allTasksForStats, setAllTasksForStats] = useState<Task[]>([]); // Unfiltered tasks for stats
   const [allStaff, setAllStaff] = useState<Staff[]>([]);
   const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
@@ -395,6 +396,7 @@ export function useReceptionData() {
     ]).then(([, , tasksData, workLogsData, allTasksData, issuesCount, totalTasksCount]) => {
         if (isMounted) {
             setTasks(tasksData || []);
+            if (taskFetchScope === 'upcoming') setCachedUpcomingTasks(tasksData || []);
             setWorkLogs(workLogsData || []);
             // allTasksData and issuesCount are handled by their respective functions setting state
             console.log(`[INIT] Initial fetch complete: ${tasksData?.length || 0} filtered tasks, ${allTasksData?.length || 0} all tasks for stats, ${issuesCount || 0} open issues, ${totalTasksCount || 0} total tasks`);
@@ -447,7 +449,8 @@ export function useReceptionData() {
                fetchTasks(filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId, taskFetchScope).then(updatedTasks => {
                   if (isMountedRef.current) {
                     console.log("Refetched tasks after realtime update:", updatedTasks.length);
-                    setTasks(updatedTasks); // Update the state with newly fetched tasks
+                    setTasks(updatedTasks);
+                  if (taskFetchScope === 'upcoming') setCachedUpcomingTasks(updatedTasks);
                   }
                });
                // Also refresh stats data
@@ -541,6 +544,7 @@ export function useReceptionData() {
 
             if (results[2].status === 'fulfilled') {
                 setTasks(results[2].value || []);
+                if (taskFetchScope === 'upcoming') setCachedUpcomingTasks(results[2].value || []);
             } else {
                 console.error("Refresh failed for tasks:", results[2].reason);
                 refreshError = true;
@@ -667,7 +671,7 @@ export function useReceptionData() {
 
 
   return {
-    tasks, allStaff, availableRooms, workLogs, loading, refreshing,
+    tasks, cachedUpcomingTasks, allStaff, availableRooms, workLogs, loading, refreshing,
     filters: { date: filterDate, status: filterStatus, staffId: filterStaffId, roomGroup: filterRoomGroup, roomId: filterRoomId },
     filterSetters: { setDate: setFilterDate, setStatus: setFilterStatus, setStaffId: setFilterStaffId, setRoomGroup: setFilterRoomGroup, setRoomId: setFilterRoomId, setTaskFetchScope },
     actions: { refresh: handleRefresh, clearFilters: handleClearFilters },
