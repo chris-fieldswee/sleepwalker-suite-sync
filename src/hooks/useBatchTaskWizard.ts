@@ -35,6 +35,11 @@ export function useBatchTaskWizard({ allStaff, onSubmit }: UseBatchTaskWizardPar
   const [date, setDate] = useState('');
   const [groups, setGroups] = useState<AssignmentGroup[]>([]);
 
+  const reset = () => {
+    setDate('');
+    setGroups([]);
+  };
+
   const availableStaff = useMemo(() => {
     const assignedIds = new Set(groups.map(g => g.staffId));
     return allStaff.filter(s => !assignedIds.has(s.id));
@@ -149,5 +154,6 @@ export function useBatchTaskWizard({ allStaff, onSubmit }: UseBatchTaskWizardPar
     toggleTaskExpanded,
     canSubmit,
     submit,
+    reset,
   };
 }

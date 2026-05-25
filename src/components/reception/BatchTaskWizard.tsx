@@ -366,27 +366,18 @@ interface BatchTaskWizardProps {
 export function BatchTaskWizard({ availableRooms, allStaff, onSubmit, isSubmitting }: BatchTaskWizardProps) {
     const [open, setOpen] = useState(false);
     const [datePickerOpen, setDatePickerOpen] = useState(false);
-    const [newGroupStaffId, setNewGroupStaffId] = useState('');
-    // per-task room group type (UI-only, not in hook)
     const [taskRoomGroups, setTaskRoomGroups] = useState<Record<string, string>>({});
 
     const wizard = useBatchTaskWizard({ allStaff, onSubmit });
 
-    const housekeepingStaff = useMemo(
-        () => allStaff.filter(s => s.role === 'housekeeping'),
-        [allStaff]
-    );
-
     const handleClose = () => {
         setOpen(false);
         setTaskRoomGroups({});
-        setNewGroupStaffId('');
+        wizard.reset();
     };
 
-    const handleAddGroup = () => {
-        if (!newGroupStaffId) return;
-        wizard.addGroup(newGroupStaffId);
-        setNewGroupStaffId('');
+    const handleAddGroup = (staffId: string) => {
+        wizard.addGroup(staffId);
     };
 
     const handleRoomGroupChange = (taskId: string, groupType: string) => {
@@ -419,7 +410,7 @@ export function BatchTaskWizard({ availableRooms, allStaff, onSubmit, isSubmitti
                         <DialogTitle>Dodaj zadania</DialogTitle>
                     </DialogHeader>
 
-                    <div className="flex-grow overflow-y-auto space-y-4 pr-1">
+                    <div className="flex-grow overflow-y-auto space-y-4 px-2 py-2 pr-3">
                         {/* Date */}
                         <div className="space-y-1">
                             <Label>Data*</Label>
@@ -470,11 +461,14 @@ export function BatchTaskWizard({ availableRooms, allStaff, onSubmit, isSubmitti
                             ))}
                         </div>
 
-                        {/* Add group */}
+                        {/* Add group — selecting a person immediately creates the group */}
                         {(availableForNewGroup.length > 0 || canAddUnassigned) && (
-                            <div className="flex gap-2 items-center">
-                                <Select value={newGroupStaffId} onValueChange={setNewGroupStaffId} disabled={isSubmitting}>
-                                    <SelectTrigger className="flex-1">
+                            <div className="space-y-1">
+                                <Label className="text-sm text-muted-foreground">
+                                    {wizard.groups.length === 0 ? 'Wybierz osobę, aby zacząć' : 'Dodaj kolejną osobę'}
+                                </Label>
+                                <Select value="" onValueChange={handleAddGroup} disabled={isSubmitting}>
+                                    <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Wybierz osobę..." />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -486,14 +480,6 @@ export function BatchTaskWizard({ availableRooms, allStaff, onSubmit, isSubmitti
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={handleAddGroup}
-                                    disabled={!newGroupStaffId || isSubmitting}
-                                >
-                                    <Plus className="h-4 w-4 mr-1" /> Dodaj grupę
-                                </Button>
                             </div>
                         )}
                     </div>
