@@ -9,6 +9,7 @@ import { CAPACITY_ID_TO_LABEL } from "@/lib/capacity-utils";
 import { TaskFilters, type RoomGroupOption } from "@/components/reception/TaskFilters";
 import { TaskTableRow } from "@/components/reception/TaskTableRow";
 import { AddTaskDialog } from "@/components/reception/AddTaskDialog";
+import { BatchTaskWizard } from "@/components/reception/BatchTaskWizard";
 import { TaskDetailDialog } from "@/components/reception/TaskDetailDialog";
 import { TaskSummaryFooter } from "@/components/reception/TaskSummaryFooter"; // Import the footer
 import type { Database } from "@/integrations/supabase/types";
@@ -377,6 +378,12 @@ export default function Tasks({
             availableRooms={availableRooms}
             allStaff={allStaff}
             initialState={initialNewTaskState}
+            onSubmit={onAddTask}
+            isSubmitting={isSubmittingTask}
+          />
+          <BatchTaskWizard
+            availableRooms={availableRooms}
+            allStaff={allStaff}
             onSubmit={onAddTask}
             isSubmitting={isSubmittingTask}
           />
