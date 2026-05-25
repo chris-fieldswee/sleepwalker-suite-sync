@@ -171,6 +171,7 @@ export const TaskFilters = ({
                   mode="single"
                   selected={dateRangeFrom ? new Date(dateRangeFrom + "T12:00:00") : undefined}
                   onSelect={(d) => handleDateRangeFromSelect(d)}
+                  disabled={(d) => d > new Date(new Date().setHours(23, 59, 59, 999))}
                   locale={pl}
                   initialFocus
                 />
@@ -200,6 +201,7 @@ export const TaskFilters = ({
                   mode="single"
                   selected={dateRangeTo ? new Date(dateRangeTo + "T12:00:00") : undefined}
                   onSelect={(d) => handleDateRangeToSelect(d)}
+                  disabled={(d) => d > new Date(new Date().setHours(23, 59, 59, 999))}
                   locale={pl}
                   initialFocus
                 />
