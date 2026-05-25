@@ -46,7 +46,16 @@ export function useBatchTaskWizard({ allStaff, onSubmit }: UseBatchTaskWizardPar
   }, [allStaff, groups]);
 
   const addGroup = (staffId: string | 'unassigned') => {
-    setGroups(prev => [...prev, { id: uuid(), staffId, expanded: true, tasks: [] }]);
+    const firstTask: BatchTask = {
+      id: uuid(),
+      roomId: '',
+      cleaningType: 'W',
+      capacityId: 'd',
+      notes: '',
+      expanded: true,
+      status: 'idle',
+    };
+    setGroups(prev => [...prev, { id: uuid(), staffId, expanded: true, tasks: [firstTask] }]);
   };
 
   const removeGroup = (groupId: string) => {
@@ -83,6 +92,14 @@ export function useBatchTaskWizard({ allStaff, onSubmit }: UseBatchTaskWizardPar
         tasks: g.tasks.map(t => t.id !== taskId ? t : { ...t, ...updates }),
       }
     ));
+  };
+
+  const reorderTasks = (groupId: string, newTaskIds: string[]) => {
+    setGroups(prev => prev.map(g => {
+      if (g.id !== groupId) return g;
+      const taskMap = new Map(g.tasks.map(t => [t.id, t]));
+      return { ...g, tasks: newTaskIds.map(id => taskMap.get(id)!).filter(Boolean) };
+    }));
   };
 
   const toggleGroupExpanded = (groupId: string) => {
@@ -150,6 +167,7 @@ export function useBatchTaskWizard({ allStaff, onSubmit }: UseBatchTaskWizardPar
     addTask,
     removeTask,
     updateTask,
+    reorderTasks,
     toggleGroupExpanded,
     toggleTaskExpanded,
     canSubmit,

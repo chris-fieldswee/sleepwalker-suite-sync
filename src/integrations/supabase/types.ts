@@ -177,6 +177,7 @@ export type Database = {
           created_at: string | null
           date: string
           difference: number | null
+          display_order: number | null
           guest_count: string
           housekeeping_notes: string | null
           id: string
@@ -201,6 +202,7 @@ export type Database = {
           created_at?: string | null
           date?: string
           difference?: number | null
+          display_order?: number | null
           guest_count?: string
           housekeeping_notes?: string | null
           id?: string
@@ -225,6 +227,7 @@ export type Database = {
           created_at?: string | null
           date?: string
           difference?: number | null
+          display_order?: number | null
           guest_count?: string
           housekeeping_notes?: string | null
           id?: string

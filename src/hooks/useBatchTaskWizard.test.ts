@@ -31,6 +31,17 @@ describe('useBatchTaskWizard', () => {
     expect(result.current.availableStaff.map(s => s.id)).toContain(anna.id);
   });
 
+  it('addGroup adds one task automatically with idle status and expanded', () => {
+    const { result } = renderHook(() => useBatchTaskWizard({ allStaff, onSubmit }));
+
+    act(() => { result.current.addGroup(anna.id); });
+
+    expect(result.current.groups[0].tasks).toHaveLength(1);
+    const task = result.current.groups[0].tasks[0];
+    expect(task.status).toBe('idle');
+    expect(task.expanded).toBe(true);
+  });
+
   it('adding a task initialises it expanded with idle status', () => {
     const { result } = renderHook(() => useBatchTaskWizard({ allStaff, onSubmit }));
 
@@ -58,7 +69,7 @@ describe('useBatchTaskWizard', () => {
 
     act(() => { result.current.addGroup(anna.id); });
     const groupId = result.current.groups[0].id;
-    act(() => { result.current.addTask(groupId); });
+    // addGroup auto-adds the first task — no need to call addTask manually
     const taskId = result.current.groups[0].tasks[0].id;
     act(() => { result.current.updateTask(groupId, taskId, { roomId: 'room-1' }); });
 
@@ -108,6 +119,21 @@ describe('useBatchTaskWizard', () => {
     const tasks = result.current.groups[0].tasks;
     expect(tasks[0].status).toBe('success');
     expect(tasks[1].status).toBe('error');
+  });
+
+  it('reorderTasks changes the order of tasks within a group', () => {
+    const { result } = renderHook(() => useBatchTaskWizard({ allStaff, onSubmit }));
+
+    act(() => { result.current.addGroup(anna.id); });
+    const groupId = result.current.groups[0].id;
+    act(() => { result.current.addTask(groupId); });
+    act(() => { result.current.addTask(groupId); });
+    // tasks: [auto(A), B, C]
+    const [idA, idB, idC] = result.current.groups[0].tasks.map(t => t.id);
+
+    act(() => { result.current.reorderTasks(groupId, [idC, idA, idB]); });
+
+    expect(result.current.groups[0].tasks.map(t => t.id)).toEqual([idC, idA, idB]);
   });
 
   it('second submit only retries error tasks, skips already succeeded ones', async () => {
