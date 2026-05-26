@@ -854,7 +854,7 @@ export function TaskDetailDialog({
     const getStatusColor = (status: string) => {
         // ... (keep existing getStatusColor) ...
         const colors: Record<string, string> = {
-            todo: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200",
+            todo: "bg-rose-100 text-brand-primary dark:bg-rose-900/30 dark:text-rose-200",
             in_progress: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200",
             paused: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
             done: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200",
