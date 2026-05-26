@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableHeader, TableRow, TableHead } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Download, GripVertical, List, Users } from "lucide-react";
+import { RefreshCw, Download, GripVertical, List, Users, CalendarDays } from "lucide-react";
 import { CAPACITY_ID_TO_LABEL } from "@/lib/capacity-utils";
 import { TaskFilters, type RoomGroupOption } from "@/components/reception/TaskFilters";
 import { TaskTableRow } from "@/components/reception/TaskTableRow";
@@ -342,9 +342,11 @@ export default function Tasks({
 
   const isFilterActive = filters.status !== 'all' || filters.staffId !== 'all' || filters.roomGroup !== 'all' || filters.roomId !== 'all';
   const canDragToday = activeTab === 'today' && !isFilterActive;
+  const isOpenFilterActive = filters.staffId !== 'all' || filters.roomGroup !== 'all' || filters.roomId !== 'all' || filters.status !== 'all';
+  const canDragOpen = activeTab === 'open' && viewMode === 'grouped' && !isOpenFilterActive;
 
   const displayTasks = useMemo(() => {
-    if (!optimisticTaskIds || activeTab !== 'today') return filteredTasks;
+    if (!optimisticTaskIds || (activeTab !== 'today' && activeTab !== 'open')) return filteredTasks;
     const map = new Map(filteredTasks.map(t => [t.id, t]));
     return optimisticTaskIds.map(id => map.get(id)).filter((t): t is Task => t !== undefined);
   }, [filteredTasks, optimisticTaskIds, activeTab]);
@@ -352,7 +354,7 @@ export default function Tasks({
   type GroupEntry = { staffName: string; staffId: string | null; tasks: Task[] };
 
   const groupedTasks = useMemo((): [string, GroupEntry][] | null => {
-    if (viewMode !== 'grouped') return null;
+    if (viewMode !== 'grouped' || activeTab !== 'today') return null;
     const byKey = new Map<string, GroupEntry>();
     for (const task of displayTasks) {
       const key = task.user?.id ?? '__unassigned__';
@@ -366,7 +368,29 @@ export default function Tasks({
       if (kB === '__unassigned__') return -1;
       return byKey.get(kA)!.staffName.localeCompare(byKey.get(kB)!.staffName);
     });
-  }, [viewMode, displayTasks]);
+  }, [viewMode, activeTab, displayTasks]);
+
+  type DayGroupEntry = { date: string; tasks: Task[] };
+
+  const dayGroupedTasks = useMemo((): [string, DayGroupEntry][] | null => {
+    if (viewMode !== 'grouped' || activeTab !== 'open') return null;
+    const byDate = new Map<string, DayGroupEntry>();
+    for (const task of displayTasks) {
+      if (!byDate.has(task.date)) {
+        byDate.set(task.date, { date: task.date, tasks: [] });
+      }
+      byDate.get(task.date)!.tasks.push(task);
+    }
+    for (const entry of byDate.values()) {
+      entry.tasks.sort((a, b) => {
+        if (a.display_order != null && b.display_order != null) return a.display_order - b.display_order;
+        if (a.display_order != null) return -1;
+        if (b.display_order != null) return 1;
+        return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+      });
+    }
+    return [...byDate.entries()].sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
+  }, [viewMode, activeTab, displayTasks]);
 
   const toggleGroupCollapsed = useCallback((key: string) => {
     setCollapsedGroups(prev => {
@@ -418,6 +442,35 @@ export default function Tasks({
     setOptimisticTaskIds(null);
     onRefresh();
   }, [groupedTasks, displayTasks, taskOrder, onRefresh]);
+
+  const handleDayGroupDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !dayGroupedTasks) return;
+    const activeGroupEntry = dayGroupedTasks.find(([, g]) => g.tasks.some(t => t.id === active.id));
+    const overGroupEntry = dayGroupedTasks.find(([, g]) => g.tasks.some(t => t.id === over.id));
+    if (!activeGroupEntry || !overGroupEntry || activeGroupEntry[0] !== overGroupEntry[0]) return;
+    const groupTasks = activeGroupEntry[1].tasks;
+    const groupIds = groupTasks.map(t => t.id);
+    const oldIndex = groupIds.indexOf(active.id as string);
+    const newIndex = groupIds.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newGroupIds = arrayMove(groupIds, oldIndex, newIndex);
+    const groupIdSet = new Set(groupIds);
+    const allIds = displayTasks.map(t => t.id);
+    const newAllIds: string[] = [];
+    let inserted = false;
+    for (const id of allIds) {
+      if (groupIdSet.has(id)) {
+        if (!inserted) { newAllIds.push(...newGroupIds); inserted = true; }
+      } else {
+        newAllIds.push(id);
+      }
+    }
+    setOptimisticTaskIds(newAllIds);
+    await taskOrder.reorder(newAllIds);
+    setOptimisticTaskIds(null);
+    onRefresh();
+  }, [dayGroupedTasks, displayTasks, taskOrder, onRefresh]);
 
   // Calculate totals based on the filtered tasks
   const taskTotals = useMemo(() => {
@@ -540,6 +593,64 @@ export default function Tasks({
     </div>
   );
 
+  const formatDayGroupHeader = (dateStr: string) => {
+    try {
+      return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pl-PL', {
+        weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC'
+      });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
+  const renderDayGroupedView = (taskList: Task[], groups: [string, DayGroupEntry][], draggable: boolean) => (
+    <div className="space-y-2 p-4">
+      {groups.map(([key, group]) => {
+        const isCollapsed = collapsedGroups.has(key);
+        return (
+          <div key={key} className="border rounded-lg overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-4 py-2 bg-muted/40 hover:bg-muted/70 transition-colors text-sm font-medium"
+              onClick={() => toggleGroupCollapsed(key)}
+            >
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                <span>{formatDayGroupHeader(group.date)}</span>
+                <span className="text-xs text-muted-foreground font-normal">({group.tasks.length})</span>
+              </div>
+              <span className="text-muted-foreground text-xs">{isCollapsed ? '▶' : '▼'}</span>
+            </button>
+            {!isCollapsed && (
+              draggable ? (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDayGroupDragEnd}>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      {tableHeaders(true)}
+                      <TableBody>
+                        <SortableContext items={group.tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                          {group.tasks.map(task => <SortableTaskRow key={task.id} task={task} {...commonRowProps} />)}
+                        </SortableContext>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </DndContext>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    {tableHeaders(false)}
+                    <TableBody>
+                      {group.tasks.map(task => <TaskTableRow key={task.id} task={task} {...commonRowProps} />)}
+                    </TableBody>
+                  </Table>
+                </div>
+              )
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   const renderEmpty = (emptyMessage: string) => (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <p className="text-lg font-medium text-muted-foreground">{emptyMessage}</p>
@@ -556,7 +667,7 @@ export default function Tasks({
     ) : taskList.length === 0 ? renderEmpty(emptyMessage) : renderFlatTable(taskList, false)
   );
 
-  const viewToggle = (
+  const viewToggle = (groupIcon: JSX.Element) => (
     <div className="flex items-center gap-2 ml-auto">
       <span className="text-sm text-muted-foreground">Widok:</span>
       <div className="flex rounded-md border overflow-hidden">
@@ -564,7 +675,7 @@ export default function Tasks({
           <List className="h-4 w-4" />
         </Button>
         <Button variant={viewMode === 'grouped' ? 'default' : 'ghost'} size="sm" className="rounded-none h-8 px-2 border-l" onClick={() => setViewMode('grouped')}>
-          <Users className="h-4 w-4" />
+          {groupIcon}
         </Button>
       </div>
     </div>
@@ -611,7 +722,7 @@ export default function Tasks({
             <CardHeader className="py-4">
               <div className="flex items-center gap-4">
                 <CardTitle className="text-lg">Filtry</CardTitle>
-                {viewToggle}
+                {viewToggle(<Users className="h-4 w-4" />)}
               </div>
             </CardHeader>
             <CardContent className="pt-0 pb-4">
@@ -666,7 +777,7 @@ export default function Tasks({
             <CardHeader className="py-4">
               <div className="flex items-center gap-4">
                 <CardTitle className="text-lg">Filtry</CardTitle>
-                {viewToggle}
+                {viewToggle(<CalendarDays className="h-4 w-4" />)}
               </div>
             </CardHeader>
             <CardContent className="pt-0 pb-4">
@@ -709,9 +820,9 @@ export default function Tasks({
                 filters.date
                   ? `Nie znaleziono otwartych zadań dla ${getDisplayDate(filters.date)}`
                   : "Brak otwartych zadań na przyszłe daty."
-              ) : viewMode === 'grouped' && groupedTasks ? (
-                renderGroupedView(filteredTasks, groupedTasks, false)
-              ) : renderFlatTable(filteredTasks, false)}
+              ) : viewMode === 'grouped' && dayGroupedTasks ? (
+                renderDayGroupedView(displayTasks, dayGroupedTasks, canDragOpen)
+              ) : renderFlatTable(displayTasks, false)}
             </CardContent>
           </Card>
         </TabsContent>
