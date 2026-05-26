@@ -118,6 +118,39 @@ const allRoomGroups: RoomGroupOption[] = [
 
 const OPEN_TASK_STATUSES = new Set(["todo", "in_progress", "paused"]);
 
+function applyNonDateFilters(
+  tasks: Task[],
+  status: string,
+  staffId: string,
+  roomGroup: string,
+  roomId: string
+): Task[] {
+  return tasks.filter(task => {
+    if (status !== 'all' && task.status !== status) return false;
+    if (staffId !== 'all') {
+      if (staffId === 'unassigned') { if (task.user !== null) return false; }
+      else { if (task.user?.id !== staffId) return false; }
+    }
+    if (roomGroup !== 'all' && task.room.group_type !== roomGroup) return false;
+    if (roomId !== 'all' && task.room.id !== roomId) return false;
+    return true;
+  });
+}
+
+function tasksExcluding(
+  tasks: Task[],
+  filters: { status: string; staffId: string; roomGroup: string; roomId: string },
+  exclude: 'status' | 'staffId' | 'roomGroup' | 'roomId'
+): Task[] {
+  return applyNonDateFilters(
+    tasks,
+    exclude === 'status' ? 'all' : filters.status,
+    exclude === 'staffId' ? 'all' : filters.staffId,
+    exclude === 'roomGroup' ? 'all' : filters.roomGroup,
+    exclude === 'roomId' ? 'all' : filters.roomId
+  );
+}
+
 // Labels for CSV export (aligned with TaskTableRow)
 const statusLabels: Record<string, string> = {
   todo: "Do sprzątania",
@@ -304,33 +337,94 @@ export default function Tasks({
 
   const housekeepingStaff = useMemo(() => allStaff.filter(s => s.role === 'housekeeping'), [allStaff]);
 
-  const filteredTasks = useMemo(() => {
+  // Date-scoped base — no staff/status/room filters yet
+  const baseTabTasks = useMemo(() => {
     let result = tasks;
-
     if (activeTab === 'today') {
-      result = result.filter(task => task.date === todayDate);
+      return result.filter(task => task.date === todayDate);
+    } else if (activeTab === 'open') {
+      result = result.filter(task => task.date > todayDate && OPEN_TASK_STATUSES.has(task.status));
+      if (filters.date) result = result.filter(task => task.date === filters.date);
+      return result;
+    } else {
+      if (dateRangeFrom != null || dateRangeTo != null) {
+        const from = dateRangeFrom ?? '0000-01-01';
+        const to = dateRangeTo ?? '9999-12-31';
+        result = result.filter(task => task.date >= from && task.date <= to);
+      }
+      return result;
+    }
+  }, [activeTab, tasks, todayDate, filters.date, dateRangeFrom, dateRangeTo]);
+
+  // All four non-date filters applied client-side
+  const filteredTasks = useMemo(() => {
+    const result = applyNonDateFilters(
+      baseTabTasks,
+      filters.status,
+      filters.staffId,
+      filters.roomGroup,
+      filters.roomId
+    );
+    if (activeTab === 'today') {
       return [...result].sort((a, b) => {
         const ao = a.display_order ?? Infinity;
         const bo = b.display_order ?? Infinity;
         if (ao !== bo) return ao - bo;
         return (a.created_at ?? '').localeCompare(b.created_at ?? '');
       });
-    } else if (activeTab === 'open') {
-      result = result.filter(task => task.date > todayDate && OPEN_TASK_STATUSES.has(task.status));
-      if (filters.date) {
-        result = result.filter(task => task.date === filters.date);
-      }
-    } else {
-      // archive: date < today is already ensured by backend scope
-      if (dateRangeFrom != null || dateRangeTo != null) {
-        const from = dateRangeFrom ?? '0000-01-01';
-        const to = dateRangeTo ?? '9999-12-31';
-        result = result.filter(task => task.date >= from && task.date <= to);
-      }
     }
-
     return result;
-  }, [activeTab, tasks, todayDate, filters.date, dateRangeFrom, dateRangeTo]);
+  }, [baseTabTasks, filters.status, filters.staffId, filters.roomGroup, filters.roomId, activeTab]);
+
+  // Cascading valid-option sets — each excludes itself to avoid self-narrowing
+  const validStatuses = useMemo(() =>
+    new Set(tasksExcluding(baseTabTasks, filters, 'status').map(t => t.status)),
+    [baseTabTasks, filters.staffId, filters.roomGroup, filters.roomId]
+  );
+  const validStaffIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const t of tasksExcluding(baseTabTasks, filters, 'staffId')) {
+      ids.add(t.user?.id ?? 'unassigned');
+    }
+    return ids;
+  }, [baseTabTasks, filters.status, filters.roomGroup, filters.roomId]);
+  const validRoomGroups = useMemo(() =>
+    new Set(tasksExcluding(baseTabTasks, filters, 'roomGroup').map(t => t.room.group_type)),
+    [baseTabTasks, filters.status, filters.staffId, filters.roomId]
+  );
+  const validRoomIds = useMemo(() =>
+    new Set(tasksExcluding(baseTabTasks, filters, 'roomId').map(t => t.room.id)),
+    [baseTabTasks, filters.status, filters.staffId, filters.roomGroup]
+  );
+
+  // Cascaded option lists derived from valid sets
+  const cascadedStaff = useMemo(() =>
+    housekeepingStaff.filter(s => validStaffIds.has(s.id)),
+    [housekeepingStaff, validStaffIds]
+  );
+  const cascadedRooms = useMemo(() =>
+    availableRooms.filter(r => validRoomIds.has(r.id)),
+    [availableRooms, validRoomIds]
+  );
+  const cascadedRoomGroups = useMemo(() =>
+    allRoomGroups.filter(rg => rg.value === 'all' || validRoomGroups.has(rg.value as RoomGroup)),
+    [validRoomGroups]
+  );
+  const hasUnassigned = useMemo(() => validStaffIds.has('unassigned'), [validStaffIds]);
+
+  // Auto-reset stale filter values when they're no longer valid
+  useEffect(() => {
+    if (filters.status !== 'all' && !validStatuses.has(filters.status as TaskStatus)) onStatusChange('all');
+  }, [validStatuses, filters.status, onStatusChange]);
+  useEffect(() => {
+    if (filters.staffId !== 'all' && !validStaffIds.has(filters.staffId)) onStaffChange('all');
+  }, [validStaffIds, filters.staffId, onStaffChange]);
+  useEffect(() => {
+    if (filters.roomGroup !== 'all' && !validRoomGroups.has(filters.roomGroup as RoomGroup)) onRoomGroupChange('all');
+  }, [validRoomGroups, filters.roomGroup, onRoomGroupChange]);
+  useEffect(() => {
+    if (filters.roomId !== 'all' && !validRoomIds.has(filters.roomId)) onRoomChange('all');
+  }, [validRoomIds, filters.roomId, onRoomChange]);
 
   const todayCount = useMemo(() => {
     const source = cachedUpcomingTasks.length > 0 ? cachedUpcomingTasks : tasks;
@@ -793,9 +887,9 @@ export default function Tasks({
                 staffId={filters.staffId}
                 roomGroup={filters.roomGroup}
                 roomId={filters.roomId}
-                staff={housekeepingStaff}
-                availableRooms={availableRooms}
-                roomGroups={allRoomGroups}
+                staff={cascadedStaff}
+                availableRooms={cascadedRooms}
+                roomGroups={cascadedRoomGroups}
                 onDateChange={onDateChange}
                 onStatusChange={onStatusChange}
                 onStaffChange={onStaffChange}
@@ -805,6 +899,8 @@ export default function Tasks({
                 showRoomGroupFilter={true}
                 showDoneStatus={true}
                 lockedDate={todayDate}
+                availableStatusValues={validStatuses}
+                showUnassigned={hasUnassigned}
               />
               {isFilterActive && (
                 <p className="mt-2 text-xs text-muted-foreground">Wyczyść filtry, aby zmienić kolejność zadań.</p>
@@ -850,9 +946,9 @@ export default function Tasks({
                 staffId={filters.staffId}
                 roomGroup={filters.roomGroup}
                 roomId={filters.roomId}
-                staff={housekeepingStaff}
-                availableRooms={availableRooms}
-                roomGroups={allRoomGroups}
+                staff={cascadedStaff}
+                availableRooms={cascadedRooms}
+                roomGroups={cascadedRoomGroups}
                 onDateChange={onDateChange}
                 onStatusChange={onStatusChange}
                 onStaffChange={onStaffChange}
@@ -861,6 +957,8 @@ export default function Tasks({
                 onClearFilters={onClearFilters}
                 showRoomGroupFilter={true}
                 allowPastDates={false}
+                availableStatusValues={validStatuses}
+                showUnassigned={hasUnassigned}
               />
             </CardContent>
           </Card>
@@ -902,9 +1000,9 @@ export default function Tasks({
                 staffId={filters.staffId}
                 roomGroup={filters.roomGroup}
                 roomId={filters.roomId}
-                staff={housekeepingStaff}
-                availableRooms={availableRooms}
-                roomGroups={allRoomGroups}
+                staff={cascadedStaff}
+                availableRooms={cascadedRooms}
+                roomGroups={cascadedRoomGroups}
                 onDateChange={onDateChange}
                 onStatusChange={onStatusChange}
                 onStaffChange={onStaffChange}
@@ -915,6 +1013,8 @@ export default function Tasks({
                 allowPastDates={true}
                 showDoneStatus={true}
                 showDateRange={true}
+                availableStatusValues={validStatuses}
+                showUnassigned={hasUnassigned}
                 dateRangeFrom={dateRangeFrom}
                 dateRangeTo={dateRangeTo}
                 onDateRangeChange={(from, to) => {

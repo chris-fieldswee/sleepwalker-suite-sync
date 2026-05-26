@@ -58,6 +58,8 @@ interface TaskFiltersProps {
   dateRangeTo?: string | null;
   onDateRangeChange?: (from: string | null, to: string | null) => void;
   lockedDate?: string | null;
+  availableStatusValues?: Set<string>;
+  showUnassigned?: boolean;
 }
 
 export const TaskFilters = ({
@@ -85,6 +87,8 @@ export const TaskFilters = ({
   dateRangeTo = null,
   onDateRangeChange,
   lockedDate = null,
+  availableStatusValues,
+  showUnassigned = true,
 }: TaskFiltersProps) => {
   // Filter available rooms based on selected room group
   const filteredRooms = useMemo(() => {
@@ -94,13 +98,15 @@ export const TaskFilters = ({
     return availableRooms.filter(room => room.group_type === roomGroup);
   }, [availableRooms, roomGroup]);
 
-  // Build status options list - include "done" status if showDoneStatus is true
   const filterableStatuses = useMemo(() => {
-    if (showDoneStatus) {
-      return [...baseFilterableStatuses, ...doneStatusOption];
+    let statuses = showDoneStatus
+      ? [...baseFilterableStatuses, ...doneStatusOption]
+      : baseFilterableStatuses;
+    if (availableStatusValues && availableStatusValues.size > 0) {
+      statuses = statuses.filter(s => s.value === 'all' || availableStatusValues.has(s.value));
     }
-    return baseFilterableStatuses;
-  }, [showDoneStatus]);
+    return statuses;
+  }, [showDoneStatus, availableStatusValues]);
 
   const handleDateSelect = (date: Date | undefined) => {
     onDateChange(date ? format(date, "yyyy-MM-dd") : null);
@@ -294,7 +300,7 @@ export const TaskFilters = ({
           </SelectTrigger>
           <SelectContent className="bg-card z-50">
             <SelectItem value="all" className="text-sm">Cały personel</SelectItem>
-            <SelectItem value="unassigned" className="text-sm">Nieprzypisane</SelectItem>
+            {showUnassigned && <SelectItem value="unassigned" className="text-sm">Nieprzypisane</SelectItem>}
             {staff.map(s => (
               <SelectItem key={s.id} value={s.id} className="text-sm">
                 {s.name}

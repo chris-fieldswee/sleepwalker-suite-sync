@@ -165,15 +165,6 @@ export function useReceptionData() {
          }
        }
 
-       if (status !== "all") {
-         query = query.eq("status", status);
-       }
-
-       if (staffId !== "all") {
-          if (staffId === "unassigned") query = query.is("user_id", null);
-          else query = query.eq("user_id", staffId);
-       }
-
        if (from !== undefined && to !== undefined) {
          query = query.range(from, to);
        }
@@ -212,20 +203,9 @@ export function useReceptionData() {
         toast({ title: "Error", description: `Failed to fetch tasks: ${error.message}`, variant: "destructive" });
         return [];
     } else {
-        console.log(`Fetched ${data?.length || 0} tasks (scope: ${taskFetchScope}, date: ${date}, status: ${status})`);
-        // Client-side filter for room group
-        let filteredData = data || [];
-        if (roomGroup !== 'all') {
-            filteredData = filteredData.filter((task: any) => task.room.group_type === roomGroup);
-        }
-        // Client-side filter for room ID (if not 'all')
-        if (roomId !== 'all') {
-            // Ensure room_id exists before filtering
-            filteredData = filteredData.filter((task: any) => task.room && task.room.id === roomId);
-        }
-
+        console.log(`Fetched ${data?.length || 0} tasks (scope: ${taskFetchScope}, date: ${date})`);
         // Construct display name for user
-        const tasksWithDisplayNames = filteredData.map((task: any) => ({
+        const tasksWithDisplayNames = (data || []).map((task: any) => ({
           ...task,
           user: task.user ? {
             ...task.user,
@@ -510,8 +490,8 @@ export function useReceptionData() {
         if (workLogChannel) supabase.removeChannel(workLogChannel).catch(err => console.error("Error removing work log channel:", err));
         if (issuesChannel) supabase.removeChannel(issuesChannel).catch(err => console.error("Error removing issues channel:", err));
     };
-  // Re-run effect if any filter changes
-  }, [filterDate, filterStatus, filterStaffId, filterRoomGroup, filterRoomId, taskFetchScope, fetchStaff, fetchRooms, fetchTasks, fetchWorkLogs, fetchAllTasksForStats, fetchOpenIssuesCount, fetchAllTasksTotalCount, fetchDashboardTaskCounts, toast]);
+  // Re-run only when date scope changes; staff/status/room filters are applied client-side
+  }, [filterDate, taskFetchScope, fetchStaff, fetchRooms, fetchTasks, fetchWorkLogs, fetchAllTasksForStats, fetchOpenIssuesCount, fetchAllTasksTotalCount, fetchDashboardTaskCounts, toast]);
 
   // --- Actions ---
   const handleRefresh = async () => {
