@@ -42,17 +42,17 @@ All colors MUST be HSL.
     --brand-primary: 353 58% 31%;
     --brand-primary-foreground: 0 0% 100%;
 
-    /* Status badge colors */
-    --status-todo: 220 2% 71%;
-    --status-todo-foreground: 220 2% 29%;
-    --status-in-progress: 47 95% 49%;
-    --status-in-progress-foreground: 40 32% 23%;
-    --status-paused: 29 82% 60%;
-    --status-paused-foreground: 28 32% 23%;
-    --status-done: 154 40% 52%;
-    --status-done-foreground: 153 27% 20%;
-    --status-repair: 215 15% 82%;
-    --status-repair-foreground: 215 15% 35%;
+    /* Status badge colors — bg first, foreground second */
+    --status-todo: 220 2% 29%;
+    --status-todo-foreground: 220 2% 71%;
+    --status-in-progress: 40 32% 23%;
+    --status-in-progress-foreground: 47 95% 49%;
+    --status-paused: 28 32% 23%;
+    --status-paused-foreground: 29 83% 60%;
+    --status-done: 153 27% 20%;
+    --status-done-foreground: 154 42% 52%;
+    --status-repair: 215 15% 35%;
+    --status-repair-foreground: 215 15% 82%;
     
     /* Room group colors */
     --room-p1: 220 13% 91%;
