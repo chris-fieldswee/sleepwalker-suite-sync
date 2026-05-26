@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableHeader, TableRow, TableHead } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Download, GripVertical, List, Users, CalendarDays } from "lucide-react";
+import { RefreshCw, Download, GripVertical, List, Users, CalendarDays, Tag } from "lucide-react";
 import { CAPACITY_ID_TO_LABEL } from "@/lib/capacity-utils";
 import { TaskFilters, type RoomGroupOption } from "@/components/reception/TaskFilters";
 import { TaskTableRow } from "@/components/reception/TaskTableRow";
@@ -261,9 +261,10 @@ export default function Tasks({
   const [activeTab, setActiveTab] = useState<"today" | "open" | "archive">("today");
   const [dateRangeFrom, setDateRangeFrom] = useState<string | null>(null);
   const [dateRangeTo, setDateRangeTo] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'flat' | 'grouped'>(() =>
-    (localStorage.getItem('taskListViewMode') as 'flat' | 'grouped') ?? 'flat'
-  );
+  const [viewMode, setViewMode] = useState<'flat' | 'grouped' | 'status'>(() => {
+    const stored = localStorage.getItem('taskListViewMode');
+    return (stored === 'flat' || stored === 'grouped' || stored === 'status') ? stored : 'flat';
+  });
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [optimisticTaskIds, setOptimisticTaskIds] = useState<string[] | null>(null);
   const taskOrder = useTaskOrder();
@@ -390,6 +391,24 @@ export default function Tasks({
       });
     }
     return [...byDate.entries()].sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
+  }, [viewMode, activeTab, displayTasks]);
+
+  const STATUS_VIEW_ORDER: TaskStatus[] = ['in_progress', 'paused', 'todo', 'repair_needed', 'done'];
+  const STATUS_VIEW_LABELS: Record<string, string> = {
+    in_progress: 'W trakcie',
+    paused: 'Wstrzymane',
+    todo: 'Do sprzątania',
+    repair_needed: 'Naprawa',
+    done: 'Gotowe',
+  };
+
+  const statusGroupedTasks = useMemo(() => {
+    if (viewMode !== 'status' || activeTab !== 'today') return null;
+    return STATUS_VIEW_ORDER.map(status => ({
+      status,
+      label: STATUS_VIEW_LABELS[status],
+      tasks: displayTasks.filter(t => t.status === status),
+    }));
   }, [viewMode, activeTab, displayTasks]);
 
   const toggleGroupCollapsed = useCallback((key: string) => {
@@ -651,6 +670,43 @@ export default function Tasks({
     </div>
   );
 
+  const renderStatusGroupedView = (groups: { status: string; label: string; tasks: Task[] }[]) => (
+    <div className="space-y-2 p-4">
+      {groups.map(({ status, label, tasks }) => {
+        const isCollapsed = collapsedGroups.has(status);
+        return (
+          <div key={status} className="border rounded-lg overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-4 py-2 bg-muted/40 hover:bg-muted/70 transition-colors text-sm font-medium"
+              onClick={() => toggleGroupCollapsed(status)}
+            >
+              <div className="flex items-center gap-2">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                <span>{label}</span>
+                <span className="text-xs text-muted-foreground font-normal">({tasks.length})</span>
+              </div>
+              <span className="text-muted-foreground text-xs">{isCollapsed ? '▶' : '▼'}</span>
+            </button>
+            {!isCollapsed && (
+              tasks.length === 0 ? (
+                <div className="px-4 py-3 text-sm text-muted-foreground italic">Brak zadań</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    {tableHeaders(false)}
+                    <TableBody>
+                      {tasks.map(task => <TaskTableRow key={task.id} task={task} {...commonRowProps} />)}
+                    </TableBody>
+                  </Table>
+                </div>
+              )
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   const renderEmpty = (emptyMessage: string) => (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <p className="text-lg font-medium text-muted-foreground">{emptyMessage}</p>
@@ -667,7 +723,7 @@ export default function Tasks({
     ) : taskList.length === 0 ? renderEmpty(emptyMessage) : renderFlatTable(taskList, false)
   );
 
-  const viewToggle = (groupIcon: JSX.Element) => (
+  const viewToggle = (groupIcon: JSX.Element, showStatusButton?: boolean) => (
     <div className="flex items-center gap-2 ml-auto">
       <span className="text-sm text-muted-foreground">Widok:</span>
       <div className="flex rounded-md border overflow-hidden">
@@ -677,6 +733,11 @@ export default function Tasks({
         <Button variant={viewMode === 'grouped' ? 'default' : 'ghost'} size="sm" className="rounded-none h-8 px-2 border-l" onClick={() => setViewMode('grouped')}>
           {groupIcon}
         </Button>
+        {showStatusButton && (
+          <Button variant={viewMode === 'status' ? 'default' : 'ghost'} size="sm" className="rounded-none h-8 px-2 border-l" onClick={() => setViewMode('status')}>
+            <Tag className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -722,7 +783,7 @@ export default function Tasks({
             <CardHeader className="py-4">
               <div className="flex items-center gap-4">
                 <CardTitle className="text-lg">Filtry</CardTitle>
-                {viewToggle(<Users className="h-4 w-4" />)}
+                {viewToggle(<Users className="h-4 w-4" />, true)}
               </div>
             </CardHeader>
             <CardContent className="pt-0 pb-4">
@@ -763,6 +824,8 @@ export default function Tasks({
                 </div>
               ) : displayTasks.length === 0 ? renderEmpty("Brak zadań na dzisiaj.") : viewMode === 'grouped' && groupedTasks ? (
                 renderGroupedView(displayTasks, groupedTasks, canDragToday)
+              ) : viewMode === 'status' && statusGroupedTasks ? (
+                renderStatusGroupedView(statusGroupedTasks)
               ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={canDragToday ? handleFlatDragEnd : () => {}}>
                   {renderFlatTable(displayTasks, canDragToday)}
