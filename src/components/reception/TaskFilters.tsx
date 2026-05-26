@@ -163,7 +163,7 @@ export const TaskFilters = ({
                   className={cn(
                     "w-full justify-start text-left font-normal h-9 text-sm bg-card",
                     !dateRangeFrom && "text-muted-foreground",
-                    dateRangeFrom && "border-[#7d212b]"
+                    dateRangeFrom && "border-brand-primary"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
@@ -193,7 +193,7 @@ export const TaskFilters = ({
                   className={cn(
                     "w-full justify-start text-left font-normal h-9 text-sm bg-card",
                     !dateRangeTo && "text-muted-foreground",
-                    dateRangeTo && "border-[#7d212b]"
+                    dateRangeTo && "border-brand-primary"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
@@ -222,7 +222,7 @@ export const TaskFilters = ({
             variant="outline"
             disabled
             className={cn(
-              "w-full justify-start text-left font-normal h-9 text-sm bg-card border-[#7d212b]"
+              "w-full justify-start text-left font-normal h-9 text-sm bg-card border-brand-primary"
             )}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
@@ -239,7 +239,7 @@ export const TaskFilters = ({
                 className={cn(
                   "w-full justify-start text-left font-normal h-9 text-sm bg-card",
                   !date && "text-muted-foreground",
-                  date && "border-[#7d212b]"
+                  date && "border-brand-primary"
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -270,7 +270,7 @@ export const TaskFilters = ({
             id="status-filter" 
             className={cn(
               "bg-card h-9 text-sm",
-              status !== 'all' && "border-[#7d212b]"
+              status !== 'all' && "border-brand-primary"
             )}
           >
             <SelectValue placeholder="Filtruj status..." />
@@ -293,7 +293,7 @@ export const TaskFilters = ({
             id="staff-filter" 
             className={cn(
               "bg-card h-9 text-sm",
-              staffId !== 'all' && staffId !== 'unassigned' && "border-[#7d212b]"
+              staffId !== 'all' && staffId !== 'unassigned' && "border-brand-primary"
             )}
           >
             <SelectValue placeholder="Filtruj personel..." />
@@ -319,7 +319,7 @@ export const TaskFilters = ({
               id="group-filter" 
               className={cn(
                 "bg-card h-9 text-sm",
-                roomGroup !== 'all' && "border-[#7d212b]"
+                roomGroup !== 'all' && "border-brand-primary"
               )}
             >
               <SelectValue placeholder="Filtruj grupę..." />
@@ -345,7 +345,7 @@ export const TaskFilters = ({
             id="room-filter" 
             className={cn(
               "bg-card h-9 text-sm",
-              roomId !== 'all' && "border-[#7d212b]"
+              roomId !== 'all' && "border-brand-primary"
             )}
           >
             <SelectValue placeholder="Filtruj pokój..." />

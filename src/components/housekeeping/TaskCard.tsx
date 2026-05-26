@@ -85,7 +85,7 @@ export function TaskCard({
       className={cn(
         "overflow-hidden transition-all duration-300 cursor-pointer",
         isActive 
-          ? `ring-2 ring-offset-2 ring-status-todo shadow-lg` 
+          ? `ring-2 ring-offset-2 ring-brand-primary shadow-lg`
           : 'shadow-sm hover:shadow-md',
       )}
       onClick={() => {
@@ -109,7 +109,7 @@ export function TaskCard({
           {/* #endregion */}
         </div>
         {/* Apply status color utility */}
-        <Badge className={cn(getStatusColor(task.status), "text-xs ml-2 flex-shrink-0 text-white font-medium px-2 py-0.5")}>
+        <Badge className={cn(getStatusColor(task.status), "text-xs ml-2 flex-shrink-0 font-medium px-2 py-0.5")}>
           {getStatusLabel(task.status)}
         </Badge>
       </CardHeader>
@@ -152,7 +152,7 @@ export function TaskCard({
           <Button
             size="sm"
             variant="outline"
-            className="border-status-todo/30 text-status-todo hover:bg-status-todo/10 hover:border-status-todo"
+            className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10 hover:border-brand-primary"
             onClick={(e) => {
               e.stopPropagation();
               // #region agent log

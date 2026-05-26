@@ -57,12 +57,21 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        brand: {
+          primary: "hsl(var(--brand-primary))",
+          "primary-foreground": "hsl(var(--brand-primary-foreground))",
+        },
         status: {
           todo: "hsl(var(--status-todo))",
+          "todo-foreground": "hsl(var(--status-todo-foreground))",
           "in-progress": "hsl(var(--status-in-progress))",
+          "in-progress-foreground": "hsl(var(--status-in-progress-foreground))",
           paused: "hsl(var(--status-paused))",
+          "paused-foreground": "hsl(var(--status-paused-foreground))",
           done: "hsl(var(--status-done))",
+          "done-foreground": "hsl(var(--status-done-foreground))",
           repair: "hsl(var(--status-repair))",
+          "repair-foreground": "hsl(var(--status-repair-foreground))",
         },
         room: {
           p1: "hsl(var(--room-p1))",

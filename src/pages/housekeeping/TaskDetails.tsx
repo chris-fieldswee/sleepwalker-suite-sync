@@ -170,13 +170,13 @@ export default function TaskDetails() {
     return (
         <div className="min-h-screen bg-background pb-24">
             {/* Header with Branding, Back and Sign Out */}
-            <header className="sticky top-0 z-50 bg-card border-b-2 border-status-todo/20 shadow-sm">
+            <header className="sticky top-0 z-50 bg-card border-b-2 border-brand-primary/20 shadow-sm">
                 <div className="container mx-auto px-4 py-3 flex items-center justify-between">
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => navigate("/housekeeping")}
-                        className="h-10 w-10 hover:bg-status-todo/10"
+                        className="h-10 w-10 hover:bg-brand-primary/10"
                     >
                         <ArrowLeft className="h-5 w-5" />
                         <span className="sr-only">Wróć</span>
@@ -195,7 +195,7 @@ export default function TaskDetails() {
                         variant="ghost"
                         size="icon"
                         onClick={signOut}
-                        className="h-10 w-10 hover:bg-status-todo/10"
+                        className="h-10 w-10 hover:bg-brand-primary/10"
                     >
                         <LogOut className="h-5 w-5" />
                         <span className="sr-only">Wyloguj</span>
@@ -220,7 +220,7 @@ export default function TaskDetails() {
                                     })}
                                 </p>
                             </div>
-                            <Badge className={cn(getStatusColor(task.status), "text-white")}>
+                            <Badge className={cn(getStatusColor(task.status))}>
                                 {getStatusLabel(task.status)}
                             </Badge>
                         </div>
@@ -332,7 +332,7 @@ export default function TaskDetails() {
                     {canStart && (
                         <Button
                             size="lg"
-                            className="w-full h-16 text-lg bg-status-todo hover:bg-status-todo/90 text-white"
+                            className="w-full h-16 text-lg bg-brand-primary hover:bg-brand-primary/90 text-brand-primary-foreground"
                             onClick={() => taskActions.handleStart(task.id)}
                         >
                             <Play className="mr-2 h-6 w-6" />
@@ -355,7 +355,7 @@ export default function TaskDetails() {
                     {canResume && (
                         <Button
                             size="lg"
-                            className="w-full h-16 text-lg bg-status-todo hover:bg-status-todo/90 text-white"
+                            className="w-full h-16 text-lg bg-brand-primary hover:bg-brand-primary/90 text-brand-primary-foreground"
                             onClick={() => taskActions.handleResume(task.id)}
                         >
                             <Play className="mr-2 h-6 w-6" />

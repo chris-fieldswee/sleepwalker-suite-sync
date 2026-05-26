@@ -122,7 +122,10 @@ export function useBatchTaskWizard({ allStaff, onSubmit }: UseBatchTaskWizardPar
     allTasks.length > 0 &&
     allTasks.every(t => t.roomId !== '' && t.status !== 'submitting');
 
-  const submit = async () => {
+  const submit = async (): Promise<{ succeeded: number; failed: number }> => {
+    let succeeded = 0;
+    let failed = 0;
+
     for (const group of groups) {
       for (const task of group.tasks) {
         if (task.status === 'success' || !task.roomId) continue;
@@ -143,18 +146,21 @@ export function useBatchTaskWizard({ allStaff, onSubmit }: UseBatchTaskWizardPar
           date,
         };
 
-        const succeeded = await onSubmit(newTaskState);
+        const ok = await onSubmit(newTaskState);
+        if (ok) succeeded++; else failed++;
 
         setGroups(prev => prev.map(g =>
           g.id !== group.id ? g : {
             ...g,
             tasks: g.tasks.map(t =>
-              t.id !== task.id ? t : { ...t, status: succeeded ? 'success' : 'error' }
+              t.id !== task.id ? t : { ...t, status: ok ? 'success' : 'error' }
             ),
           }
         ));
       }
     }
+
+    return { succeeded, failed };
   };
 
   return {

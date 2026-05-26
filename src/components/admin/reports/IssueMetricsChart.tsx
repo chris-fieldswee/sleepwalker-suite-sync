@@ -174,7 +174,7 @@ export function IssueMetricsChart({ issues }: IssueMetricsChartProps) {
                 id="status-filter" 
                 className={cn(
                   "bg-card h-9 text-sm w-[200px]",
-                  statusFilter !== 'all' && "border-[#7d212b]"
+                  statusFilter !== 'all' && "border-brand-primary"
                 )}
               >
                 <SelectValue placeholder="Filtruj status..." />

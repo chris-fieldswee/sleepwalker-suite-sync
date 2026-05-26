@@ -266,7 +266,7 @@ export default function Housekeeping() {
             <div className="flex-1">
               <span className="text-base font-medium text-foreground">
                 {userName ? (
-                  <>Hej, <strong className="text-status-todo">{userName}</strong>!</>
+                  <>Hej, <strong className="text-brand-primary">{userName}</strong>!</>
                 ) : (
                   <span className="text-muted-foreground">{user?.email || ''}</span>
                 )}
@@ -287,7 +287,7 @@ export default function Housekeeping() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 rounded-full hover:bg-status-todo/10"
+                className="h-10 w-10 rounded-full hover:bg-brand-primary/10"
                 onClick={fetchTasks}
                 title="Odśwież zadania"
               >
@@ -297,7 +297,7 @@ export default function Housekeeping() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 rounded-full hover:bg-status-todo/10"
+                className="h-10 w-10 rounded-full hover:bg-brand-primary/10"
                 onClick={signOut}
               >
                 <LogOut className="h-5 w-5" />
@@ -312,7 +312,7 @@ export default function Housekeeping() {
       <main className="container mx-auto p-4">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-status-todo border-t-transparent" />
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-primary border-t-transparent" />
             <span className="ml-2">Ładowanie zadań...</span>
           </div>
         ) : (
@@ -323,7 +323,7 @@ export default function Housekeeping() {
               <TabsTrigger 
                 value="open" 
                 className={cn(
-                  "relative data-[state=active]:bg-status-todo data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+                  "relative data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
                 )}
               >
                 Zadania otwarte
@@ -342,7 +342,7 @@ export default function Housekeeping() {
               <TabsTrigger 
                 value="all" 
                 className={cn(
-                  "relative data-[state=active]:bg-status-todo data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+                  "relative data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
                 )}
               >
                 Wszystkie zadania
@@ -370,11 +370,11 @@ export default function Housekeeping() {
                       <div className="flex items-center gap-2">
                         <Filter className={cn(
                           "h-4 w-4",
-                          (dateFilter || statusFilter !== 'all') ? "text-status-todo" : "text-muted-foreground"
+                          (dateFilter || statusFilter !== 'all') ? "text-brand-primary" : "text-muted-foreground"
                         )} />
                         <span className="font-medium text-sm">Filtry</span>
                         {(dateFilter || statusFilter !== 'all') && (
-                          <Badge variant="secondary" className="h-5 px-1.5 text-xs bg-status-todo/10 text-status-todo border-status-todo/20">
+                          <Badge variant="secondary" className="h-5 px-1.5 text-xs bg-brand-primary/10 text-brand-primary border-brand-primary/20">
                             Aktywne
                           </Badge>
                         )}
@@ -402,7 +402,7 @@ export default function Housekeeping() {
                               className={cn(
                                 "w-full justify-start text-left font-normal h-9",
                                 !dateFilter && "text-muted-foreground",
-                                dateFilter && "border-status-todo text-status-todo"
+                                dateFilter && "border-brand-primary text-brand-primary"
                               )}
                             >
                               <CalendarIcon className="mr-2 h-4 w-4" />
@@ -441,7 +441,7 @@ export default function Housekeeping() {
                             id="open-status-filter" 
                             className={cn(
                               "h-9",
-                              statusFilter !== 'all' && "border-status-todo text-status-todo"
+                              statusFilter !== 'all' && "border-brand-primary text-brand-primary"
                             )}
                           >
                             <SelectValue placeholder="Wybierz status" />
@@ -519,11 +519,11 @@ export default function Housekeeping() {
                       <div className="flex items-center gap-2">
                         <Filter className={cn(
                           "h-4 w-4",
-                          (dateFilter || statusFilter !== 'all') ? "text-status-todo" : "text-muted-foreground"
+                          (dateFilter || statusFilter !== 'all') ? "text-brand-primary" : "text-muted-foreground"
                         )} />
                         <span className="font-medium text-sm">Filtry</span>
                         {(dateFilter || statusFilter !== 'all') && (
-                          <Badge variant="secondary" className="h-5 px-1.5 text-xs bg-status-todo/10 text-status-todo border-status-todo/20">
+                          <Badge variant="secondary" className="h-5 px-1.5 text-xs bg-brand-primary/10 text-brand-primary border-brand-primary/20">
                             Aktywne
                           </Badge>
                         )}
@@ -551,7 +551,7 @@ export default function Housekeeping() {
                               className={cn(
                                 "w-full justify-start text-left font-normal h-9",
                                 !dateFilter && "text-muted-foreground",
-                                dateFilter && "border-status-todo text-status-todo"
+                                dateFilter && "border-brand-primary text-brand-primary"
                               )}
                             >
                               <CalendarIcon className="mr-2 h-4 w-4" />
@@ -590,7 +590,7 @@ export default function Housekeeping() {
                             id="all-status-filter" 
                             className={cn(
                               "h-9",
-                              statusFilter !== 'all' && "border-status-todo text-status-todo"
+                              statusFilter !== 'all' && "border-brand-primary text-brand-primary"
                             )}
                           >
                             <SelectValue placeholder="Wybierz status" />
@@ -661,17 +661,17 @@ export default function Housekeeping() {
       </main>
 
       {/* Fixed Bottom Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-status-todo/20 shadow-lg z-40">
+      <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-brand-primary/20 shadow-lg z-40">
         <div className="container mx-auto px-4 pt-3 pb-8">
           {/* Progress Bar */}
           <div className="mb-3">
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="font-medium text-foreground">Postęp</span>
-              <span className="font-semibold text-status-todo">{progress.count}/{progress.total} ({progress.percentage}%)</span>
+              <span className="font-semibold text-brand-primary">{progress.count}/{progress.total} ({progress.percentage}%)</span>
             </div>
             <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-muted">
               <div 
-                className="h-full bg-status-todo transition-all duration-300"
+                className="h-full bg-brand-primary transition-all duration-300"
                 style={{ width: `${progress.percentage}%` }}
                 aria-label={`Postęp zadań ${progress.percentage}%`}
               />

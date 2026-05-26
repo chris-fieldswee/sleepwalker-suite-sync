@@ -99,7 +99,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4" style={{ backgroundColor: '#7d212b' }}>
+    <div className="flex min-h-screen items-center justify-center p-4" style={{ backgroundColor: 'hsl(var(--brand-primary))' }}>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">

@@ -854,11 +854,11 @@ export function TaskDetailDialog({
     const getStatusColor = (status: string) => {
         // ... (keep existing getStatusColor) ...
         const colors: Record<string, string> = {
-            todo: "bg-status-todo text-white",
-            in_progress: "bg-status-in-progress text-white",
-            paused: "bg-status-paused text-white",
-            done: "bg-status-done text-white",
-            repair_needed: "bg-status-repair text-white"
+            todo: "bg-status-todo text-status-todo-foreground",
+            in_progress: "bg-status-in-progress text-status-in-progress-foreground",
+            paused: "bg-status-paused text-status-paused-foreground",
+            done: "bg-status-done text-status-done-foreground",
+            repair_needed: "bg-status-repair text-status-repair-foreground"
         };
         return colors[status] || "bg-muted";
     };

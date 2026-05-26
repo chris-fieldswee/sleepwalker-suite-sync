@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useToast } from "@/hooks/use-toast";
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -418,6 +419,7 @@ export function BatchTaskWizard({ availableRooms, allStaff, onSubmit, isSubmitti
     const [open, setOpen] = useState(false);
     const [datePickerOpen, setDatePickerOpen] = useState(false);
     const [taskRoomGroups, setTaskRoomGroups] = useState<Record<string, string>>({});
+    const { toast } = useToast();
 
     const wizard = useBatchTaskWizard({ allStaff, onSubmit });
 
@@ -436,7 +438,13 @@ export function BatchTaskWizard({ availableRooms, allStaff, onSubmit, isSubmitti
     };
 
     const handleSubmit = async () => {
-        await wizard.submit();
+        const result = await wizard.submit();
+        if (result.failed === 0 && result.succeeded > 0) {
+            handleClose();
+            toast({
+                description: `${result.succeeded} ${result.succeeded === 1 ? 'zadanie zostało dodane' : result.succeeded < 5 ? 'zadania zostały dodane' : 'zadań zostało dodanych'}.`,
+            });
+        }
     };
 
     const allDone = wizard.groups.length > 0 &&
