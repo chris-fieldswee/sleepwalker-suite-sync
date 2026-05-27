@@ -223,6 +223,11 @@ export function useReceptionActions(
 
             const allowsMultipleAssignments = isMultipleAssignmentLocation(selectedRoom.name);
 
+            // Resolve staff user ID up front so it's available for both the per-person check and the INSERT.
+            const staffUserId = (newTask.staffId === 'unassigned' || newTask.staffId === '' || !newTask.staffId)
+                ? null
+                : newTask.staffId;
+
             // Ensure there is no other open task for this location on the same date,
             // except for locations that can be split across multiple housekeepers.
             const { data: existingOpenTasks, error: existingOpenTasksError } = await supabase
@@ -247,13 +252,13 @@ export function useReceptionActions(
             }
 
             // For multiple-assignment locations, enforce one task per person per day
-            if (allowsMultipleAssignments && userId) {
+            if (allowsMultipleAssignments && staffUserId) {
               const { data: existingPersonTasks, error: personTasksError } = await supabase
                 .from('tasks')
                 .select('id')
                 .eq('date', newTask.date)
                 .eq('room_id', resolvedRoomId)
-                .eq('user_id', userId)
+                .eq('user_id', staffUserId)
                 .in('status', OPEN_TASK_STATUSES);
 
               if (personTasksError) {
@@ -393,11 +398,6 @@ export function useReceptionActions(
               }
             }
 
-            // Handle user_id: convert 'unassigned' or empty string to null
-            const userId = (newTask.staffId === 'unassigned' || newTask.staffId === '' || !newTask.staffId) 
-                ? null 
-                : newTask.staffId;
-
             const todayStr = new Date().toISOString().split('T')[0];
             let display_order: number | null = null;
             if (newTask.date === todayStr) {
@@ -419,7 +419,7 @@ export function useReceptionActions(
                 guest_count: newTask.capacityId, // guest_count now stores capacity_id
                 time_limit: timeLimit,
                 reception_notes: newTask.notes || null,
-                user_id: userId,
+                user_id: staffUserId,
                 status: 'todo' as const,
                 display_order,
             };
