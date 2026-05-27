@@ -481,7 +481,7 @@ export default function Tasks({
         if (a.display_order != null && b.display_order != null) return a.display_order - b.display_order;
         if (a.display_order != null) return -1;
         if (b.display_order != null) return 1;
-        return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+        return (a.created_at ?? '').localeCompare(b.created_at ?? '');
       });
     }
     return [...byDate.entries()].sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
