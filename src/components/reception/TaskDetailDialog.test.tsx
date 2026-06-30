@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TaskDetailDialog } from './TaskDetailDialog';
@@ -142,6 +142,57 @@ describe('TaskDetailDialog future task status lock', () => {
     fireEvent.change(screen.getByDisplayValue(todayDate), { target: { value: futureDate } });
 
     expect(screen.queryByText('W trakcie')).not.toBeInTheDocument();
+  });
+});
+
+describe('TaskDetailDialog OTHER-location capacity validation', () => {
+  // OTHER locations (e.g. "Parter + winda") do not track capacity. Their tasks are
+  // stored with the legacy capacity_id 'other' (the value parseCapacityConfigurations
+  // and the Zod schema both treat as canonical for OTHER rooms). Editing such a task —
+  // e.g. just changing the reception notes — must not fail with "Nieprawidłowa pojemność".
+  const otherRoom = {
+    id: 'room-other',
+    name: 'Parter + winda',
+    group_type: 'OTHER',
+    color: null,
+    capacity_configurations: [
+      { capacity: 0, capacity_id: 'other', capacity_label: 'N/A', cleaning_types: [{ type: 'S', time_limit: 10 }] },
+    ],
+  } as never;
+
+  const otherTask = {
+    ...baseTask,
+    date: todayDate,
+    status: 'todo',
+    actual_time: null,
+    cleaning_type: 'S' as const,
+    guest_count: 'other',
+    reception_notes: null,
+    room: { id: 'room-other', name: 'Parter + winda', group_type: 'OTHER', color: null },
+  };
+
+  it('saves an OTHER-location task with legacy guest_count "other" after editing notes', async () => {
+    mockUseAuth.mockReturnValue({ userRole: 'admin' });
+    const onUpdate = vi.fn().mockResolvedValue(true);
+
+    render(
+      <TaskDetailDialog
+        task={otherTask}
+        allStaff={[housekeeper]}
+        availableRooms={[otherRoom]}
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        onUpdate={onUpdate}
+        isUpdating={false}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /edit/i }));
+    await userEvent.type(screen.getByPlaceholderText('Optional notes...'), 'Posprzatac podloge');
+    await userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(onUpdate).toHaveBeenCalled());
+    expect(onUpdate.mock.calls[0][1]).toMatchObject({ notes: 'Posprzatac podloge' });
   });
 });
 

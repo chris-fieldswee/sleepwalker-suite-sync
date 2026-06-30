@@ -163,9 +163,6 @@ export function useReceptionActions(
 
   // --- handleAddTask ---
     const handleAddTask = async (newTask: NewTaskState): Promise<boolean> => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:142',message:'handleAddTask entry',data:{hasAdminClient:!!supabaseAdmin,capacityId:newTask.capacityId,capacityIdType:typeof newTask.capacityId,roomId:newTask.roomId,cleaningType:newTask.cleaningType},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'G'})}).catch(()=>{});
-        // #endregion
         setIsSubmittingTask(true);
         let success = false;
         try {
@@ -276,9 +273,6 @@ export function useReceptionActions(
               }
             }
 
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:223',message:'Validation before parse',data:{capacityId:newTask.capacityId,roomGroup:selectedRoom.group_type,cleaningType:newTask.cleaningType},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'J'})}).catch(()=>{});
-            // #endregion
             
             const validation = taskInputSchema.safeParse({
               cleaning_type: newTask.cleaningType,
@@ -288,13 +282,7 @@ export function useReceptionActions(
               room_id: resolvedRoomId,
             });
 
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:220',message:'validation result',data:{validationSuccess:validation.success,validationErrors:validation.success?null:validation.error.errors,capacityId:newTask.capacityId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'})}).catch(()=>{});
-            // #endregion
 
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:230',message:'Validation result',data:{success:validation.success,errors:validation.success?null:validation.error.errors},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'J'})}).catch(()=>{});
-            // #endregion
             
             if (!validation.success) {
               toast({
@@ -381,20 +369,11 @@ export function useReceptionActions(
 
                 if (limitError) {
                   console.warn(`Could not fetch time limit: ${limitError.message}. Proceeding without limit.`);
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:298',message:'Time limit query failed',data:{groupType:selectedRoom.group_type,cleaningType:newTask.cleaningType,numericGuestCount,capacityId:newTask.capacityId,error:limitError.message},timestamp:Date.now(),sessionId:'debug-session',runId:'production-debug',hypothesisId:'K'})}).catch(()=>{});
-                  // #endregion
                 } else {
                   timeLimit = limitData?.time_limit ?? null;
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:310',message:'Time limit found',data:{groupType:selectedRoom.group_type,cleaningType:newTask.cleaningType,numericGuestCount,capacityId:newTask.capacityId,timeLimit},timestamp:Date.now(),sessionId:'debug-session',runId:'production-debug',hypothesisId:'K'})}).catch(()=>{});
-                  // #endregion
                 }
               } else {
                 console.warn(`Could not convert capacity_id '${newTask.capacityId}' to numeric guest_count for limits table query.`);
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:313',message:'Could not convert capacityId to numeric',data:{capacityId:newTask.capacityId,roomGroup:selectedRoom.group_type},timestamp:Date.now(),sessionId:'debug-session',runId:'production-debug',hypothesisId:'K'})}).catch(()=>{});
-                // #endregion
               }
             }
 
@@ -424,28 +403,16 @@ export function useReceptionActions(
                 display_order,
             };
 
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:263',message:'taskToInsert before insert',data:{taskToInsert,capacityId:newTask.capacityId,capacityIdType:typeof newTask.capacityId,guest_count:taskToInsert.guest_count,guest_countType:typeof taskToInsert.guest_count},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
 
             // Try with regular client first
             let insertError = null;
             const { error: regularError } = await supabase.from('tasks').insert(taskToInsert);
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:331',message:'insert result',data:{hasError:!!regularError,errorCode:regularError?.code,errorMessage:regularError?.message,isRLSError:regularError?.code==='42501',hasAdminClient:!!supabaseAdmin},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'G'})}).catch(()=>{});
-            // #endregion
             
             // If RLS error and admin client is available, try with admin client
             if (regularError && regularError.code === '42501' && supabaseAdmin) {
                 console.warn("RLS policy violation, retrying with admin client...");
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:339',message:'Retrying with admin client',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'G'})}).catch(()=>{});
-                // #endregion
                 const { error: adminError } = await supabaseAdmin.from('tasks').insert(taskToInsert);
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:342',message:'Admin client insert result',data:{hasError:!!adminError,errorCode:adminError?.code,errorMessage:adminError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'G'})}).catch(()=>{});
-                // #endregion
                 if (adminError) {
                     insertError = adminError;
                 } else {
@@ -471,9 +438,6 @@ export function useReceptionActions(
             success = true;
 
         } catch (error: any) {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:306',message:'error caught in catch block',data:{errorMessage:error?.message,errorCode:error?.code,errorDetails:error?.details,errorHint:error?.hint,errorStack:error?.stack,errorString:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
             console.error("Error adding task:", error);
             toast({ title: "Error Adding Task", description: error.message, variant: "destructive" });
         } finally {
@@ -702,24 +666,15 @@ export function useReceptionActions(
               .update(finalUpdates)
               .eq('id', taskId);
           
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:696',message:'update result',data:{hasError:!!error,errorCode:error?.code,errorMessage:error?.message,isRLSError:error?.code==='42501',hasAdminClient:!!supabaseAdmin},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'H'})}).catch(()=>{});
-          // #endregion
 
           if (error) {
               // If RLS error and admin client is available, try with admin client
               if (error.code === '42501' && supabaseAdmin) {
                   console.warn("RLS policy violation on update, retrying with admin client...");
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:704',message:'Retrying update with admin client',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'H'})}).catch(()=>{});
-                  // #endregion
                   const { error: adminError } = await supabaseAdmin
                       .from('tasks')
                       .update(finalUpdates)
                       .eq('id', taskId);
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:709',message:'Admin client update result',data:{hasError:!!adminError,errorCode:adminError?.code,errorMessage:adminError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'H'})}).catch(()=>{});
-                  // #endregion
                   if (adminError) throw adminError;
               } else {
                   throw error;
@@ -744,9 +699,6 @@ export function useReceptionActions(
       setIsUpdatingTask(true);
       let success = false;
       
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:613',message:'handleUpdateTask start',data:{taskId,hasAdminClient:!!supabaseAdmin,updates:Object.keys(updates)},timestamp:Date.now(),sessionId:'debug-session',runId:'admin-test',hypothesisId:'H'})}).catch(()=>{});
-      // #endregion
       
       try {
           const dbUpdates: Partial<Database["public"]["Tables"]["tasks"]["Update"]> = {};
@@ -798,16 +750,10 @@ export function useReceptionActions(
               const existingTimeLimit = currentTaskInfo.time_limit; // Preserve existing time limit as fallback
 
              if (groupType && cleaningType && capacityId && room) {
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:633',message:'Time limit calculation start',data:{roomId:room.id,roomGroup:groupType,capacityId,cleaningType,existingTimeLimit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-                  // #endregion
                   
                   // First try to get time limit from room's capacity_configurations (same as handleAddTask)
                   let timeLimit = getTimeLimitFromRoom(room, capacityId, cleaningType);
                   
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:637',message:'Time limit from room config',data:{timeLimitFromConfig:timeLimit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-                  // #endregion
                   
                   // Fallback to global limits table if not found in room config
                   if (timeLimit === null) {
@@ -852,9 +798,6 @@ export function useReceptionActions(
                           }
                       }
                       
-                      // #region agent log
-                      fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:658',message:'Numeric guest count conversion',data:{capacityId,numericGuestCount,groupType,cleaningType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-                      // #endregion
                       
                       if (numericGuestCount !== null) {
                           // Try querying with numeric value first (for INTEGER column)
@@ -890,30 +833,18 @@ export function useReceptionActions(
                               timeLimit = limitData?.time_limit ?? null;
                           }
                           
-                          // #region agent log
-                          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:712',message:'Time limit from limits table',data:{timeLimitFromTable:timeLimit,limitError:limitError?.message,groupType,cleaningType,numericGuestCount,capacityId},timestamp:Date.now(),sessionId:'debug-session',runId:'production-debug',hypothesisId:'K'})}).catch(()=>{});
-                          // #endregion
                       } else {
                           console.warn(`Could not convert capacity_id '${capacityId}' to numeric guest_count for limits table query.`);
-                          // #region agent log
-                          fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:730',message:'Could not convert capacityId to numeric in update',data:{capacityId,groupType},timestamp:Date.now(),sessionId:'debug-session',runId:'production-debug',hypothesisId:'K'})}).catch(()=>{});
-                          // #endregion
                       }
                   }
                   
                   // If still not found, preserve existing time limit instead of setting to null
                   const finalTimeLimit = timeLimit ?? existingTimeLimit;
                   
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:680',message:'Final time limit decision',data:{finalTimeLimit,wasFromConfig:timeLimit!==null,wasFromTable:timeLimit===null&&finalTimeLimit!==null,wasPreserved:finalTimeLimit===existingTimeLimit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-                  // #endregion
                   
                   dbUpdates.time_limit = finalTimeLimit;
              } else {
                  console.warn("Could not determine all required fields for time limit check. Preserving existing time limit.");
-                 // #region agent log
-                 fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useReceptionActions.ts:682',message:'Time limit check failed - missing fields',data:{hasGroupType:!!groupType,hasCleaningType:!!cleaningType,hasCapacityId:!!capacityId,hasRoom:!!room},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-                 // #endregion
                  // Preserve existing time limit instead of setting to null
                  if (existingTimeLimit !== null && existingTimeLimit !== undefined) {
                      dbUpdates.time_limit = existingTimeLimit;

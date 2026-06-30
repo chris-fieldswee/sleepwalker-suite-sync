@@ -564,7 +564,10 @@ export function TaskDetailDialog({
         }
         
         const isValidCapacityId = capacityIdToValidate && (
-            (isOtherRoom && /^\d+$/.test(capacityIdToValidate)) || // Valid numeric string for OTHER rooms
+            // OTHER rooms don't track capacity: accept a numeric string or the legacy
+            // 'other' placeholder (the canonical capacity_id stored for OTHER locations,
+            // also accepted by the Zod taskInputSchema).
+            (isOtherRoom && (/^\d+$/.test(capacityIdToValidate) || capacityIdToValidate === 'other')) ||
             (!isOtherRoom && CAPACITY_ID_TO_LABEL[capacityIdToValidate]) // Valid letter identifier for other rooms
         );
         

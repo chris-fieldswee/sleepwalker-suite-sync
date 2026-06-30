@@ -517,9 +517,6 @@ export function AddTaskDialog({
         // Reset room and cleaning type when group changes
         const defaultTypes = group === 'OTHER' ? ['S', 'G'] : ['P', 'W', 'T', 'O', 'G'];
         const defaultCleaningType = (defaultTypes[0] || 'P') as CleaningType;
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:620',message:'handleGroupChange cleaningType assignment',data:{group,defaultTypes,defaultCleaningType,cleaningTypeType:typeof defaultCleaningType},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         setNewTask(prev => ({
             ...prev,
             roomId: "", // Clear selected room
@@ -540,9 +537,6 @@ export function AddTaskDialog({
                 ? guestOptions[0].value
                 : 'd';  // Default to 'd' instead of number 1
 
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/9569eff2-9500-4fbd-b88b-df134a018361',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AddTaskDialog.tsx:543',message:'handleRoomChange for OTHER room',data:{roomId,groupType:selectedRoom.group_type,isOther:selectedRoom.group_type==='OTHER',defaultGuestCount,defaultGuestCountType:typeof defaultGuestCount},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'F'})}).catch(()=>{});
-        // #endregion
 
         // Get available cleaning types for this room
         const availableTypes = getAvailableCleaningTypesFromRoom(selectedRoom);
