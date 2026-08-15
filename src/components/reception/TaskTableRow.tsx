@@ -135,8 +135,10 @@ export const TaskTableRow = ({
   };
 
 
-  // Green once the room is flagged free; a finished task is never shown as free.
-  const isRoomFree = !!task.ready_to_clean && task.status !== 'done';
+  // The free/occupied dot is only meaningful while the room still awaits cleaning,
+  // so it is shown for "Do sprzątania" tasks and hidden for every other status.
+  const showRoomIndicator = task.status === 'todo';
+  const isRoomFree = !!task.ready_to_clean;
 
   const hasNotes = !!task.housekeeping_notes || !!task.reception_notes;
   // Construct tooltip content, handling null notes
@@ -163,19 +165,22 @@ export const TaskTableRow = ({
       {/* Room — dot shows whether the room is free */}
       <TableCell className="p-2 align-middle font-medium">
         <span className="inline-flex items-center gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className={cn(
-                  "h-2.5 w-2.5 rounded-full flex-shrink-0",
-                  isRoomFree ? "bg-emerald-500" : "bg-red-500"
-                )}
-              />
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p>{isRoomFree ? "Pokój wolny" : "Pokój zajęty"}</p>
-            </TooltipContent>
-          </Tooltip>
+          {showRoomIndicator && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  data-testid="room-indicator"
+                  className={cn(
+                    "h-2.5 w-2.5 rounded-full flex-shrink-0",
+                    isRoomFree ? "bg-emerald-500" : "bg-red-500"
+                  )}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>{isRoomFree ? "Pokój wolny" : "Pokój zajęty"}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           {task.room.name}
         </span>
       </TableCell>

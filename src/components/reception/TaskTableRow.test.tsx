@@ -88,3 +88,28 @@ describe('room free switch', () => {
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
   });
 });
+
+describe('room indicator', () => {
+  it('is shown for a task awaiting cleaning', () => {
+    renderRow({ status: 'todo' });
+    expect(screen.getByTestId('room-indicator')).toBeInTheDocument();
+  });
+
+  it('is red while the room is not free', () => {
+    renderRow({ status: 'todo', ready_to_clean: false });
+    expect(screen.getByTestId('room-indicator').className).toContain('bg-red-500');
+  });
+
+  it('is green once the room is free', () => {
+    renderRow({ status: 'todo', ready_to_clean: true });
+    expect(screen.getByTestId('room-indicator').className).toContain('bg-emerald-500');
+  });
+
+  it.each(['in_progress', 'paused', 'done', 'repair_needed'])(
+    'is hidden for status %s',
+    (status) => {
+      renderRow({ status });
+      expect(screen.queryByTestId('room-indicator')).not.toBeInTheDocument();
+    }
+  );
+});
