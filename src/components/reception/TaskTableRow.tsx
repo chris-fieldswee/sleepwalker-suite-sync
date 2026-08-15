@@ -164,8 +164,8 @@ export const TaskTableRow = ({
         </Badge>
       </TableCell>
       {/* Room — dot shows whether the room is free */}
-      <TableCell className="p-2 align-middle font-medium">
-        <span className="inline-flex items-center gap-2">
+      <TableCell className="p-2 align-middle font-medium text-center">
+        <span className="inline-flex items-center justify-center gap-2">
           {isAwaitingCleaning && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -214,14 +214,6 @@ export const TaskTableRow = ({
           <span className="text-muted-foreground">{task.ready_to_clean ? "Tak" : "-"}</span>
         )}
       </TableCell>
-      {/* Staff */}
-      <TableCell className="p-2 align-middle text-muted-foreground">
-        {task.user?.name || <span className="italic text-muted-foreground/70">Nieprzypisane</span>}
-      </TableCell>
-      {/* Date Column */}
-      <TableCell className="p-2 align-middle text-center text-muted-foreground tabular-nums">
-        {formatShortDate(task.date)}
-      </TableCell>
       {/* Type Column */}
       <TableCell className="p-2 align-middle text-center">
         {cleaningTypeLabels[task.cleaning_type] || task.cleaning_type}
@@ -229,24 +221,6 @@ export const TaskTableRow = ({
       {/* Guests */}
       <TableCell className="p-2 align-middle">
         {renderGuestIcons(task.guest_count)}
-      </TableCell>
-      {/* Issue */}
-      <TableCell className="p-2 align-middle text-center">
-        {task.issue_flag ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {/* Make the icon slightly easier to click if needed */}
-              <span className="inline-flex items-center justify-center h-full w-full">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p>{task.issue_description ? `Problem: ${task.issue_description.substring(0, 50)}...` : 'Zgłoszono Problem'}</p>
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <span className="text-muted-foreground">-</span>
-        )}
       </TableCell>
       {/* Notes Indicator */}
       <TableCell className="p-2 align-middle text-center">
@@ -260,6 +234,32 @@ export const TaskTableRow = ({
             </TooltipTrigger>
             <TooltipContent side="top">
               <pre className="text-xs whitespace-pre-wrap max-w-xs">{notesTooltip}</pre>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </TableCell>
+      {/* Staff */}
+      <TableCell className="p-2 align-middle text-muted-foreground">
+        {task.user?.name || <span className="italic text-muted-foreground/70">Nieprzypisane</span>}
+      </TableCell>
+      {/* Date Column */}
+      <TableCell className="p-2 align-middle text-center text-muted-foreground tabular-nums">
+        {formatShortDate(task.date)}
+      </TableCell>
+      {/* Issue */}
+      <TableCell className="p-2 align-middle text-center">
+        {task.issue_flag ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/* Make the icon slightly easier to click if needed */}
+              <span className="inline-flex items-center justify-center h-full w-full">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>{task.issue_description ? `Problem: ${task.issue_description.substring(0, 50)}...` : 'Zgłoszono Problem'}</p>
             </TooltipContent>
           </Tooltip>
         ) : (
