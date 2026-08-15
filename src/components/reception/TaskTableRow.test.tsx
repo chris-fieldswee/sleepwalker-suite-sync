@@ -73,10 +73,18 @@ describe('room free switch', () => {
     expect(onToggle).toHaveBeenCalledWith('task-1', false);
   });
 
-  it('is disabled for a completed task', () => {
-    renderRow({ status: 'done' }, { onToggleReadyToClean: vi.fn() });
-    expect(screen.getByRole('switch')).toBeDisabled();
+  it('is enabled for a task awaiting cleaning', () => {
+    renderRow({ status: 'todo' }, { onToggleReadyToClean: vi.fn() });
+    expect(screen.getByRole('switch')).toBeEnabled();
   });
+
+  it.each(['in_progress', 'paused', 'done', 'repair_needed'])(
+    'is disabled for status %s',
+    (status) => {
+      renderRow({ status }, { onToggleReadyToClean: vi.fn() });
+      expect(screen.getByRole('switch')).toBeDisabled();
+    }
+  );
 
   it('is disabled while a toggle is in flight', () => {
     renderRow({}, { onToggleReadyToClean: vi.fn(), isTogglingReadyToClean: true });

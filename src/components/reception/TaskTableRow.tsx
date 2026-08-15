@@ -135,9 +135,10 @@ export const TaskTableRow = ({
   };
 
 
-  // The free/occupied dot is only meaningful while the room still awaits cleaning,
-  // so it is shown for "Do sprzątania" tasks and hidden for every other status.
-  const showRoomIndicator = task.status === 'todo';
+  // Whether the room is free only matters while the task still awaits cleaning:
+  // it drives the dot next to the room name and enables the switch. Every other
+  // status hides the dot and locks the switch.
+  const isAwaitingCleaning = task.status === 'todo';
   const isRoomFree = !!task.ready_to_clean;
 
   const hasNotes = !!task.housekeeping_notes || !!task.reception_notes;
@@ -165,7 +166,7 @@ export const TaskTableRow = ({
       {/* Room — dot shows whether the room is free */}
       <TableCell className="p-2 align-middle font-medium">
         <span className="inline-flex items-center gap-2">
-          {showRoomIndicator && (
+          {isAwaitingCleaning && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span
@@ -192,7 +193,7 @@ export const TaskTableRow = ({
               <span className="inline-flex items-center justify-center">
                 <Switch
                   checked={!!task.ready_to_clean}
-                  disabled={isTogglingReadyToClean || task.status === 'done'}
+                  disabled={isTogglingReadyToClean || !isAwaitingCleaning}
                   onCheckedChange={(checked) => onToggleReadyToClean(task.id, checked)}
                   aria-label={`Pokój wolny — ${task.room.name}`}
                   className="data-[state=checked]:bg-emerald-500"
@@ -201,8 +202,8 @@ export const TaskTableRow = ({
             </TooltipTrigger>
             <TooltipContent side="top">
               <p>
-                {task.status === 'done'
-                  ? "Zadanie zakończone"
+                {!isAwaitingCleaning
+                  ? "Dostępne tylko dla zadań do sprzątania"
                   : task.ready_to_clean
                     ? "Pokój wolny — wyłącz, aby cofnąć"
                     : "Włącz, gdy pokój jest wolny"}
@@ -285,8 +286,8 @@ export const TaskTableRow = ({
         {formatDifferenceAsHm(task.difference)}
       </TableCell>
       {/* Actions */}
-      <TableCell className="p-2 align-middle text-right">
-        <div className="flex gap-1 justify-end">
+      <TableCell className="p-2 align-middle text-center">
+        <div className="flex gap-1 justify-center">
           {/* View Details Button */}
           <Tooltip>
             <TooltipTrigger asChild>

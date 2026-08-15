@@ -647,7 +647,7 @@ export default function Tasks({
         <TableHead className="font-semibold text-center w-[60px]">Limit</TableHead>
         <TableHead className="font-semibold text-center w-[60px]">Rzeczywisty</TableHead>
         <TableHead className="font-semibold text-center w-[70px]">Różnica</TableHead>
-        <TableHead className="font-semibold text-right w-[100px] bg-black text-white">Akcje</TableHead>
+        <TableHead className="font-semibold text-center w-[100px] bg-black text-white">Akcje</TableHead>
       </TableRow>
     </TableHeader>
   );
