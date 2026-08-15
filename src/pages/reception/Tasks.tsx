@@ -633,7 +633,7 @@ export default function Tasks({
 
   const tableHeaders = (withDragCol: boolean) => (
     <TableHeader>
-      <TableRow className="bg-muted/50 sticky top-0 z-10">
+      <TableRow className="bg-black hover:bg-black sticky top-0 z-10 [&>th]:text-white">
         {withDragCol && <TableHead className="w-8" />}
         <TableHead className="font-semibold w-[100px]">Status</TableHead>
         <TableHead className="font-semibold w-[100px]">Pokój</TableHead>
@@ -642,12 +642,12 @@ export default function Tasks({
         <TableHead className="font-semibold text-center w-[80px]">Data</TableHead>
         <TableHead className="font-semibold text-center w-[60px]">Typ</TableHead>
         <TableHead className="font-semibold text-center w-[80px]">Goście</TableHead>
-        <TableHead className="font-semibold text-right w-[100px]">Akcje</TableHead>
         <TableHead className="font-semibold text-center w-[60px]">Problem</TableHead>
         <TableHead className="font-semibold text-center w-[60px]">Notatki</TableHead>
         <TableHead className="font-semibold text-center w-[60px]">Limit</TableHead>
         <TableHead className="font-semibold text-center w-[60px]">Rzeczywisty</TableHead>
         <TableHead className="font-semibold text-center w-[70px]">Różnica</TableHead>
+        <TableHead className="font-semibold text-right w-[100px]">Akcje</TableHead>
       </TableRow>
     </TableHeader>
   );

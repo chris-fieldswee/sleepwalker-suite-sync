@@ -224,6 +224,61 @@ export const TaskTableRow = ({
       <TableCell className="p-2 align-middle">
         {renderGuestIcons(task.guest_count)}
       </TableCell>
+      {/* Issue */}
+      <TableCell className="p-2 align-middle text-center">
+        {task.issue_flag ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/* Make the icon slightly easier to click if needed */}
+              <span className="inline-flex items-center justify-center h-full w-full">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>{task.issue_description ? `Problem: ${task.issue_description.substring(0, 50)}...` : 'Zgłoszono Problem'}</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </TableCell>
+      {/* Notes Indicator */}
+      <TableCell className="p-2 align-middle text-center">
+        {hasNotes ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/* Make the icon slightly easier to click if needed */}
+              <span className="inline-flex items-center justify-center h-full w-full">
+                <MessageSquare className="h-4 w-4 text-blue-500" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <pre className="text-xs whitespace-pre-wrap max-w-xs">{notesTooltip}</pre>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </TableCell>
+      {/* Limit */}
+      <TableCell className="p-2 align-middle text-center tabular-nums">
+        {formatMinutesAsHm(task.time_limit)}
+      </TableCell>
+      {/* Actual */}
+      <TableCell className="p-2 align-middle text-center tabular-nums">
+        {formatMinutesAsHm(task.actual_time)}
+      </TableCell>
+      {/* Difference */}
+      <TableCell
+        className={cn(
+          "p-2 align-middle text-center tabular-nums",
+          task.difference !== null && task.difference > 0 && "text-red-600 dark:text-red-400",
+          task.difference !== null && task.difference < 0 && "text-green-600 dark:text-green-400",
+          (task.difference === null || task.difference === 0) && "text-muted-foreground"
+        )}
+      >
+        {formatDifferenceAsHm(task.difference)}
+      </TableCell>
       {/* Actions */}
       <TableCell className="p-2 align-middle text-right">
         <div className="flex gap-1 justify-end">
@@ -281,61 +336,6 @@ export const TaskTableRow = ({
             </AlertDialogContent>
           </AlertDialog>
         </div>
-      </TableCell>
-      {/* Issue */}
-      <TableCell className="p-2 align-middle text-center">
-        {task.issue_flag ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {/* Make the icon slightly easier to click if needed */}
-              <span className="inline-flex items-center justify-center h-full w-full">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p>{task.issue_description ? `Problem: ${task.issue_description.substring(0, 50)}...` : 'Zgłoszono Problem'}</p>
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <span className="text-muted-foreground">-</span>
-        )}
-      </TableCell>
-      {/* Notes Indicator */}
-      <TableCell className="p-2 align-middle text-center">
-        {hasNotes ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {/* Make the icon slightly easier to click if needed */}
-              <span className="inline-flex items-center justify-center h-full w-full">
-                <MessageSquare className="h-4 w-4 text-blue-500" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <pre className="text-xs whitespace-pre-wrap max-w-xs">{notesTooltip}</pre>
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <span className="text-muted-foreground">-</span>
-        )}
-      </TableCell>
-      {/* Limit */}
-      <TableCell className="p-2 align-middle text-center tabular-nums">
-        {formatMinutesAsHm(task.time_limit)}
-      </TableCell>
-      {/* Actual */}
-      <TableCell className="p-2 align-middle text-center tabular-nums">
-        {formatMinutesAsHm(task.actual_time)}
-      </TableCell>
-      {/* Difference */}
-      <TableCell
-        className={cn(
-          "p-2 align-middle text-center tabular-nums",
-          task.difference !== null && task.difference > 0 && "text-red-600 dark:text-red-400",
-          task.difference !== null && task.difference < 0 && "text-green-600 dark:text-green-400",
-          (task.difference === null || task.difference === 0) && "text-muted-foreground"
-        )}
-      >
-        {formatDifferenceAsHm(task.difference)}
       </TableCell>
     </TableRow>
   );
