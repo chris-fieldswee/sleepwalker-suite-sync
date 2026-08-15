@@ -42,6 +42,8 @@ export default function Reception() {
     isUpdatingIssue,
     handleUpdateTask, // Needed for Tasks
     isUpdatingTask,   // Needed for Tasks
+    handleToggleReadyToClean,    // Needed for Tasks
+    updatingReadyToCleanTaskId,  // Needed for Tasks
     handleDeleteTask, // Needed for Tasks
     isDeletingTask,   // Needed for Tasks
   } = useReceptionActions(
@@ -108,6 +110,8 @@ export default function Reception() {
                     isSavingLog={isSavingLog}
                     onUpdateTask={handleUpdateTask}
                     onDeleteTask={handleDeleteTask}
+                    onToggleReadyToClean={handleToggleReadyToClean}
+                    updatingReadyToCleanTaskId={updatingReadyToCleanTaskId}
                     isUpdatingTask={isUpdatingTask}
                     isDeletingTask={isDeletingTask}
                     onSetTaskFetchScope={filterSetters.setTaskFetchScope}

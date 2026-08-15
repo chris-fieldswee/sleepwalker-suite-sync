@@ -30,38 +30,45 @@ export function useHousekeepingTasks() {
     }
 
     const PAGE_SIZE = 1000;
-    const allRows: any[] = [];
-    let data: any[] | null = null;
-    let error: any = null;
+    const BASE_COLUMNS = `
+      id, date, status, cleaning_type, guest_count, time_limit, start_time,
+      pause_start, pause_stop, total_pause, stop_time, actual_time, difference,
+      housekeeping_notes, reception_notes, issue_flag, issue_description, issue_photo, created_at,
+      room:rooms!inner(id, name, group_type, color),
+      user:users(id, name)
+    `;
+    // Prefixed, not appended: BASE_COLUMNS ends in a newline, and PostgREST does not
+    // accept whitespace immediately before a comma in a select list.
+    const TASK_COLUMNS = `ready_to_clean, ${BASE_COLUMNS}`;
 
-    for (let offset = 0; ; offset += PAGE_SIZE) {
-      const { data: pageData, error: pageError } = await supabase
-        .from("tasks")
-        .select(`
-          id, date, status, cleaning_type, guest_count, time_limit, start_time,
-          pause_start, pause_stop, total_pause, stop_time, actual_time, difference,
-          housekeeping_notes, reception_notes, issue_flag, issue_description, issue_photo, created_at,
-          room:rooms!inner(id, name, group_type, color),
-          user:users(id, name)
-        `)
-        .eq("user_id", userId)
-        .order("date", { ascending: false })
-        .order("created_at", { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1);
+    const fetchAllPages = async (select: string): Promise<{ data: any[] | null; error: any }> => {
+      const rows: any[] = [];
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const { data: pageData, error: pageError } = await supabase
+          .from("tasks")
+          .select(select)
+          .eq("user_id", userId)
+          .order("date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .range(offset, offset + PAGE_SIZE - 1);
 
-      if (pageError) {
-        error = pageError;
-        break;
+        if (pageError) return { data: null, error: pageError };
+
+        rows.push(...(pageData || []));
+
+        if ((pageData || []).length < PAGE_SIZE) break;
       }
+      return { data: rows, error: null };
+    };
 
-      allRows.push(...(pageData || []));
+    let { data, error } = await fetchAllPages(TASK_COLUMNS);
 
-      if ((pageData || []).length < PAGE_SIZE) {
-        break;
-      }
+    // Graceful fallback: if the ready_to_clean column doesn't exist yet (migration
+    // pending), retry without it so the list keeps working.
+    if (error?.message?.includes('ready_to_clean')) {
+      console.warn('ready_to_clean column not found — apply migration 20260815000000_add_ready_to_clean_to_tasks.sql in the Supabase dashboard SQL editor.');
+      ({ data, error } = await fetchAllPages(BASE_COLUMNS));
     }
-
-    data = error ? null : allRows;
 
     if (error) {
       console.error("Error fetching tasks:", error);

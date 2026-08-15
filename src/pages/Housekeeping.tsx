@@ -15,6 +15,7 @@ import { LogOut, Play, Pause, Square, AlertTriangle, MessageSquare, Camera, Chec
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
+import { sortReadyToCleanFirst } from "@/lib/task-utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -54,6 +55,7 @@ export interface Task { // Export if used by other components/hooks
   issue_flag: boolean;
   issue_description: string | null;
   issue_photo: string | null;
+  ready_to_clean?: boolean; // Set by reception/manager/admin when the room is free to clean
   priority?: boolean; // Schema-dependent
   created_at: string;
   // Add actual_time and difference if they are part of the Task type after calculations
@@ -229,12 +231,13 @@ export default function Housekeeping() {
 
     // Apply status filter
     if (statusFilter !== 'all') {
-      return baseTasks.filter(task => task.status === statusFilter);
+      baseTasks = baseTasks.filter(task => task.status === statusFilter);
     }
 
     // For open tab, 'all' means all open statuses (already filtered in openTasks)
-    // For all tab, show all tasks regardless of status
-    return baseTasks;
+    // For all tab, show all tasks regardless of status.
+    // Rooms flagged ready to clean go to the top.
+    return sortReadyToCleanFirst(baseTasks);
   }, [activeTab, openTasks, tasks, statusFilter, dateFilter]);
 
   // Progress Calculation Memo - based on today's tasks only

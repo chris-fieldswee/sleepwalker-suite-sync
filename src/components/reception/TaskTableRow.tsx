@@ -3,7 +3,7 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { User, Eye, Trash2, AlertTriangle, MessageSquare, CalendarDays, GripVertical } from "lucide-react";
+import { User, Eye, Trash2, AlertTriangle, MessageSquare, CalendarDays, GripVertical, Sparkles } from "lucide-react";
 import { cn, formatMinutesAsHm, formatDifferenceAsHm } from "@/lib/utils";
 import { CAPACITY_ID_TO_LABEL, renderCapacityIconPattern } from "@/lib/capacity-utils";
 import {
@@ -37,6 +37,7 @@ interface Task {
   actual_time: number | null;
   difference: number | null;
   issue_flag: boolean;
+  ready_to_clean?: boolean;
   housekeeping_notes: string | null;
   reception_notes: string | null;
   start_time: string | null; // Keep if needed elsewhere (e.g., detail view)
@@ -57,6 +58,8 @@ interface TaskTableRowProps {
   onViewDetails: (task: Task) => void;
   onDeleteTask: (taskId: string) => Promise<void>;
   isDeleting: boolean;
+  onToggleReadyToClean?: (taskId: string, readyToClean: boolean) => Promise<boolean>;
+  isTogglingReadyToClean?: boolean;
   innerRef?: React.Ref<HTMLTableRowElement>;
   dragStyle?: React.CSSProperties;
   dragListeners?: Record<string, unknown>;
@@ -66,6 +69,7 @@ interface TaskTableRowProps {
 
 export const TaskTableRow = ({
   task, staff, onViewDetails, onDeleteTask, isDeleting,
+  onToggleReadyToClean, isTogglingReadyToClean,
   innerRef, dragStyle, dragListeners, dragAttributes, showDragHandle,
 }: TaskTableRowProps) => {
 
@@ -153,7 +157,14 @@ export const TaskTableRow = ({
         </Badge>
       </TableCell>
       {/* Room */}
-      <TableCell className="p-2 align-middle font-medium">{task.room.name}</TableCell>
+      <TableCell className="p-2 align-middle font-medium">
+        <span className="inline-flex items-center gap-1.5">
+          {task.room.name}
+          {task.ready_to_clean && task.status !== 'done' && (
+            <Sparkles className="h-3.5 w-3.5 text-emerald-600 fill-current dark:text-emerald-400" />
+          )}
+        </span>
+      </TableCell>
       {/* Staff */}
       <TableCell className="p-2 align-middle text-muted-foreground">
         {task.user?.name || <span className="italic text-muted-foreground/70">Nieprzypisane</span>}
@@ -221,6 +232,45 @@ export const TaskTableRow = ({
               <pre className="text-xs whitespace-pre-wrap max-w-xs">{notesTooltip}</pre>
             </TooltipContent>
           </Tooltip>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </TableCell>
+      {/* Ready to clean */}
+      <TableCell className="p-2 align-middle text-center">
+        {onToggleReadyToClean ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-7 w-7",
+                  task.ready_to_clean
+                    ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                disabled={isTogglingReadyToClean || task.status === 'done'}
+                onClick={() => onToggleReadyToClean(task.id, !task.ready_to_clean)}
+              >
+                <Sparkles className={cn("h-4 w-4", task.ready_to_clean && "fill-current")} />
+                <span className="sr-only">
+                  {task.ready_to_clean ? "Zdejmij gotowość do sprzątania" : "Oznacz jako gotowy do sprzątania"}
+                </span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>
+                {task.status === 'done'
+                  ? "Zadanie zakończone"
+                  : task.ready_to_clean
+                    ? "Gotowy do sprzątania — kliknij, aby zdjąć"
+                    : "Oznacz jako gotowy do sprzątania"}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        ) : task.ready_to_clean ? (
+          <Sparkles className="h-4 w-4 text-emerald-600 fill-current dark:text-emerald-400 inline" />
         ) : (
           <span className="text-muted-foreground">-</span>
         )}

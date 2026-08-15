@@ -47,6 +47,7 @@ export interface Task {
   actual_time: number | null;
   difference: number | null;
   issue_flag: boolean;
+  ready_to_clean?: boolean;
   issue_description: string | null; // Added based on TaskTableRow usage
   issue_photo: string | null; // Added based on TaskTableRow usage
   housekeeping_notes: string | null;
@@ -176,7 +177,7 @@ const escapeCsvCell = (value: string): string => {
 };
 
 function tasksToCsv(tasks: Task[]): string {
-  const headers = ["Status", "Pokój", "Personel", "Data", "Typ", "Goście", "Limit", "Rzeczywisty", "Różnica", "Problem", "Notatki"];
+  const headers = ["Status", "Pokój", "Personel", "Data", "Typ", "Goście", "Limit", "Rzeczywisty", "Różnica", "Problem", "Notatki", "Gotowy do sprzątania"];
   const rows = tasks.map((task) => {
     const status = statusLabels[task.status] ?? task.status;
     const room = task.room?.name ?? "";
@@ -189,7 +190,8 @@ function tasksToCsv(tasks: Task[]): string {
     const diff = task.difference != null ? (task.difference > 0 ? "+" : "") + String(task.difference) : "";
     const issue = task.issue_flag ? (task.issue_description ? `Tak: ${task.issue_description}` : "Tak") : "Nie";
     const notes = [task.housekeeping_notes, task.reception_notes].filter(Boolean).join("; ") || "";
-    return [status, room, staff, date, type, guests, limit, actual, diff, issue, notes].map(escapeCsvCell).join(",");
+    const readyToClean = task.ready_to_clean ? "Tak" : "Nie";
+    return [status, room, staff, date, type, guests, limit, actual, diff, issue, notes, readyToClean].map(escapeCsvCell).join(",");
   });
   return [headers.join(","), ...rows].join("\n");
 }
@@ -233,6 +235,8 @@ interface TasksProps {
   isSavingLog: boolean;
   onUpdateTask: (taskId: string, updates: any) => Promise<boolean>;
   onDeleteTask: (taskId: string) => Promise<boolean>;
+  onToggleReadyToClean: (taskId: string, readyToClean: boolean) => Promise<boolean>;
+  updatingReadyToCleanTaskId: string | null;
   isUpdatingTask: boolean;
   isDeletingTask: boolean;
   onSetTaskFetchScope: (scope: 'upcoming' | 'archive') => void;
@@ -284,6 +288,8 @@ export default function Tasks({
   isSavingLog,
   onUpdateTask,
   onDeleteTask,
+  onToggleReadyToClean,
+  updatingReadyToCleanTaskId,
   isUpdatingTask,
   isDeletingTask,
   onSetTaskFetchScope,
@@ -634,12 +640,19 @@ export default function Tasks({
         <TableHead className="font-semibold text-center w-[70px]">Różnica</TableHead>
         <TableHead className="font-semibold text-center w-[60px]">Problem</TableHead>
         <TableHead className="font-semibold text-center w-[60px]">Notatki</TableHead>
+        <TableHead className="font-semibold text-center w-[60px]">Gotowy</TableHead>
         <TableHead className="font-semibold text-right w-[100px]">Akcje</TableHead>
       </TableRow>
     </TableHeader>
   );
 
-  const commonRowProps = { staff: allStaff, onViewDetails: handleViewDetails, onDeleteTask: handleDelete, isDeleting: isDeletingTask };
+  const commonRowProps = { staff: allStaff, onViewDetails: handleViewDetails, onDeleteTask: handleDelete, isDeleting: isDeletingTask, onToggleReadyToClean };
+
+  // Per-task because only the row being toggled should show a pending state
+  const rowProps = (task: Task) => ({
+    ...commonRowProps,
+    isTogglingReadyToClean: updatingReadyToCleanTaskId === task.id,
+  });
 
   const renderFlatTable = (taskList: Task[], draggable: boolean) => (
     <div className="overflow-x-auto max-h-[calc(8*3.5rem)] overflow-y-auto">
@@ -648,10 +661,10 @@ export default function Tasks({
         <TableBody>
           {draggable ? (
             <SortableContext items={taskList.map(t => t.id)} strategy={verticalListSortingStrategy}>
-              {taskList.map(task => <SortableTaskRow key={task.id} task={task} {...commonRowProps} />)}
+              {taskList.map(task => <SortableTaskRow key={task.id} task={task} {...rowProps(task)} />)}
             </SortableContext>
           ) : (
-            taskList.map(task => <TaskTableRow key={task.id} task={task} {...commonRowProps} />)
+            taskList.map(task => <TaskTableRow key={task.id} task={task} {...rowProps(task)} />)
           )}
         </TableBody>
       </Table>
@@ -683,7 +696,7 @@ export default function Tasks({
                       {tableHeaders(true)}
                       <TableBody>
                         <SortableContext items={group.tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                          {group.tasks.map(task => <SortableTaskRow key={task.id} task={task} {...commonRowProps} />)}
+                          {group.tasks.map(task => <SortableTaskRow key={task.id} task={task} {...rowProps(task)} />)}
                         </SortableContext>
                       </TableBody>
                     </Table>
@@ -694,7 +707,7 @@ export default function Tasks({
                   <Table>
                     {tableHeaders(false)}
                     <TableBody>
-                      {group.tasks.map(task => <TaskTableRow key={task.id} task={task} {...commonRowProps} />)}
+                      {group.tasks.map(task => <TaskTableRow key={task.id} task={task} {...rowProps(task)} />)}
                     </TableBody>
                   </Table>
                 </div>
@@ -741,7 +754,7 @@ export default function Tasks({
                       {tableHeaders(true)}
                       <TableBody>
                         <SortableContext items={group.tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                          {group.tasks.map(task => <SortableTaskRow key={task.id} task={task} {...commonRowProps} />)}
+                          {group.tasks.map(task => <SortableTaskRow key={task.id} task={task} {...rowProps(task)} />)}
                         </SortableContext>
                       </TableBody>
                     </Table>
@@ -752,7 +765,7 @@ export default function Tasks({
                   <Table>
                     {tableHeaders(false)}
                     <TableBody>
-                      {group.tasks.map(task => <TaskTableRow key={task.id} task={task} {...commonRowProps} />)}
+                      {group.tasks.map(task => <TaskTableRow key={task.id} task={task} {...rowProps(task)} />)}
                     </TableBody>
                   </Table>
                 </div>
@@ -789,7 +802,7 @@ export default function Tasks({
                   <Table>
                     {tableHeaders(false)}
                     <TableBody>
-                      {tasks.map(task => <TaskTableRow key={task.id} task={task} {...commonRowProps} />)}
+                      {tasks.map(task => <TaskTableRow key={task.id} task={task} {...rowProps(task)} />)}
                     </TableBody>
                   </Table>
                 </div>

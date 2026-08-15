@@ -186,6 +186,8 @@ export type Database = {
           issue_photo: string | null
           pause_start: string | null
           pause_stop: string | null
+          ready_to_clean: boolean
+          ready_to_clean_at: string | null
           reception_notes: string | null
           room_id: string | null
           start_time: string | null
@@ -211,6 +213,8 @@ export type Database = {
           issue_photo?: string | null
           pause_start?: string | null
           pause_stop?: string | null
+          ready_to_clean?: boolean
+          ready_to_clean_at?: string | null
           reception_notes?: string | null
           room_id?: string | null
           start_time?: string | null
@@ -236,6 +240,8 @@ export type Database = {
           issue_photo?: string | null
           pause_start?: string | null
           pause_stop?: string | null
+          ready_to_clean?: boolean
+          ready_to_clean_at?: string | null
           reception_notes?: string | null
           room_id?: string | null
           start_time?: string | null

@@ -5,12 +5,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, LogOut, Play, Pause, Square, AlertTriangle } from "lucide-react";
+import { ArrowLeft, LogOut, Play, Pause, Square, AlertTriangle, Sparkles } from "lucide-react";
 import { useHousekeepingTasks } from "@/hooks/useHousekeepingTasks";
 import { useTaskActions } from "@/hooks/useTaskActions";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { TaskTimerDisplay, useTaskTimer } from "@/pages/Housekeeping";
+import { isAwaitingCleaning } from "@/lib/task-utils";
 import { SecondaryTaskActions } from "@/components/housekeeping/SecondaryTaskActions";
 import type { Task } from "@/pages/Housekeeping";
 import { CAPACITY_ID_TO_LABEL, renderCapacityIconPattern } from "@/lib/capacity-utils";
@@ -191,6 +192,12 @@ export default function TaskDetails() {
                         <div className="flex items-start justify-between">
                             <div>
                                 <CardTitle className="text-2xl">{task.room.name}</CardTitle>
+                                {isAwaitingCleaning(task) && (
+                                    <Badge className="mt-2 bg-emerald-100 text-emerald-800 hover:bg-emerald-100 hover:text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40 dark:hover:text-emerald-200">
+                                        <Sparkles className="h-3 w-3 mr-1" />
+                                        Gotowy do sprzątania
+                                    </Badge>
+                                )}
                                 <p className="text-sm text-muted-foreground mt-1">
                                     {new Date(task.date).toLocaleDateString('pl-PL', {
                                         weekday: 'long',

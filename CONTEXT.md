@@ -24,6 +24,10 @@ _Avoid_: Hidden task
 An operational administrator who can manage day-to-day housekeeping work but cannot manage users or room configuration.
 _Avoid_: Limited admin, mini-admin
 
+**Ready to Clean**:
+A flag on a housekeeping task meaning its **Location** is free right now and can be cleaned immediately. Set by admin, manager, or reception; housekeeping only reads it.
+_Avoid_: Room status, vacant, checked out, priority
+
 ## Relationships
 
 - A **Location** can have at most one open housekeeping task per date unless it is a **Multiple Assignment Location**.
@@ -31,6 +35,8 @@ _Avoid_: Limited admin, mini-admin
 - A housekeeping user sees only tasks with a **Direct Assignment** to them.
 - A **Completed Task** appears in all-task views, not in the default open-task view.
 - A **Manager** has admin-panel access except for Users and Rooms.
+- A task marked **Ready to Clean** sorts above all other tasks in the housekeeping list.
+- A **Completed Task** is never treated as **Ready to Clean**, even if the flag is still set.
 
 ## Example Dialogue
 

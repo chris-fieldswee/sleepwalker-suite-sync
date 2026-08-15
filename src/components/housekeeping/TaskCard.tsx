@@ -2,13 +2,14 @@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, Info } from "lucide-react";
+import { Check, Info, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { CAPACITY_ID_TO_LABEL, renderCapacityIconPattern } from "@/lib/capacity-utils";
 import { TaskActions } from './TaskActions';
 import { SecondaryTaskActions } from './SecondaryTaskActions';
 import { TaskTimerDisplay } from '@/pages/Housekeeping';
+import { isAwaitingCleaning } from '@/lib/task-utils';
 import type { Task } from '@/pages/Housekeeping';
 
 // --- Utility Functions (Keep consistent with Housekeeping.tsx or move to utils) ---
@@ -79,14 +80,17 @@ export function TaskCard({
   // const showAcknowledge = task.reception_notes && !task.reception_note_acknowledged;
   const showAcknowledge = task.reception_notes; // Temporarily show if notes exist
 
+  const readyToClean = isAwaitingCleaning(task);
+
   return (
     <Card
       key={task.id}
       className={cn(
         "overflow-hidden transition-all duration-300 cursor-pointer",
-        isActive 
+        isActive
           ? `ring-2 ring-offset-2 ring-brand-primary shadow-lg`
           : 'shadow-sm hover:shadow-md',
+        readyToClean && !isActive && "border-emerald-500/60 bg-emerald-50/40 dark:bg-emerald-900/10",
       )}
       onClick={() => {
         navigate(`/housekeeping/task/${task.id}`)
@@ -95,6 +99,12 @@ export function TaskCard({
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3 pt-4 px-4">
         <div className="flex-1 min-w-0 pr-2">
           <CardTitle className="text-lg font-semibold text-foreground">{task.room?.name || 'Nieznany Pokój'}</CardTitle>
+          {readyToClean && (
+            <Badge className="mt-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100 hover:text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40 dark:hover:text-emerald-200 text-xs font-medium px-2 py-0.5">
+              <Sparkles className="h-3 w-3 mr-1" />
+              Gotowy do sprzątania
+            </Badge>
+          )}
           <p className="text-xs text-muted-foreground pt-1.5 leading-relaxed">
             Typ: <span className="font-semibold text-foreground">{getCleaningTypeLabel(task.cleaning_type)}</span> / Goście: <span className="font-semibold text-foreground inline-flex items-center">{renderCapacityIconPattern(CAPACITY_ID_TO_LABEL[task.guest_count] || task.guest_count)}</span> / Limit: <span className="font-semibold text-foreground">{task.time_limit ? `${task.time_limit}m` : 'N/A'}</span>
           </p>

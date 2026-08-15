@@ -89,6 +89,8 @@ export default function Admin() {
                     isSavingLog={receptionActions.isSavingLog}
                     onUpdateTask={receptionActions.handleUpdateTask}
                     onDeleteTask={receptionActions.handleDeleteTask}
+                    onToggleReadyToClean={receptionActions.handleToggleReadyToClean}
+                    updatingReadyToCleanTaskId={receptionActions.updatingReadyToCleanTaskId}
                     isUpdatingTask={receptionActions.isUpdatingTask}
                     isDeletingTask={receptionActions.isDeletingTask}
                     onSetTaskFetchScope={receptionData.filterSetters.setTaskFetchScope}

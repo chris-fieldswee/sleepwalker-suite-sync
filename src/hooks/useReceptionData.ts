@@ -143,7 +143,7 @@ export function useReceptionData() {
         room:rooms!inner(id, name, group_type, color),
         user:users(id, name, first_name, last_name)
       `;
-     const taskSelect = `id, display_order, date, status, cleaning_type, guest_count, time_limit, actual_time,
+     const taskSelect = `id, display_order, ready_to_clean, date, status, cleaning_type, guest_count, time_limit, actual_time,
         difference, issue_flag, housekeeping_notes, reception_notes, start_time,
         stop_time, issue_description, issue_photo, pause_start, pause_stop, total_pause, created_at,
         room:rooms!inner(id, name, group_type, color),
@@ -191,10 +191,13 @@ export function useReceptionData() {
 
     let { data, error } = await runFetch(taskSelect);
 
-    // Graceful fallback: if display_order column doesn't exist yet (migration pending),
+    // Graceful fallback: if an optional column doesn't exist yet (migration pending),
     // retry without it so the app keeps working.
     if (error?.message?.includes('display_order')) {
       console.warn('display_order column not found — apply migration 20260525000100_add_display_order_to_tasks.sql in the Supabase dashboard SQL editor.');
+      ({ data, error } = await runFetch(baseColumns));
+    } else if (error?.message?.includes('ready_to_clean')) {
+      console.warn('ready_to_clean column not found — apply migration 20260815000000_add_ready_to_clean_to_tasks.sql in the Supabase dashboard SQL editor.');
       ({ data, error } = await runFetch(baseColumns));
     }
 

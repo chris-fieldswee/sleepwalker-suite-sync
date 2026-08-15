@@ -87,6 +87,8 @@ export function useReceptionActions(
   const [isUpdatingIssue, setIsUpdatingIssue] = useState(false);
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
+  // Tracked per task so one pending toggle doesn't disable every other row's button
+  const [updatingReadyToCleanTaskId, setUpdatingReadyToCleanTaskId] = useState<string | null>(null);
 
   // Helper function to parse capacity_configurations from a room
   const parseCapacityConfigurations = (room: Room | null): Array<{
@@ -881,6 +883,40 @@ export function useReceptionActions(
       return success;
   };
 
+  // --- handleToggleReadyToClean ---
+  // Marks the task's room as free to be cleaned now. Only admin, manager and
+  // reception can set it; the database trigger enforces that and stamps
+  // ready_to_clean_at.
+  const handleToggleReadyToClean = async (taskId: string, readyToClean: boolean): Promise<boolean> => {
+      setUpdatingReadyToCleanTaskId(taskId);
+      let success = false;
+      try {
+          const { error } = await supabase
+              .from('tasks')
+              .update({ ready_to_clean: readyToClean })
+              .eq('id', taskId);
+
+          if (error) throw error;
+
+          toast({
+              title: "Changes saved",
+              description: readyToClean
+                ? "Pokój oznaczony jako gotowy do sprzątania."
+                : "Zdjęto oznaczenie gotowości do sprzątania.",
+          });
+          onTaskUpdated?.();
+          success = true;
+
+      } catch (error: any) {
+          console.error("Error updating ready_to_clean:", error);
+          toast({ title: "Error Updating Task", description: error.message, variant: "destructive" });
+          success = false;
+      } finally {
+          setUpdatingReadyToCleanTaskId(null);
+      }
+      return success;
+  };
+
   // --- handleDeleteTask ---
   const handleDeleteTask = async (taskId: string): Promise<boolean> => {
       setIsDeletingTask(true);
@@ -919,6 +955,8 @@ export function useReceptionActions(
       isUpdatingIssue,
       handleUpdateTask,
       isUpdatingTask,
+      handleToggleReadyToClean,
+      updatingReadyToCleanTaskId,
       handleDeleteTask,
       isDeletingTask,
   };
