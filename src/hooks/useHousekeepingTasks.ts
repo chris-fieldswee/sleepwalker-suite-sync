@@ -37,8 +37,8 @@ export function useHousekeepingTasks() {
       room:rooms!inner(id, name, group_type, color),
       user:users(id, name)
     `;
-    // Prefixed, not appended: BASE_COLUMNS ends in a newline, and PostgREST does not
-    // accept whitespace immediately before a comma in a select list.
+    // supabase-js strips unquoted whitespace from the select list before sending,
+    // so the layout here is purely for readability.
     const TASK_COLUMNS = `ready_to_clean, ${BASE_COLUMNS}`;
 
     const fetchAllPages = async (select: string): Promise<{ data: any[] | null; error: any }> => {

@@ -17,8 +17,8 @@ A housekeeping task assignment to one specific active housekeeping staff member.
 _Avoid_: Visibility by location, shared task list
 
 **Completed Task**:
-A housekeeping task whose work has been marked done.
-_Avoid_: Hidden task
+A housekeeping task whose work has been marked done. Shown as "Skończone" — never "Gotowe", which reads as ready rather than finished and collides with **Ready to Clean**.
+_Avoid_: Hidden task, Gotowe
 
 **Manager**:
 An operational administrator who can manage day-to-day housekeeping work but cannot manage users or room configuration.
@@ -46,8 +46,8 @@ _Avoid_: Room status, vacant, checked out, priority
 > **Dev:** "Should Alina see open Parter tasks because she works housekeeping?"
 > **Domain expert:** "No. She sees Parter only when that task is assigned directly to her."
 >
-> **Dev:** "Should Alina see a Gotowe task in her default list?"
-> **Domain expert:** "No. Gotowe tasks belong in the all-task view."
+> **Dev:** "Should Alina see a Skończone task in her default list?"
+> **Domain expert:** "No. Skończone tasks belong in the all-task view."
 
 ## Flagged Ambiguities
 

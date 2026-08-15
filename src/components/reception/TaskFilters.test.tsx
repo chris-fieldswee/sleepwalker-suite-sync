@@ -66,13 +66,13 @@ describe('lockedDate', () => {
 });
 
 describe('showDoneStatus', () => {
-  it('includes Gotowe as a status option when showDoneStatus is true', () => {
+  it('includes Skończone as a status option when showDoneStatus is true', () => {
     render(<TaskFilters {...defaultProps} showDoneStatus={true} />);
-    expect(screen.getByRole('option', { name: 'Gotowe' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Skończone' })).toBeInTheDocument();
   });
 
-  it('does not include Gotowe as a status option by default', () => {
+  it('does not include Skończone as a status option by default', () => {
     render(<TaskFilters {...defaultProps} />);
-    expect(screen.queryByRole('option', { name: 'Gotowe' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Skończone' })).not.toBeInTheDocument();
   });
 });

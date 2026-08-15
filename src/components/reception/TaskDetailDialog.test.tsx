@@ -121,7 +121,7 @@ describe('TaskDetailDialog future task status lock', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /edit/i }));
 
-    expect(screen.queryByRole('option', { name: 'Gotowe' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Skończone' })).not.toBeInTheDocument();
   });
 
   it('status dropdown is available in edit mode for a today task', async () => {
@@ -130,7 +130,7 @@ describe('TaskDetailDialog future task status lock', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /edit/i }));
 
-    expect(screen.getByRole('option', { name: 'Gotowe' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Skończone' })).toBeInTheDocument();
   });
 
   it('status resets to todo when date is changed to a future date', async () => {

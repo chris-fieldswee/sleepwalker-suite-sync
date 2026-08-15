@@ -25,7 +25,7 @@ const baseFilterableStatuses: Array<{ value: TaskStatus | 'all', label: string }
 
 // Additional status for "all tasks" tab
 const doneStatusOption: Array<{ value: TaskStatus | 'all', label: string }> = [
-  { value: 'done', label: 'Gotowe' },
+  { value: 'done', label: 'Skończone' },
 ];
 
 // *** MODIFICATION START: Define room group options type ***

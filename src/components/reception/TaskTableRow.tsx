@@ -89,7 +89,7 @@ export const TaskTableRow = ({
       todo: "Do sprzątania",
       in_progress: "W trakcie",
       paused: "Wstrzymane",
-      done: "Gotowe",
+      done: "Skończone",
       repair_needed: "Naprawa",
     };
     return labels[status] || (status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' '));

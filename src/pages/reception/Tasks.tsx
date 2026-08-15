@@ -13,6 +13,7 @@ import { BatchTaskWizard } from "@/components/reception/BatchTaskWizard";
 import { TaskDetailDialog } from "@/components/reception/TaskDetailDialog";
 import { TaskSummaryFooter } from "@/components/reception/TaskSummaryFooter";
 import { useTaskOrder } from "@/hooks/useTaskOrder";
+import { sortReadyToCleanFirst } from "@/lib/task-utils";
 import {
   DndContext,
   closestCenter,
@@ -157,7 +158,7 @@ const statusLabels: Record<string, string> = {
   todo: "Do sprzątania",
   in_progress: "W trakcie",
   paused: "Wstrzymane",
-  done: "Gotowe",
+  done: "Skończone",
   repair_needed: "Naprawa",
 };
 const cleaningTypeLabels: Record<string, string> = {
@@ -372,14 +373,17 @@ export default function Tasks({
       filters.roomId
     );
     if (activeTab === 'today') {
-      return [...result].sort((a, b) => {
+      const ordered = [...result].sort((a, b) => {
         const ao = a.display_order ?? Infinity;
         const bo = b.display_order ?? Infinity;
         if (ao !== bo) return ao - bo;
         return (a.created_at ?? '').localeCompare(b.created_at ?? '');
       });
+      // Rooms flagged ready to clean rise to the top; the sort is stable, so the
+      // manual display_order is preserved within each group.
+      return sortReadyToCleanFirst(ordered);
     }
-    return result;
+    return sortReadyToCleanFirst(result);
   }, [baseTabTasks, filters.status, filters.staffId, filters.roomGroup, filters.roomId, activeTab]);
 
   // Cascading valid-option sets — each excludes itself to avoid self-narrowing
@@ -482,13 +486,15 @@ export default function Tasks({
       }
       byDate.get(task.date)!.tasks.push(task);
     }
-    for (const entry of byDate.values()) {
+    for (const [date, entry] of byDate) {
       entry.tasks.sort((a, b) => {
         if (a.display_order != null && b.display_order != null) return a.display_order - b.display_order;
         if (a.display_order != null) return -1;
         if (b.display_order != null) return 1;
         return (a.created_at ?? '').localeCompare(b.created_at ?? '');
       });
+      // Flagged rooms lead their own day rather than jumping across dates
+      byDate.set(date, { ...entry, tasks: sortReadyToCleanFirst(entry.tasks) });
     }
     return [...byDate.entries()].sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
   }, [viewMode, activeTab, displayTasks]);
@@ -499,7 +505,7 @@ export default function Tasks({
     paused: 'Wstrzymane',
     todo: 'Do sprzątania',
     repair_needed: 'Naprawa',
-    done: 'Gotowe',
+    done: 'Skończone',
   };
 
   const statusGroupedTasks = useMemo(() => {

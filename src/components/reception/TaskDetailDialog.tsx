@@ -848,7 +848,7 @@ export function TaskDetailDialog({
             todo: "Do sprzątania",
             in_progress: "W trakcie",
             paused: "Wstrzymane",
-            done: "Gotowe",
+            done: "Skończone",
             repair_needed: "Naprawa"
         };
         return labels[status] || (status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' '));
@@ -929,7 +929,7 @@ export function TaskDetailDialog({
                                             <SelectItem value="todo">Do sprzątania</SelectItem>
                                             <SelectItem value="in_progress">W trakcie</SelectItem>
                                             <SelectItem value="paused">Wstrzymane</SelectItem>
-                                            <SelectItem value="done">Gotowe</SelectItem>
+                                            <SelectItem value="done">Skończone</SelectItem>
                                             <SelectItem value="repair_needed">Naprawa</SelectItem>
                                         </SelectContent>
                                     </Select>
