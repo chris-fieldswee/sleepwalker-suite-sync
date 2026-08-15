@@ -178,7 +178,7 @@ const escapeCsvCell = (value: string): string => {
 };
 
 function tasksToCsv(tasks: Task[]): string {
-  const headers = ["Status", "Pokój", "Personel", "Data", "Typ", "Goście", "Limit", "Rzeczywisty", "Różnica", "Problem", "Notatki", "Gotowy do sprzątania"];
+  const headers = ["Status", "Pokój", "Pokój wolny", "Personel", "Data", "Typ", "Goście", "Problem", "Notatki", "Limit", "Rzeczywisty", "Różnica"];
   const rows = tasks.map((task) => {
     const status = statusLabels[task.status] ?? task.status;
     const room = task.room?.name ?? "";
@@ -191,8 +191,8 @@ function tasksToCsv(tasks: Task[]): string {
     const diff = task.difference != null ? (task.difference > 0 ? "+" : "") + String(task.difference) : "";
     const issue = task.issue_flag ? (task.issue_description ? `Tak: ${task.issue_description}` : "Tak") : "Nie";
     const notes = [task.housekeeping_notes, task.reception_notes].filter(Boolean).join("; ") || "";
-    const readyToClean = task.ready_to_clean ? "Tak" : "Nie";
-    return [status, room, staff, date, type, guests, limit, actual, diff, issue, notes, readyToClean].map(escapeCsvCell).join(",");
+    const roomFree = task.ready_to_clean ? "Tak" : "Nie";
+    return [status, room, roomFree, staff, date, type, guests, issue, notes, limit, actual, diff].map(escapeCsvCell).join(",");
   });
   return [headers.join(","), ...rows].join("\n");
 }
@@ -637,17 +637,17 @@ export default function Tasks({
         {withDragCol && <TableHead className="w-8" />}
         <TableHead className="font-semibold w-[100px]">Status</TableHead>
         <TableHead className="font-semibold w-[100px]">Pokój</TableHead>
+        <TableHead className="font-semibold text-center w-[90px]">Pokój wolny</TableHead>
         <TableHead className="font-semibold w-[150px]">Personel</TableHead>
         <TableHead className="font-semibold text-center w-[80px]">Data</TableHead>
         <TableHead className="font-semibold text-center w-[60px]">Typ</TableHead>
         <TableHead className="font-semibold text-center w-[80px]">Goście</TableHead>
+        <TableHead className="font-semibold text-right w-[100px]">Akcje</TableHead>
+        <TableHead className="font-semibold text-center w-[60px]">Problem</TableHead>
+        <TableHead className="font-semibold text-center w-[60px]">Notatki</TableHead>
         <TableHead className="font-semibold text-center w-[60px]">Limit</TableHead>
         <TableHead className="font-semibold text-center w-[60px]">Rzeczywisty</TableHead>
         <TableHead className="font-semibold text-center w-[70px]">Różnica</TableHead>
-        <TableHead className="font-semibold text-center w-[60px]">Problem</TableHead>
-        <TableHead className="font-semibold text-center w-[60px]">Notatki</TableHead>
-        <TableHead className="font-semibold text-center w-[60px]">Gotowy</TableHead>
-        <TableHead className="font-semibold text-right w-[100px]">Akcje</TableHead>
       </TableRow>
     </TableHeader>
   );

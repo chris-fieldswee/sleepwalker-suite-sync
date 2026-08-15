@@ -3,7 +3,8 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { User, Eye, Trash2, AlertTriangle, MessageSquare, CalendarDays, GripVertical, Sparkles } from "lucide-react";
+import { User, Eye, Trash2, AlertTriangle, MessageSquare, CalendarDays, GripVertical } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { cn, formatMinutesAsHm, formatDifferenceAsHm } from "@/lib/utils";
 import { CAPACITY_ID_TO_LABEL, renderCapacityIconPattern } from "@/lib/capacity-utils";
 import {
@@ -134,6 +135,9 @@ export const TaskTableRow = ({
   };
 
 
+  // Green once the room is flagged free; a finished task is never shown as free.
+  const isRoomFree = !!task.ready_to_clean && task.status !== 'done';
+
   const hasNotes = !!task.housekeeping_notes || !!task.reception_notes;
   // Construct tooltip content, handling null notes
   const notesTooltip = `Housekeeping: ${task.housekeeping_notes || '-'}\nReception: ${task.reception_notes || '-'}`;
@@ -156,14 +160,53 @@ export const TaskTableRow = ({
           {getStatusLabel(task.status)}
         </Badge>
       </TableCell>
-      {/* Room */}
+      {/* Room — dot shows whether the room is free */}
       <TableCell className="p-2 align-middle font-medium">
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className={cn(
+                  "h-2.5 w-2.5 rounded-full flex-shrink-0",
+                  isRoomFree ? "bg-emerald-500" : "bg-red-500"
+                )}
+              />
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>{isRoomFree ? "Pokój wolny" : "Pokój zajęty"}</p>
+            </TooltipContent>
+          </Tooltip>
           {task.room.name}
-          {task.ready_to_clean && task.status !== 'done' && (
-            <Sparkles className="h-3.5 w-3.5 text-emerald-600 fill-current dark:text-emerald-400" />
-          )}
         </span>
+      </TableCell>
+      {/* Room free switch */}
+      <TableCell className="p-2 align-middle text-center">
+        {onToggleReadyToClean ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center justify-center">
+                <Switch
+                  checked={!!task.ready_to_clean}
+                  disabled={isTogglingReadyToClean || task.status === 'done'}
+                  onCheckedChange={(checked) => onToggleReadyToClean(task.id, checked)}
+                  aria-label={`Pokój wolny — ${task.room.name}`}
+                  className="data-[state=checked]:bg-emerald-500"
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>
+                {task.status === 'done'
+                  ? "Zadanie zakończone"
+                  : task.ready_to_clean
+                    ? "Pokój wolny — wyłącz, aby cofnąć"
+                    : "Włącz, gdy pokój jest wolny"}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="text-muted-foreground">{task.ready_to_clean ? "Tak" : "-"}</span>
+        )}
       </TableCell>
       {/* Staff */}
       <TableCell className="p-2 align-middle text-muted-foreground">
@@ -180,100 +223,6 @@ export const TaskTableRow = ({
       {/* Guests */}
       <TableCell className="p-2 align-middle">
         {renderGuestIcons(task.guest_count)}
-      </TableCell>
-      {/* Limit */}
-      <TableCell className="p-2 align-middle text-center tabular-nums">
-        {formatMinutesAsHm(task.time_limit)}
-      </TableCell>
-      {/* Actual - Always visible between Limit and Problem */}
-      <TableCell className="p-2 align-middle text-center tabular-nums">
-        {formatMinutesAsHm(task.actual_time)}
-      </TableCell>
-      {/* Difference */}
-      <TableCell
-        className={cn(
-          "p-2 align-middle text-center tabular-nums",
-          task.difference !== null && task.difference > 0 && "text-red-600 dark:text-red-400",
-          task.difference !== null && task.difference < 0 && "text-green-600 dark:text-green-400",
-          (task.difference === null || task.difference === 0) && "text-muted-foreground"
-        )}
-      >
-        {formatDifferenceAsHm(task.difference)}
-      </TableCell>
-      {/* Issue */}
-      <TableCell className="p-2 align-middle text-center">
-        {task.issue_flag ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {/* Make the icon slightly easier to click if needed */}
-              <span className="inline-flex items-center justify-center h-full w-full">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p>{task.issue_description ? `Problem: ${task.issue_description.substring(0, 50)}...` : 'Zgłoszono Problem'}</p>
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <span className="text-muted-foreground">-</span>
-        )}
-      </TableCell>
-      {/* Notes Indicator */}
-      <TableCell className="p-2 align-middle text-center">
-        {hasNotes ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {/* Make the icon slightly easier to click if needed */}
-              <span className="inline-flex items-center justify-center h-full w-full">
-                <MessageSquare className="h-4 w-4 text-blue-500" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <pre className="text-xs whitespace-pre-wrap max-w-xs">{notesTooltip}</pre>
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <span className="text-muted-foreground">-</span>
-        )}
-      </TableCell>
-      {/* Ready to clean */}
-      <TableCell className="p-2 align-middle text-center">
-        {onToggleReadyToClean ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "h-7 w-7",
-                  task.ready_to_clean
-                    ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                disabled={isTogglingReadyToClean || task.status === 'done'}
-                onClick={() => onToggleReadyToClean(task.id, !task.ready_to_clean)}
-              >
-                <Sparkles className={cn("h-4 w-4", task.ready_to_clean && "fill-current")} />
-                <span className="sr-only">
-                  {task.ready_to_clean ? "Zdejmij gotowość do sprzątania" : "Oznacz jako gotowy do sprzątania"}
-                </span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p>
-                {task.status === 'done'
-                  ? "Zadanie zakończone"
-                  : task.ready_to_clean
-                    ? "Gotowy do sprzątania — kliknij, aby zdjąć"
-                    : "Oznacz jako gotowy do sprzątania"}
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        ) : task.ready_to_clean ? (
-          <Sparkles className="h-4 w-4 text-emerald-600 fill-current dark:text-emerald-400 inline" />
-        ) : (
-          <span className="text-muted-foreground">-</span>
-        )}
       </TableCell>
       {/* Actions */}
       <TableCell className="p-2 align-middle text-right">
@@ -332,6 +281,61 @@ export const TaskTableRow = ({
             </AlertDialogContent>
           </AlertDialog>
         </div>
+      </TableCell>
+      {/* Issue */}
+      <TableCell className="p-2 align-middle text-center">
+        {task.issue_flag ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/* Make the icon slightly easier to click if needed */}
+              <span className="inline-flex items-center justify-center h-full w-full">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>{task.issue_description ? `Problem: ${task.issue_description.substring(0, 50)}...` : 'Zgłoszono Problem'}</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </TableCell>
+      {/* Notes Indicator */}
+      <TableCell className="p-2 align-middle text-center">
+        {hasNotes ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/* Make the icon slightly easier to click if needed */}
+              <span className="inline-flex items-center justify-center h-full w-full">
+                <MessageSquare className="h-4 w-4 text-blue-500" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <pre className="text-xs whitespace-pre-wrap max-w-xs">{notesTooltip}</pre>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </TableCell>
+      {/* Limit */}
+      <TableCell className="p-2 align-middle text-center tabular-nums">
+        {formatMinutesAsHm(task.time_limit)}
+      </TableCell>
+      {/* Actual */}
+      <TableCell className="p-2 align-middle text-center tabular-nums">
+        {formatMinutesAsHm(task.actual_time)}
+      </TableCell>
+      {/* Difference */}
+      <TableCell
+        className={cn(
+          "p-2 align-middle text-center tabular-nums",
+          task.difference !== null && task.difference > 0 && "text-red-600 dark:text-red-400",
+          task.difference !== null && task.difference < 0 && "text-green-600 dark:text-green-400",
+          (task.difference === null || task.difference === 0) && "text-muted-foreground"
+        )}
+      >
+        {formatDifferenceAsHm(task.difference)}
       </TableCell>
     </TableRow>
   );
