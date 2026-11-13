@@ -6,7 +6,7 @@ import {
   parseCreateUser,
   parseUpdateUser,
   type Role,
-} from '../../src/lib/admin-authz';
+} from '../../src/lib/admin-authz.js';
 
 // Vercel serverless function types
 type VercelRequest = {
