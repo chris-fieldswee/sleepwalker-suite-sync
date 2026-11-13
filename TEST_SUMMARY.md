@@ -37,11 +37,11 @@ You need to create a `.env.local` file in the root directory with the following 
 
 ```bash
 VITE_SUPABASE_URL=https://wxxrprwnovnyncgigrwi.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4eHJwcndub3ZueW5jZ2lncndpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDgxODEsImV4cCI6MjA3NzIyNDE4MX0.bLJNJQQs4G49tySwJKIocnL0XWSqPsxL4vWDVwjMJ5c
-VITE_SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4eHJwcndub3ZueW5jZ2lncndpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTY0ODE4MSwiZXhwIjoyMDc3MjI0MTgxfQ.3sSBNq7MT_dpIVGk9OINteoUOQu9Y-8_HX1B1at-oVs
+VITE_SUPABASE_PUBLISHABLE_KEY=<redacted>
+# Server-side only (never VITE_-prefixed): SUPABASE_SERVICE_ROLE_KEY=<secret key>
 ```
 
-⚠️ **Important**: The service role key must be prefixed with `VITE_` to be accessible in client-side Vite code (e.g., `VITE_SUPABASE_SERVICE_ROLE_KEY`).
+⚠️ **Important**: The service role key is server-side only (`SUPABASE_SERVICE_ROLE_KEY`, read by `api/admin/*`). Never give it a `VITE_` prefix: Vite bundles every `VITE_` variable into the public JavaScript.
 
 ### 2. Run the Latest Migration
 Apply the RLS policy fix:

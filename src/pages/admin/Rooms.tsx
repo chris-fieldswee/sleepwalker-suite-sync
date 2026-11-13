@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, Edit, Trash2, DoorOpen, Calendar, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { supabaseAdmin } from "@/integrations/supabase/admin-client";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 import { RoomConfigurationDialog } from "@/components/admin/RoomConfigurationDialog";
@@ -140,15 +139,8 @@ export default function Rooms() {
   }) => {
     setIsSaving(true);
     try {
-      // Prefer admin client to bypass RLS, but fallback to regular client
-      const client = supabaseAdmin || supabase;
-      
-      // Log which client we're using for debugging
-      if (supabaseAdmin) {
-        console.log("Using admin client (bypasses RLS)");
-      } else {
-        console.warn("Admin client not available, using regular client (subject to RLS)");
-      }
+      // Room writes run as the signed-in user; the database decides what they may change.
+      const client = supabase;
       
       // Prepare the data object
       const roomDataToSave: any = {
@@ -229,8 +221,7 @@ export default function Rooms() {
       if (shouldTryRpcFirst) {
         try {
           const isUpdate = !!selectedRoom;
-          const adminClient = supabaseAdmin;
-          const rpcClient = adminClient || client;
+          const rpcClient = client;
           
           console.log("Attempting to save via RPC functions first...");
           console.log("RPC params:", {
@@ -365,9 +356,7 @@ export default function Rooms() {
         if (e.useRpc) {
           const isUpdate = !!selectedRoom;
           
-          // Try using admin client first if available (bypasses RLS, might work even with cache issues)
-          const adminClient = supabaseAdmin;
-          const rpcClient = adminClient || client;
+          const rpcClient = client;
           
           console.log("Fallback: Trying RPC after direct save failed...");
           console.log("Using capacity configs:", capacityConfigsToSave);
@@ -481,75 +470,6 @@ export default function Rooms() {
             
             // Check if it's a 404 (function doesn't exist) or other error
             const isNotFound = rpcError?.status === 404 || rpcError?.code === 'PGRST202' || rpcError?.message?.includes('not found') || rpcError?.code === 'PGRST116';
-            
-            // If admin client is available, try one more time with a delay (sometimes helps)
-            if (adminClient && isNotFound) {
-              console.warn("RPC failed with admin client, waiting 2 seconds and retrying...");
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              
-              try {
-                if (isUpdate) {
-                  const retryResult = await adminClient.rpc('update_room_with_configurations', {
-                    room_id_param: selectedRoom.id,
-                    room_name: roomDataToSave.name,
-                    room_group_type: roomDataToSave.group_type,
-                    room_capacity_configurations: capacityConfigsToSave,
-                    room_capacity: roomDataToSave.capacity ?? null,
-                    room_capacity_label: roomDataToSave.capacity_label || null
-                  });
-                  
-                  if (!retryResult.error && retryResult.data) {
-                    console.log("Successfully saved via admin client RPC on retry!");
-                    const fetchResult = await client.from("rooms").select("*").eq("id", selectedRoom.id).single();
-                    if (fetchResult.data) {
-                      data = [fetchResult.data];
-                      // Clear any previous error states
-                      setIsCreateDialogOpen(false);
-                      setIsEditDialogOpen(false);
-                      setSelectedRoom(null);
-                      // Refresh rooms list
-                      await fetchRooms();
-                      toast({
-                        title: "Sukces",
-                        description: "Pokój został zaktualizowany pomyślnie",
-                      });
-                      setIsSaving(false);
-                      return;
-                    }
-                  }
-                } else {
-                  const retryResult = await adminClient.rpc('insert_room_with_configurations', {
-                    room_name: roomDataToSave.name,
-                    room_group_type: roomDataToSave.group_type,
-                    room_capacity_configurations: capacityConfigsToSave,
-                    room_capacity: roomDataToSave.capacity ?? null,
-                    room_capacity_label: roomDataToSave.capacity_label || null
-                  });
-                  
-                  if (!retryResult.error && retryResult.data) {
-                    console.log("Successfully saved via admin client RPC on retry!");
-                    const fetchResult = await client.from("rooms").select("*").eq("id", retryResult.data).single();
-                    if (fetchResult.data) {
-                      data = [fetchResult.data];
-                      // Clear any previous error states
-                      setIsCreateDialogOpen(false);
-                      setIsEditDialogOpen(false);
-                      setSelectedRoom(null);
-                      // Refresh rooms list
-                      await fetchRooms();
-                      toast({
-                        title: "Sukces",
-                        description: "Pokój został utworzony pomyślnie",
-                      });
-                      setIsSaving(false);
-                      return;
-                    }
-                  }
-                }
-              } catch (retryError: any) {
-                console.warn("Admin client retry also failed:", retryError);
-              }
-            }
             
             // Try one more time to save with capacity_configurations directly (sometimes works even after error)
             console.warn("RPC failed, trying direct save with capacity_configurations one more time...");
@@ -701,12 +621,10 @@ export default function Rooms() {
   const handleDeleteRoom = async (roomId: string) => {
     try {
       setIsDeleting(true);
-      // Prefer admin client to bypass RLS, but fallback to regular client
-      const client = supabaseAdmin || supabase;
-      const rpcClient = supabaseAdmin || supabase;
+      const client = supabase;
+      const rpcClient = supabase;
 
       console.log("Deleting room:", roomId);
-      console.log("Using client:", supabaseAdmin ? "admin (bypasses RLS)" : "regular (subject to RLS)");
 
       // Try RPC function first (bypasses RLS)
       try {
