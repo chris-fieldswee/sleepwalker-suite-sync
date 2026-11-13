@@ -231,7 +231,7 @@ export default function Users() {
       if (!adminClientAvailable) {
         toast({
           title: "Błąd",
-          description: "Klient administratora niedostępny. Upewnij się, że VITE_SUPABASE_SERVICE_ROLE_KEY jest ustawiony w .env.local (lokalnie) lub SUPABASE_SERVICE_ROLE_KEY w Vercel (produkcja)",
+          description: "Zarządzanie użytkownikami jest chwilowo niedostępne.",
           variant: "destructive",
         });
         return;
@@ -338,7 +338,7 @@ export default function Users() {
       if (!adminClientAvailable) {
         toast({
           title: "Błąd",
-          description: "Klient administratora niedostępny. Usuwanie użytkownika wymaga VITE_SUPABASE_SERVICE_ROLE_KEY (lokalnie) lub SUPABASE_SERVICE_ROLE_KEY w Vercel (produkcja)",
+          description: "Zarządzanie użytkownikami jest chwilowo niedostępne.",
           variant: "destructive",
         });
         return;
@@ -430,9 +430,7 @@ export default function Users() {
                 </DialogDescription>
                 {!adminClientAvailable && (
                   <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                    Tworzenie nowych użytkowników wymaga klucza serwisowego Supabase. Skonfiguruj
-                    <code className="mx-1 rounded bg-amber-100 px-1 py-0.5 text-[0.75rem]">VITE_SUPABASE_SERVICE_ROLE_KEY</code>
-                    lub zaproś użytkowników przez panel Supabase.
+                    Tworzenie użytkowników jest chwilowo niedostępne.
                   </div>
                 )}
               </DialogHeader>

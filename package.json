@@ -7,7 +7,7 @@
     "dev": "vite",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "vite build",
+    "build": "vite build && node scripts/check-bundle-secrets.mjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview"

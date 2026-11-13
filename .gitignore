@@ -28,3 +28,8 @@ dist-ssr
 .ai/qa/artifacts_*/
 .ai/qa/test-env.json
 .ai/qa/test-env.env
+
+# Environment files hold credentials and must never be committed
+.env
+.env.*
+!.env.example

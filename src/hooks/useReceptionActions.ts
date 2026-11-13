@@ -1,7 +1,6 @@
 // src/hooks/useReceptionActions.ts
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { supabaseAdmin } from '@/integrations/supabase/admin-client';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from "@/integrations/supabase/types";
 import type { Room, Staff } from './useReceptionData';
@@ -406,23 +405,8 @@ export function useReceptionActions(
             };
 
 
-            // Try with regular client first
-            let insertError = null;
-            const { error: regularError } = await supabase.from('tasks').insert(taskToInsert);
-            
-            
-            // If RLS error and admin client is available, try with admin client
-            if (regularError && regularError.code === '42501' && supabaseAdmin) {
-                console.warn("RLS policy violation, retrying with admin client...");
-                const { error: adminError } = await supabaseAdmin.from('tasks').insert(taskToInsert);
-                if (adminError) {
-                    insertError = adminError;
-                } else {
-                    console.log("Successfully inserted task using admin client");
-                }
-            } else if (regularError) {
-                insertError = regularError;
-            }
+            // Inserted as the signed-in user; a permission error is reported, never bypassed.
+            const { error: insertError } = await supabase.from('tasks').insert(taskToInsert);
             
             if (insertError) {
                 if (insertError.code === '23505') {
@@ -669,19 +653,8 @@ export function useReceptionActions(
               .eq('id', taskId);
           
 
-          if (error) {
-              // If RLS error and admin client is available, try with admin client
-              if (error.code === '42501' && supabaseAdmin) {
-                  console.warn("RLS policy violation on update, retrying with admin client...");
-                  const { error: adminError } = await supabaseAdmin
-                      .from('tasks')
-                      .update(finalUpdates)
-                      .eq('id', taskId);
-                  if (adminError) throw adminError;
-              } else {
-                  throw error;
-              }
-          }
+          // Updated as the signed-in user; a permission error is reported, never bypassed.
+          if (error) throw error;
 
             toast({ title: "Changes saved", description: "Issue details updated successfully." });
             onIssueUpdated?.();

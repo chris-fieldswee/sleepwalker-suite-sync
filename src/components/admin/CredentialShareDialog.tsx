@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Copy, Download, Mail, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabaseAdmin } from "@/integrations/supabase/admin-client";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CredentialShareDialogProps {
   open: boolean;
@@ -62,27 +62,11 @@ export function CredentialShareDialog({
   };
 
   const handleSendEmail = async () => {
-    if (!supabaseAdmin) {
-      toast({
-        title: "Błąd",
-        description: "Klient administratora niedostępny. Nie można wysłać email.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setSendingEmail(true);
     try {
-      // Use Supabase Auth's email functionality
-      // Note: This requires Supabase email to be configured
-      // We'll use the admin client to send a password reset email as a workaround
-      // or create a custom email function
-      
-      // For now, we'll use a password reset email which will allow the user to set their password
-      // This is a workaround - ideally we'd have a custom email template
-      const { error } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'recovery',
-        email: email,
+      // Sends Supabase Auth's password-reset email so the user sets their own password.
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`,
       });
 
       if (error) {
