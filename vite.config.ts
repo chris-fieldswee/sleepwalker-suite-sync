@@ -48,22 +48,9 @@ export default defineConfig(({ mode }) => ({
         // Force update on every deployment
         skipWaiting: true,
         clientsClaim: true,
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*$/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 300 // 5 minutes
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          }
-        ]
+        // Supabase API responses are deliberately NOT cached: the task list must
+        // always come from the server, and cached responses would outlive logout
+        // on shared devices.
       }
     })
   ].filter(Boolean),

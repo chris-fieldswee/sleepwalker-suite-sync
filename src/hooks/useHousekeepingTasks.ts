@@ -10,8 +10,13 @@ export function useHousekeepingTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  // Each fetch takes a sequence number; only the latest one may write state, so a
+  // slow, older response can never overwrite a newer one.
+  const requestSeqRef = useRef(0);
+  const hasTasksRef = useRef(false);
 
   const fetchTasks = useCallback(async () => {
     if (!userId) {
@@ -19,13 +24,9 @@ export function useHousekeepingTasks() {
       return;
     }
 
-    let shouldSetLoading = false;
-    setTasks(currentTasks => {
-      shouldSetLoading = currentTasks.length === 0;
-      return currentTasks;
-    });
+    const seq = ++requestSeqRef.current;
 
-    if (shouldSetLoading) {
+    if (!hasTasksRef.current) {
       setLoading(true);
     }
 
@@ -70,6 +71,11 @@ export function useHousekeepingTasks() {
       ({ data, error } = await fetchAllPages(BASE_COLUMNS));
     }
 
+    // A newer fetch started while this one was in flight: drop this result.
+    if (seq !== requestSeqRef.current) {
+      return;
+    }
+
     if (error) {
       console.error("Error fetching tasks:", error);
       toast({
@@ -77,30 +83,38 @@ export function useHousekeepingTasks() {
         description: `Failed to fetch tasks: ${error.message}`,
         variant: "destructive",
       });
-      setTasks([]);
+      // Keep whatever is on screen; lastUpdated is not advanced, so the
+      // "last updated" time shows the list may be out of date.
       setLoading(false);
-    } else {
-      const fetchedTasks = (data as unknown as Task[]) || [];
-      fetchedTasks.forEach(t => t.created_at = t.created_at || new Date(0).toISOString());
-
-      setTasks(currentTasks => {
-        if (fetchedTasks.length > 0 || currentTasks.length === 0) {
-          const active = fetchedTasks.find((t) => t.status === "in_progress");
-          setActiveTaskId(active?.id || null);
-          return fetchedTasks;
-        } else {
-          return currentTasks;
-        }
-      });
-      setLoading(false);
+      return;
     }
+
+    const fetchedTasks = (data as unknown as Task[]) || [];
+    fetchedTasks.forEach(t => t.created_at = t.created_at || new Date(0).toISOString());
+
+    // The server is the source of truth: an empty response clears the list.
+    hasTasksRef.current = fetchedTasks.length > 0;
+    setTasks(fetchedTasks);
+    const active = fetchedTasks.find((t) => t.status === "in_progress");
+    setActiveTaskId(active?.id || null);
+    setLastUpdated(new Date());
+    setLoading(false);
   }, [userId, toast]);
+
+  // Realtime callback is registered once per channel; read the latest fetchTasks via a ref.
+  const fetchTasksRef = useRef(fetchTasks);
+  useEffect(() => {
+    fetchTasksRef.current = fetchTasks;
+  }, [fetchTasks]);
 
   useEffect(() => {
     if (userRole !== "housekeeping" || !userId) {
+      requestSeqRef.current++;
+      hasTasksRef.current = false;
       setTasks([]);
       setLoading(false);
       setActiveTaskId(null);
+      setLastUpdated(null);
       return;
     }
 
@@ -126,12 +140,9 @@ export function useHousekeepingTasks() {
           const payloadOld = payload.old as any;
           const payloadUserId = payloadNew?.user_id || payloadOld?.user_id;
 
-          setTasks(currentTasks => {
-            if (payloadUserId === userId || !payloadUserId) {
-              fetchTasks();
-            }
-            return currentTasks;
-          });
+          if (payloadUserId === userId || !payloadUserId) {
+            fetchTasksRef.current();
+          }
 
           if (payload.eventType === "INSERT") {
             toast({ title: "New Task Assigned", description: `New task assigned to you.` });
@@ -161,5 +172,31 @@ export function useHousekeepingTasks() {
     };
   }, [userId, userRole, fetchTasks]);
 
-  return { tasks, loading, activeTaskId, setActiveTaskId, fetchTasks };
+  // A phone app can sit in the background for hours or days, and realtime events
+  // missed while suspended are never replayed. Re-fetch whenever the app comes back
+  // to the foreground or the connection returns.
+  useEffect(() => {
+    if (userRole !== "housekeeping" || !userId) {
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchTasks();
+      }
+    };
+    const handleOnline = () => {
+      fetchTasks();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [userId, userRole, fetchTasks]);
+
+  return { tasks, loading, activeTaskId, setActiveTaskId, fetchTasks, lastUpdated };
 }
