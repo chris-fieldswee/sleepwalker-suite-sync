@@ -163,7 +163,7 @@ export default function Housekeeping() {
   const { signOut, userId, user } = useAuth();
 
   // Destructure fetchTasks from the hook
-  const { tasks, loading, activeTaskId, setActiveTaskId, fetchTasks } = useHousekeepingTasks();
+  const { tasks, loading, activeTaskId, setActiveTaskId, fetchTasks, lastUpdated } = useHousekeepingTasks();
   // Pass fetchTasks to useTaskActions
   const taskActions = useTaskActions(tasks, setActiveTaskId, activeTaskId, fetchTasks);
 
@@ -204,10 +204,23 @@ export default function Housekeeping() {
     fetchUserFirstName();
   }, [userId]);
 
-  // Get today's date for comparison (used for progress calculation)
-  // Use local date instead of UTC to avoid timezone issues
-  const todayDate = useMemo(() => {
-    return format(new Date(), 'yyyy-MM-dd');
+  // Today's date for comparison (used for progress calculation), in local time.
+  // Kept in state and refreshed so an app left open past midnight, or resumed
+  // from the background on a later day, does not keep showing yesterday.
+  const [todayDate, setTodayDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  useEffect(() => {
+    const refreshToday = () => setTodayDate(format(new Date(), 'yyyy-MM-dd'));
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshToday();
+    };
+    const interval = window.setInterval(refreshToday, 60_000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', refreshToday);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', refreshToday);
+    };
   }, []);
 
   // Open tasks: tasks with status todo, in_progress, paused, or repair_needed (all dates)
@@ -362,6 +375,12 @@ export default function Housekeeping() {
                 )}
               </TabsTrigger>
             </TabsList>
+
+            {lastUpdated && (
+              <p className="text-center text-xs text-muted-foreground" data-testid="tasks-last-updated">
+                Ostatnia aktualizacja: {format(lastUpdated, 'HH:mm')}
+              </p>
+            )}
 
             {/* Open Tasks Tab */}
             <TabsContent value="open" className="space-y-4 mt-4">
